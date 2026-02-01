@@ -1,0 +1,4 @@
+<resources>
+    <!-- Change the app name here -->
+    <string name="app_name">YMusic</string>
+</resources>
