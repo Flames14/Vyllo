@@ -70,9 +70,14 @@ A modern, open-source YouTube Music streaming application built with Jetpack Com
 ### From F-Droid (Coming Soon)
 The app will be available on F-Droid for easy installation and automatic updates.
 
-![App Screenshot](Screenshot_20260201_233128.png)
+## 🖼️ App Screenshots
 
-![App Screenshot](Screenshot_20260201_233102.png)
+<div align="center">
+  <img src="Screenshot_20260201_232945.png" width="200" alt="Screenshot 1" title="Home Screen">
+  <img src="Screenshot_20260201_233102.png" width="200" alt="Screenshot 2" title="Search Screen">
+  <img src="Screenshot_20260201_233128.png" width="200" alt="Screenshot 3" title="Player Screen">
+  <img src="Screenshot_20260201_233153.png" width="200" alt="Screenshot 4" title="Playlist Screen">
+</div>
 
 ## 🤝 Contributing
 
