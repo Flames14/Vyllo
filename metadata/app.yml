@@ -1,0 +1,44 @@
+# F-Droid metadata file
+Categories:
+  - Multimedia
+  - Internet
+License: GPL-3.0-or-later
+AuthorName: "MusicPiped Developers"
+WebSite: "https://github.com/yourusername/MusicPiped" # Update this with your actual GitHub repo URL
+SourceCode: "https://github.com/yourusername/MusicPiped" # Update this with your actual GitHub repo URL
+IssueTracker: "https://github.com/yourusername/MusicPiped/issues" # Update this with your actual GitHub repo URL
+
+AutoName: MusicPiped
+
+Builds:
+  - versionName: "1.0"
+    versionCode: 1
+    commit: "v1.0" # This should match your git tag
+    subdir: app
+    gradle:
+      - yes
+
+# Additional metadata
+Name: MusicPiped
+Summary: "Music streaming app using NewPipe Extractor"
+Description: |
+  A free and open source music streaming application that uses NewPipe Extractor for retrieving audio streams from YouTube Music.
+  
+  Features:
+  - YouTube Music search and streaming
+  - Background playback with notifications
+  - Modern Jetpack Compose UI
+  - Audio-only stream optimization
+  - Download capabilities for offline listening
+  - Floating window controls
+
+RequiresRoot: false
+
+# Anti-features (if any apply)
+# AntiFeatures:
+#   - UpstreamNonFree
+#   - KnownVulns
+#   - Tracking
+#   - NonFreeNet
+#   - NonFreeAdd
+#   - Obfuscation

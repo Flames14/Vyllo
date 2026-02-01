@@ -95,3 +95,8 @@ build_error.log
 build_log.txt
 kotlin_errors.txt
 .vscode/
+
+# Exclude built APKs but keep source
+app/build/outputs/
+app/build/intermediates/
+app/build/tmp/
