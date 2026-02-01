@@ -1,0 +1,10 @@
+A free and open source music streaming application that uses NewPipe Extractor for retrieving audio streams from YouTube Music. Features include:
+
+• YouTube Music search and streaming
+• Background playback with notifications
+• Modern Jetpack Compose UI
+• Audio-only stream optimization
+• Download capabilities for offline listening
+• Floating window controls
+
+This app respects your privacy and doesn't include any tracking or proprietary services. All dependencies are open source.

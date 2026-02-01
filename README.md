@@ -30,3 +30,11 @@ A Music Streaming Android App using NewPipe Extractor v0.24.8 and Media3 (ExoPla
 - Repository: MusicRepository handles search and stream extraction
 - Service: MusicService manages background playback with Media3
 - UI: MainActivity with Jetpack Compose interface
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+
+## F-Droid Compatibility
+
+This app is designed to be compatible with F-Droid distribution. All dependencies are open source, and the app does not include any proprietary services or tracking.
