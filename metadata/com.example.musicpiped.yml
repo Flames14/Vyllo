@@ -1,29 +1,27 @@
-# F-Droid metadata file
 Categories:
   - Multimedia
   - Internet
 License: GPL-3.0-or-later
-AuthorName: "BetaDeveloper"
-WebSite: "https://github.com/Flames14/YMusic"
-SourceCode: "https://github.com/Flames14/YMusic"
-IssueTracker: "https://github.com/Flames14/YMusic/issues"
+AuthorName: BetaDeveloper
+WebSite: https://github.com/Flames14/YMusic
+SourceCode: https://github.com/Flames14/YMusic
+IssueTracker: https://github.com/Flames14/YMusic/issues
 
 AutoName: YMusic
 
 Builds:
   - versionName: "1.0"
     versionCode: 1
-    commit: "v1.0"
+    commit: v1.0
     subdir: app
     gradle:
       - yes
 
 # Additional metadata
-Name: YMusic
-Summary: "Music streaming app using NewPipe Extractor"
-Description: |
+Summary: Music streaming app using NewPipe Extractor
+Description: |-
   A free and open source music streaming application that uses NewPipe Extractor for retrieving audio streams from YouTube Music.
-  
+
   Features:
   - YouTube Music search and streaming
   - Background playback with notifications
@@ -32,4 +30,5 @@ Description: |
   - Download capabilities for offline listening
   - Floating window controls
 
+RepoType: git
 RequiresRoot: false

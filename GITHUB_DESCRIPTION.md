@@ -73,7 +73,7 @@ A modern, open-source YouTube Music streaming application built with Jetpack Com
 ## 🚀 Installation
 
 ### From GitHub Releases
-1. Download the latest APK from the [Releases](https://github.com/yourusername/MusicPiped/releases) page
+1. Download the latest APK from the [Releases](https://github.com/Flames14/YMusic/releases) page
 2. Install the APK on your Android device
 3. Grant necessary permissions when prompted
 
@@ -82,8 +82,8 @@ The app will be available on F-Droid for easy installation and automatic updates
 
 ### Build from Source
 ```bash
-git clone https://github.com/yourusername/MusicPiped.git
-cd MusicPiped
+git clone https://github.com/Flames14/YMusic.git
+cd YMusic
 ./gradlew assembleRelease
 ```
 
@@ -103,7 +103,7 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 
 ## 🐛 Issues & Support
 
-If you encounter any issues or have feature requests, please file them in the [Issues](https://github.com/yourusername/MusicPiped/issues) section.
+If you encounter any issues or have feature requests, please file them in the [Issues](https://github.com/Flames14/YMusic/issues) section.
 
 ## ⭐ Support the Project
 
