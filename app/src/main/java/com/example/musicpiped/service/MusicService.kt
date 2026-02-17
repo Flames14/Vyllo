@@ -23,6 +23,46 @@ import kotlin.system.exitProcess
 class MusicService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var player: ExoPlayer? = null
+    
+    // Auto-retry variables
+    private var retryCount = 0
+    private val maxRetries = 5
+    private val retryDelayMs = 2000L // 2 seconds delay
+    private val retryHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    
+    private val playerListener = object : androidx.media3.common.Player.Listener {
+        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            super.onPlayerError(error)
+            android.util.Log.e("MusicService", "Player error: ${error.message}")
+            
+            if (retryCount < maxRetries) {
+                retryCount++
+                android.util.Log.d("MusicService", "Retrying... ($retryCount/$maxRetries) in ${retryDelayMs}ms")
+                
+                retryHandler.postDelayed({
+                    if (player != null) {
+                        player?.prepare()
+                        player?.play()
+                    }
+                }, retryDelayMs)
+            } else {
+                android.util.Log.e("MusicService", "Max retries reached. Stopping.")
+                // Optionally show a toast or notification here
+                retryCount = 0
+            }
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            super.onPlaybackStateChanged(playbackState)
+            if (playbackState == androidx.media3.common.Player.STATE_READY) {
+                // Reset retry count when playback is successful
+                if (retryCount > 0) {
+                     android.util.Log.d("MusicService", "Playback recovered. Resetting retry count.")
+                }
+                retryCount = 0
+            }
+        }
+    }
 
     companion object {
         @Volatile
@@ -84,6 +124,9 @@ class MusicService : MediaSessionService() {
             )
             .build()
         
+        // Attach listener for auto-retry
+        player?.addListener(playerListener)
+        
         // Fix: Explicitly enforce 1.0x playback speed
         player?.playbackParameters = androidx.media3.common.PlaybackParameters(1.0f)
 
@@ -124,6 +167,7 @@ class MusicService : MediaSessionService() {
 
     // Cleanup
     override fun onDestroy() {
+        retryHandler.removeCallbacksAndMessages(null) // Clean up handler
         mediaSession?.run {
             player?.release()
             release()
