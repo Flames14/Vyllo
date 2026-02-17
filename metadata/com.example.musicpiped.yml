@@ -2,24 +2,24 @@ Categories:
   - Multimedia
   - Internet
 License: GPL-3.0-or-later
-AuthorName: BetaDeveloper
-WebSite: https://github.com/Flames14/YMusic
-SourceCode: https://github.com/Flames14/YMusic
-IssueTracker: https://github.com/Flames14/YMusic/issues
+AuthorName: "BetaDeveloper"
+WebSite: "https://github.com/Flames14/YMusic"
+SourceCode: "https://github.com/Flames14/YMusic"
+IssueTracker: "https://github.com/Flames14/YMusic/issues"
+RepoType: git
 
-AutoName: YMusic
+AutoName: "YMusic"
 
 Builds:
   - versionName: "1.0"
     versionCode: 1
-    commit: v1.0
-    subdir: app
+    commit: "v1.0"
+    subdir: "app"
     gradle:
       - yes
 
-# Additional metadata
-Summary: Music streaming app using NewPipe Extractor
-Description: |-
+Summary: "Music streaming app using NewPipe Extractor"
+Description: |
   A free and open source music streaming application that uses NewPipe Extractor for retrieving audio streams from YouTube Music.
 
   Features:
@@ -30,5 +30,6 @@ Description: |-
   - Download capabilities for offline listening
   - Floating window controls
 
-RepoType: git
 RequiresRoot: false
+
+  
