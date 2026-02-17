@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="ic_launcher_foreground.png" width="150" alt="YMusic Icon">
+  <img src="app/src/main/res/drawable/ic_launcher_foreground.png" width="150" alt="YMusic Icon">
 </p>
 
 # 🎵 YMusic - Your Ultimate YouTube Music Companion
