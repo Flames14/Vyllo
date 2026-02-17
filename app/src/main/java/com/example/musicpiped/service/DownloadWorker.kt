@@ -1,5 +1,7 @@
 package com.example.android.service
 
+import com.example.android.util.SafeLog
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -154,8 +156,8 @@ class DownloadWorker(
             return Result.success()
 
         } catch (e: Exception) {
-            e.printStackTrace()
-            android.util.Log.e("DownloadWorker", "Download failed for $title", e)
+
+            SafeLog.e("DownloadWorker", "Download failed for $title", e)
             try {
                 dao.updateStatus(url, DownloadStatus.FAILED)
             } catch (_: Exception) {}

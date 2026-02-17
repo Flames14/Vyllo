@@ -1,5 +1,7 @@
 package com.example.android.service
 
+import com.example.android.util.SafeLog
+
 import android.app.PendingIntent
 import android.content.Intent
 import androidx.media3.common.AudioAttributes
@@ -33,11 +35,11 @@ class MusicService : MediaSessionService() {
     private val playerListener = object : androidx.media3.common.Player.Listener {
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
             super.onPlayerError(error)
-            android.util.Log.e("MusicService", "Player error: ${error.message}")
+            SafeLog.e("MusicService", "Player error: ${error.message}")
             
             if (retryCount < maxRetries) {
                 retryCount++
-                android.util.Log.d("MusicService", "Retrying... ($retryCount/$maxRetries) in ${retryDelayMs}ms")
+                SafeLog.d("MusicService", "Retrying... ($retryCount/$maxRetries) in ${retryDelayMs}ms")
                 
                 retryHandler.postDelayed({
                     if (player != null) {
@@ -46,7 +48,7 @@ class MusicService : MediaSessionService() {
                     }
                 }, retryDelayMs)
             } else {
-                android.util.Log.e("MusicService", "Max retries reached. Stopping.")
+                SafeLog.e("MusicService", "Max retries reached. Stopping.")
                 // Optionally show a toast or notification here
                 retryCount = 0
             }
@@ -57,7 +59,7 @@ class MusicService : MediaSessionService() {
             if (playbackState == androidx.media3.common.Player.STATE_READY) {
                 // Reset retry count when playback is successful
                 if (retryCount > 0) {
-                     android.util.Log.d("MusicService", "Playback recovered. Resetting retry count.")
+                     SafeLog.d("MusicService", "Playback recovered. Resetting retry count.")
                 }
                 retryCount = 0
             }

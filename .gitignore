@@ -99,4 +99,6 @@ kotlin_errors.txt
 # Exclude built APKs but keep source
 app/build/outputs/
 app/build/intermediates/
+# Keystore properties
+keystore.properties
 app/build/tmp/

@@ -1,5 +1,7 @@
 package com.example.android.data
 
+import com.example.android.util.SafeLog
+
 import com.example.android.network.OkHttpDownloader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -110,7 +112,7 @@ object MusicRepository {
             
             return@withContext items.filter { it.isNotEmpty() && it != "s" }
         } catch (e: Exception) {
-            e.printStackTrace()
+            SafeLog.e("MusicRepository", "Error fetching suggestions", e)
             return@withContext emptyList()
         }
     }
@@ -159,7 +161,7 @@ object MusicRepository {
 
             return@withContext mapItems(searchExtractor.initialPage.items)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SafeLog.e("MusicRepository", "Error searching music", e)
             return@withContext emptyList()
         }
     }
@@ -176,7 +178,7 @@ object MusicRepository {
 
             return@withContext mapItems(nextPage.items)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SafeLog.e("MusicRepository", "Error loading more results", e)
             return@withContext emptyList()
         }
     }
@@ -210,7 +212,7 @@ object MusicRepository {
             
             return@withContext mapItems(kiosk.initialPage.items)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SafeLog.e("MusicRepository", "Error getting trending playlists", e)
             return@withContext emptyList()
         }
     }
@@ -313,7 +315,7 @@ object MusicRepository {
             val streamInfo = getOrFetchStreamInfo(url, false)
             return@withContext mapItems(streamInfo.relatedItems)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SafeLog.e("MusicRepository", "Error getting related songs", e)
             return@withContext emptyList()
         }
     }
@@ -348,7 +350,7 @@ object MusicRepository {
             }
             prefs.edit().putString("recent_history", jsonArray.toString()).apply()
         } catch (e: Exception) {
-            e.printStackTrace()
+            SafeLog.e("MusicRepository", "Error saving history", e)
         }
     }
 
@@ -371,7 +373,7 @@ object MusicRepository {
                 ))
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            SafeLog.e("MusicRepository", "Error loading history", e)
         }
         return items
     }
@@ -415,8 +417,8 @@ object MusicRepository {
                 ))
             }
         } catch (e: Exception) {
-            e.printStackTrace()
-            android.util.Log.e("MusicRepository", "Failed to enqueue download", e)
+            SafeLog.e("MusicRepository", "Error downloading song", e)
+            SafeLog.e("MusicRepository", "Failed to enqueue download", e)
         }
     }
 
@@ -450,14 +452,14 @@ object MusicRepository {
         return if (download != null && download.status == DownloadStatus.COMPLETED) {
             val file = File(download.filePath)
             if (file.exists()) {
-                android.util.Log.d("MusicRepository", "Found local file for $url at ${download.filePath}")
+                SafeLog.d("MusicRepository", "Found local file for $url at ${download.filePath}")
                 "file://${download.filePath}"
             } else {
-                android.util.Log.e("MusicRepository", "Local file missing for $url at ${download.filePath}")
+                SafeLog.e("MusicRepository", "Local file missing for $url at ${download.filePath}")
                 null
             }
         } else {
-            android.util.Log.d("MusicRepository", "No local download found for $url")
+            SafeLog.d("MusicRepository", "No local download found for $url")
             null
         }
     }
