@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="ic_launcher_foreground.png" width="150" alt="YMusic Icon">
+</p>
+
 # 🎵 YMusic - Your Ultimate YouTube Music Companion
 
 Elevate your listening experience with **YMusic**, a premium, open-source music streaming application. Built with modern Jetpack Compose and powered by the robust NewPipe Extractor, YMusic brings the vast world of YouTube Music directly to your fingertips—minus the interruptions.
