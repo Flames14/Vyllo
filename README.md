@@ -1,42 +1,30 @@
-# MusicPiped - YouTube Music Streaming App
+# 🎵 YMusic - Your Ultimate YouTube Music Companion
 
-A modern, open-source YouTube Music streaming application built with Jetpack Compose and powered by NewPipe Extractor. Experience YouTube Music without ads, with enhanced features and a clean, intuitive interface.
+Elevate your listening experience with **YMusic**, a premium, open-source music streaming application. Built with modern Jetpack Compose and powered by the robust NewPipe Extractor, YMusic brings the vast world of YouTube Music directly to your fingertips—minus the interruptions.
 
-## 🎵 Key Features
+## 🌟 Why YMusic?
 
-### Streaming & Playback
-- **High-Quality Audio Streaming**: Streams audio directly from YouTube Music with optimized quality selection (Opus > M4A > MP3 prioritization)
-- **Background Playback**: Listen to music while using other apps with full background playback support
-- **Smart Buffering**: Advanced caching system with 60-second buffer for seamless playback
-- **120Hz Smooth Scrolling**: Optimized UI performance for high refresh rate displays (under experiment)
-- **Audio Visualizer**: Real-time audio visualization during playback
+In a world full of noise, YMusic focuses on what matters most: **the music**. We've crafted an interface that's not just functional, but beautiful, ensuring that your journey through your favorite tracks is as smooth as the audio itself.
 
-### User Experience
-- **Modern UI/UX**: Beautiful Jetpack Compose interface with Material Design 3
-- **Dynamic Theming**: Light, dark, and system theme support with smooth transitions
-- **Responsive Design**: Optimized for all screen sizes and orientations
-- **Smooth Animations**: Fluid animations and transitions throughout the app
-- **Accessibility**: Full accessibility support for all users
+### 🎧 Pure Auditory Bliss
+- **Lossless-Prioritized Streaming**: Experience crystal-clear audio with smart selection (Opus > M4A > MP3).
+- **Uninterrupted Background Play**: Keep the rhythm going even while multitasking or with your screen off.
+- **Micro-Second Buffering**: Our advanced 60-second caching ensures your music never skips a beat.
+- **Visual Harmony**: Real-time audio visualizers that dance to your music's frequency.
 
-### Content Discovery
-- **Smart Recommendations**: Personalized content based on listening history and patterns
-- **Mood-Based Playlists**: Curated playlists for different moods (Chill, Workout, Focus, etc.)
-- **Real Search Suggestions**: Live suggestions as you type using YouTube's suggestion API
-- **Related Songs**: Auto-generated playlists of similar tracks
-- **Trending Content**: Stay updated with the latest trending music
+### 🚀 Performance That Sings
+- **Liquid-Smooth Scrolling**: Fully optimized for 120Hz displays, making browsing your library a joy.
+- **Dynamic Material You**: A UI that adapts its colors to the soul of the album art you're currently playing.
+- **Lightweight & Fast**: Designed to be easy on your battery and memory without sacrificing power.
 
-### Offline Capabilities
-- **Download Functionality**: Download songs for offline listening with progress tracking
-- **Local Playback**: Seamlessly switch between online and offline content
-- **Download Management**: View, manage, and delete downloaded content
-- **Background Downloads**: Continue downloading while using other apps
+### 🔍 Discover Your Next Obsession
+- **Intelligence at its Core**: Smart recommendations that learn your taste over time.
+- **Mood-Sync Playlists**: From high-energy "Workout" beats to late-night "Chill" vibes.
+- **Instant Search**: Find any track, album, or artist instantly with live suggestions.
 
-### Advanced Features
-- **Floating Player**: Bubble-style player that appears when leaving the app (optional)
-- **Autoplay**: Automatic playback of similar tracks when current song ends
-- **High Refresh Rate Support**: Optimized for 90Hz/120Hz displays
-- **Audio-Only Optimization**: Efficient streaming that downloads only audio, not video
-- **Memory Optimized**: Aggressive caching and memory management for smooth performance
+### 💾 Your Music, Anywhere
+- **Seamless Downloads**: Take your entire library offline with high-quality background downloads.
+- **Hybrid Playback**: Effortlessly switch between streaming and local files without missing a note.
 
 
 ## 📱 Supported Features
