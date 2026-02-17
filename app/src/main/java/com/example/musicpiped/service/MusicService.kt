@@ -24,7 +24,7 @@ class MusicService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var player: ExoPlayer? = null
     
-    // Auto-retry variables
+    // Auto-retry variables (force commit)
     private var retryCount = 0
     private val maxRetries = 5
     private val retryDelayMs = 2000L // 2 seconds delay
