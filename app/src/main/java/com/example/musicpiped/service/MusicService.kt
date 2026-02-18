@@ -83,6 +83,19 @@ class MusicService : MediaSessionService() {
                 true // Handle audio focus
             )
             .build()
+
+        // --- RETRY MECHANISM ---
+        player?.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                // Check if it's a network error (BehindLiveWindowException is common for live streams, but for files it's often network)
+                // We'll retry for any error to be robust, with a small delay
+                val handler = android.os.Handler(android.os.Looper.getMainLooper())
+                handler.postDelayed({
+                    player?.prepare()
+                    player?.play()
+                }, 2000) // Retry after 2 seconds
+            }
+        })
         
         // Fix: Explicitly enforce 1.0x playback speed
         player?.playbackParameters = androidx.media3.common.PlaybackParameters(1.0f)
