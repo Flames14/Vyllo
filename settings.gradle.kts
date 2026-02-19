@@ -12,7 +12,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         // CRITICAL: This allows Gradle to find NewPipe
-        maven { url = java.net.URI("https://jitpack.io") } 
+        maven { url = uri("https://jitpack.io") } 
     }
 }
 
