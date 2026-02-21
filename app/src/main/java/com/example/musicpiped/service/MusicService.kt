@@ -80,7 +80,7 @@ class MusicService : MediaSessionService() {
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                     .setUsage(C.USAGE_MEDIA)
                     .build(), 
-                true // Handle audio focus
+                false // Disable automatic audio focus handling (fix for camera interruption)
             )
             .build()
 

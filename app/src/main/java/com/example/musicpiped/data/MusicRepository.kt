@@ -325,6 +325,26 @@ object MusicRepository {
             preferences?.edit()?.putBoolean("floating_player_enabled", value)?.apply()
         }
     
+    // --- PERSIST FLOATING POSITION ---
+    var floatingPlayerX: Int
+        get() = preferences?.getInt("floating_player_x", 0) ?: 0
+        set(value) {
+            preferences?.edit()?.putInt("floating_player_x", value)?.apply()
+        }
+        
+    var floatingPlayerY: Int
+        get() = preferences?.getInt("floating_player_y", 100) ?: 100
+        set(value) {
+            preferences?.edit()?.putInt("floating_player_y", value)?.apply()
+        }
+
+    // --- FEATURE: BACKGROUND PLAYBACK ---
+    var isBackgroundPlaybackEnabled: Boolean
+        get() = preferences?.getBoolean("background_playback_enabled", true) ?: true
+        set(value) {
+            preferences?.edit()?.putBoolean("background_playback_enabled", value)?.apply()
+        }
+    
     // --- FEATURE: THEME MODE PREFERENCE ---
     var themeMode: String
         get() = preferences?.getString("theme_mode", "System") ?: "System"

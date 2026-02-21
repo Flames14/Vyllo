@@ -48,12 +48,20 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.clickable
 import androidx.media3.common.MediaItem
 import androidx.compose.foundation.border
+import androidx.core.app.NotificationCompat
+import android.app.NotificationChannel
+import android.app.NotificationManager
 
 class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewModelStoreOwner {
 
     private lateinit var windowManager: WindowManager
     private lateinit var params: WindowManager.LayoutParams
     private lateinit var composeView: ComposeView
+    
+    companion object {
+        private const val CHANNEL_ID = "floating_bubble_channel"
+        private const val NOTIFICATION_ID = 888
+    }
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController by mutableStateOf<MediaController?>(null)
@@ -70,19 +78,23 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
         super.onCreate()
         savedStateRegistryController.performRestore(null)
         
-        // Connect to MediaSession
-        val sessionToken = SessionToken(this, ComponentName(this, MusicService::class.java))
-        controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
-        controllerFuture?.addListener({
-            try { 
-                mediaController = controllerFuture?.get() 
-            } catch (e: Exception) { 
-                e.printStackTrace() 
-            }
-        }, androidx.core.content.ContextCompat.getMainExecutor(this))
-
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         
+        // Create Notification for Foreground Service
+        createNotificationChannel()
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Floating Player Active")
+            .setContentText("Tap the bubble to return to app")
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .build()
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+
         // Window Layout Params
         val layoutFlag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -94,14 +106,14 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             layoutFlag,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         )
 
-        // Initial Position
+        // Initial Position - Loaded from Repository
         params.gravity = Gravity.TOP or Gravity.START
-        params.x = 0
-        params.y = 100
+        params.x = com.example.musicpiped.data.MusicRepository.floatingPlayerX
+        params.y = com.example.musicpiped.data.MusicRepository.floatingPlayerY
 
         composeView = ComposeView(this).apply {
             setViewTreeLifecycleOwner(this@FloatingWindowService)
@@ -111,14 +123,19 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
             setContent {
                 FloatingBubbleContent(
                     mediaController = mediaController,
-                    onDrag = { x, y ->
+                    onDrag = { dx, dy ->
                         try {
-                            params.x += x.toInt()
-                            params.y += y.toInt()
+                            params.x += dx.toInt()
+                            params.y += dy.toInt()
                             windowManager.updateViewLayout(this, params)
                         } catch(e: Exception) {
                             // View might be detached
                         }
+                    },
+                    onDragEnd = {
+                        // Persist position when drag finishes
+                        com.example.musicpiped.data.MusicRepository.floatingPlayerX = params.x
+                        com.example.musicpiped.data.MusicRepository.floatingPlayerY = params.y
                     },
                     onClick = {
                         val intent = Intent(context, MainActivity::class.java).apply {
@@ -130,8 +147,40 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
                 )
             }
         }
+        
+        // Show immediately - don't wait for media connection
+        try {
+            windowManager.addView(composeView, params)
+            isViewAdded = true
+        } catch(e: Exception) { e.printStackTrace() }
 
-        windowManager.addView(composeView, params)
+        // Connect to MediaSession
+        val sessionToken = SessionToken(this, ComponentName(this, MusicService::class.java))
+        controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
+        controllerFuture?.addListener({
+            try { 
+                mediaController = controllerFuture?.get()
+            } catch (e: Exception) { 
+                e.printStackTrace() 
+            }
+        }, androidx.core.content.ContextCompat.getMainExecutor(this))
+    }
+
+    private var isViewAdded = false
+
+    private fun showBubble() { }
+    private fun hideBubble() { }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Floating Player",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
     }
 
     private fun addFlags(flags: Int) {
@@ -153,6 +202,7 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
 fun FloatingBubbleContent(
     mediaController: MediaController?,
     onDrag: (Float, Float) -> Unit,
+    onDragEnd: () -> Unit,
     onClick: () -> Unit
 ) {
     var artworkUri by remember { mutableStateOf<String?>(null) }
@@ -184,10 +234,13 @@ fun FloatingBubbleContent(
             .background(Color.Black)
             .border(2.dp, Color(0xFFE0E0E0).copy(0.5f), CircleShape)
             .pointerInput(Unit) {
-                detectDragGestures { change, dragAmount ->
-                    change.consume()
-                    onDrag(dragAmount.x, dragAmount.y)
-                }
+                detectDragGestures(
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        onDrag(dragAmount.x, dragAmount.y)
+                    },
+                    onDragEnd = onDragEnd
+                )
             }
             .clickable { onClick() },
         contentAlignment = Alignment.Center
