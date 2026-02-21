@@ -42,6 +42,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     var chillItems by mutableStateOf<List<MusicItem>>(emptyList())
     var workoutItems by mutableStateOf<List<MusicItem>>(emptyList())
     var focusItems by mutableStateOf<List<MusicItem>>(emptyList())
+    
+    // Performance: Pre-calculated Grid rows (Box Column Area)
+    var quickPicksRows by mutableStateOf<List<List<MusicItem>>>(emptyList())
+    var trendingNowRows by mutableStateOf<List<List<MusicItem>>>(emptyList())
+    
     var selectedChip by mutableStateOf("All")
     var selectedNavTab by mutableStateOf(0) // 0=Home, 1=Library
     
@@ -50,6 +55,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     var isLoadingMore by mutableStateOf(false)
     var isSearching by mutableStateOf(false)
     var showSettings by mutableStateOf(false)
+    var isFloatingEnabled by mutableStateOf(MusicRepository.isFloatingPlayerEnabled)
+    var isBackgroundPlaybackEnabled by mutableStateOf(MusicRepository.isBackgroundPlaybackEnabled)
     
     // Fix #8: Show buffering state immediately
     var isLoadingPlayer by mutableStateOf(false)
@@ -140,7 +147,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     init {
         // Fix #1 & #2: Allow first frame to render before loading content
         viewModelScope.launch {
-            delay(50) // Minimal delay - just let first frame render
+            delay(150) // Small breather for UI thread
             
             launch(Dispatchers.IO) { 
                 MusicRepository.warmUp() 
@@ -190,6 +197,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun toggleFloatingPlayer(enabled: Boolean) {
+        isFloatingEnabled = enabled
+        MusicRepository.isFloatingPlayerEnabled = enabled
+    }
+
+    fun toggleBackgroundPlayback(enabled: Boolean) {
+        isBackgroundPlaybackEnabled = enabled
+        MusicRepository.isBackgroundPlaybackEnabled = enabled
+    }
+
     fun loadHomeContent() {
         viewModelScope.launch {
             isLoading = true
@@ -207,10 +224,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             homeTitle = if (recentlyPlayed.isNotEmpty()) "Recommended For You" else "Trending Now"
             
             // Populate all YTM-style shelves
-            quickPicksItems = recommendations.take(8)
-            mixedForYouItems = recommendations.drop(8).take(6)
-            newReleasesItems = recommendations.drop(14).take(8)
-            trendingNowItems = recommendations.drop(22).take(8)
+            val recommendationsList = recommendations
+            quickPicksItems = recommendationsList.take(8)
+            quickPicksRows = quickPicksItems.chunked(2)
+            
+            mixedForYouItems = recommendationsList.drop(8).take(6)
+            newReleasesItems = recommendationsList.drop(14).take(8)
+            
+            trendingNowItems = recommendationsList.drop(22).take(8)
+            trendingNowRows = trendingNowItems.chunked(2)
             
             // These will be populated when user selects corresponding chips
             // or we can search for them
@@ -257,6 +279,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 val results = MusicRepository.searchMusic(query) 
                 searchResults = results
                 quickPicksItems = results.take(8)
+                quickPicksRows = quickPicksItems.chunked(2)
                 mixedForYouItems = results.drop(8).take(6)
                 isSearching = true
                 isLoading = false
