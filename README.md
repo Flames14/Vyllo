@@ -59,16 +59,14 @@ In a world full of noise, YMusic focuses on what matters most: **the music**. We
 2. Install the APK on your Android device
 3. Grant necessary permissions when prompted
 
-### From F-Droid (Coming Soon)
-The app will be available on F-Droid for easy installation and automatic updates.
 
 ## 🖼️ App Screenshots
 
 <div align="center">
-  <img src="Screenshot_20260201_232945.png" width="200" alt="Screenshot 1" title="Home Screen">
-  <img src="Screenshot_20260201_233102.png" width="200" alt="Screenshot 2" title="Search Screen">
-  <img src="Screenshot_20260201_233128.png" width="200" alt="Screenshot 3" title="Player Screen">
-  <img src="Screenshot_20260201_233153.png" width="200" alt="Screenshot 4" title="Playlist Screen">
+  <img src="Screenshot_20260223_204506.png" width="23%" alt="Home Screen">
+  <img src="Screenshot_20260223_204555.png" width="23%" alt="Search Screen">
+  <img src="Screenshot_20260223_204638.png" width="23%" alt="Player In-App">
+  <img src="Screenshot_20260223_204658.png" width="23%" alt="Notification Control">
 </div>
 
 ## 🤝 Contributing

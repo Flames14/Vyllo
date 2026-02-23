@@ -90,6 +90,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.platform.LocalConfiguration
 import kotlin.math.sin
@@ -157,7 +158,7 @@ class MainActivity : ComponentActivity() {
                 ImageLoader.Builder(context)
                     .memoryCache {
                         MemoryCache.Builder(context)
-                            .maxSizePercent(0.25) // Use 25% of app memory
+                            .maxSizePercent(0.30) // Use 30% of app memory for aggressive caching
                             .build()
                     }
                     .diskCache {
@@ -167,6 +168,8 @@ class MainActivity : ComponentActivity() {
                             .build()
                     }
                     .crossfade(false) // Disable crossfade globally for scroll performance
+                    .allowHardware(true) // GPU-accelerated bitmaps for faster rendering
+                    .bitmapConfig(android.graphics.Bitmap.Config.RGB_565) // Half memory per pixel — fine for thumbnails
                     .build()
             }
 
@@ -557,56 +560,48 @@ fun YTMHomeScreen(
     // Memoize recommendedItems calculation for performance
     val recommendedItems = remember(viewModel.searchResults) { viewModel.searchResults.drop(8) }
     
-    // Infinite scroll trigger - moved outside items for performance
-    val shouldLoadMore by remember {
-        derivedStateOf {
+    // Infinite scroll — only check after scroll settles (not every frame)
+    LaunchedEffect(scrollState) {
+        snapshotFlow {
             val layoutInfo = scrollState.layoutInfo
             val totalItems = layoutInfo.totalItemsCount
-            val lastVisibleItemIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            totalItems > 0 && lastVisibleItemIndex >= totalItems - 3
+            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            totalItems > 0 && lastVisible >= totalItems - 3
+        }.collect { atBottom ->
+            if (atBottom && viewModel.isSearching) viewModel.loadNextPage()
         }
     }
     
-    LaunchedEffect(viewModel.searchResults) {
-        if (viewModel.searchResults.isNotEmpty()) {
-            // Warm up the image cache for the first 10 items
-            viewModel.searchResults.take(10).forEach { item ->
-                val request = ImageRequest.Builder(context)
-                    .data(item.thumbnailUrl)
-                    .size(150, 150)
-                    .build()
-                coil.Coil.imageLoader(context).enqueue(request)
-            }
+    // Aggressive image pre-cache — prefetch ALL sections at correct display sizes
+    val imageLoader = coil.Coil.imageLoader(context)
+    LaunchedEffect(viewModel.searchResults, viewModel.listenAgainItems, viewModel.chillItems, viewModel.mixedForYouItems) {
+        // Prefetch thumbnails at actual display sizes to avoid cache misses during scroll
+        val smallItems = viewModel.listenAgainItems + viewModel.chillItems + viewModel.workoutItems + viewModel.focusItems + viewModel.newReleasesItems
+        val largeItems = viewModel.mixedForYouItems
+        val gridItems = viewModel.searchResults.take(8) // Quick picks
+        val listItems = viewModel.searchResults.drop(8).take(15) // Recommended rows
+        
+        // Small square cards (150dp = ~300px)
+        smallItems.forEach { item ->
+            imageLoader.enqueue(ImageRequest.Builder(context).data(item.thumbnailUrl).size(300, 300).build())
+        }
+        // Large cards (280dp wide = ~560px)
+        largeItems.forEach { item ->
+            imageLoader.enqueue(ImageRequest.Builder(context).data(item.thumbnailUrl).size(560, 320).build())
+        }
+        // Grid compact rows (48dp = ~150px)
+        gridItems.forEach { item ->
+            imageLoader.enqueue(ImageRequest.Builder(context).data(item.thumbnailUrl).size(150, 150).build())
+        }
+        // Recommended song rows (52dp = ~120px)
+        listItems.forEach { item ->
+            imageLoader.enqueue(ImageRequest.Builder(context).data(item.thumbnailUrl).size(120, 120).build())
         }
     }
 
-    // --- ADVANCED GPU PRE-WARM HACK (V2) ---
-    // We render a small "Ghost List" of items off-screen.
-    // This forces Compose to measure, layout, and compile shaders for 
-    // multiple instances, making the actual scroll "cache-hot".
-    Box(modifier = Modifier.size(1.dp).alpha(0.001f).graphicsLayer { translationX = -2000f }) {
-        Column {
-            // Warm up multiple Song Rows
-            if (viewModel.searchResults.isNotEmpty()) {
-                repeat(5) { index ->
-                    val item = viewModel.searchResults.getOrNull(index) ?: viewModel.searchResults[0]
-                    YTMSongRow(item = item, isPlaying = false, onClick = {})
-                }
-            }
-            // Warm up multiple Grid Rows
-            if (viewModel.quickPicksRows.isNotEmpty()) {
-                repeat(2) { index ->
-                    val row = viewModel.quickPicksRows.getOrNull(index) ?: viewModel.quickPicksRows[0]
-                    Row {
-                        YTMCompactRow(item = row[0], isPlaying = false, onClick = {})
-                        if (row.size > 1) {
-                            YTMCompactRow(item = row[1], isPlaying = false, onClick = {})
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // GPU pre-warm hack removed — it was counter-productive, adding startup
+    // overhead without reliably warming shaders. The real scroll perf wins
+    // come from disabling crossfade, reducing render layers, and prefetching.
     
     LazyColumn(
         state = scrollState,
@@ -987,7 +982,7 @@ fun YTMSectionHeader(title: String, onSeeAll: (() -> Unit)? = null) {
 }
 
 // =========================================================================
-// OPTIMIZED HORIZONTAL CARD SECTION - Ultra-stable for 120Hz scrolling
+// OPTIMIZED HORIZONTAL CARD SECTION - LazyRow for true virtualization
 // =========================================================================
 @Composable
 fun OptimizedHorizontalSection(
@@ -1000,45 +995,40 @@ fun OptimizedHorizontalSection(
     val height = if (isLargeCard) 160.dp else 200.dp
     
     // Pre-compute the limited items list outside of composition
-    val displayItems = remember(items) { items.take(4) }
+    val displayItems = remember(items) { items.take(6) }
     
     // Check playing state only once for all items
     val playingTitle = currentPlayingItem?.title
     
-    // Create a single remembered scroll state
-    val scrollState = rememberScrollState()
-    
-    Row(
+    // LazyRow: only compose visible cards (typically 2-3), not all 6
+    LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .height(height)
-            .graphicsLayer { clip = true } // Hardware layer for the entire row
-            .horizontalScroll(scrollState)
-            .padding(horizontal = 16.dp),
+            .height(height),
+        contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        displayItems.forEach { item ->
-            // Use url as stable key
-            key(item.url) {
-                // Pre-compute isPlaying to avoid lambda capture issues
-                val isPlaying = playingTitle == item.title
-                
-                // Memoize the onClick to prevent recomposition
-                val onClick = remember(item.url) { { onPlay(item) } }
-                
-                if (isLargeCard) {
-                    StaticLargeCard(
-                        item = item,
-                        isPlaying = isPlaying,
-                        onClick = onClick
-                    )
-                } else {
-                    StaticSquareCard(
-                        item = item,
-                        isPlaying = isPlaying,
-                        onClick = onClick
-                    )
-                }
+        items(
+            count = displayItems.size,
+            key = { index -> displayItems[index].url },
+            contentType = { if (isLargeCard) "large_card" else "square_card" }
+        ) { index ->
+            val item = displayItems[index]
+            val isPlaying = playingTitle == item.title
+            val onClick = remember(item.url) { { onPlay(item) } }
+            
+            if (isLargeCard) {
+                StaticLargeCard(
+                    item = item,
+                    isPlaying = isPlaying,
+                    onClick = onClick
+                )
+            } else {
+                StaticSquareCard(
+                    item = item,
+                    isPlaying = isPlaying,
+                    onClick = onClick
+                )
             }
         }
     }
@@ -1058,7 +1048,6 @@ private fun StaticSquareCard(
         ImageRequest.Builder(context)
             .data(item.thumbnailUrl)
             .size(300, 300)
-            .crossfade(true)
             .build()
     }
     
@@ -1077,7 +1066,9 @@ private fun StaticSquareCard(
                 model = imageRequest,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                placeholder = androidx.compose.ui.graphics.painter.ColorPainter(MaterialTheme.colorScheme.surfaceVariant),
+                error = androidx.compose.ui.graphics.painter.ColorPainter(MaterialTheme.colorScheme.surfaceVariant)
             )
             
             if (isPlaying) {
@@ -1125,7 +1116,6 @@ private fun StaticLargeCard(
         ImageRequest.Builder(context)
             .data(item.thumbnailUrl)
             .size(500, 300)
-            .crossfade(true)
             .build()
     }
     
@@ -1141,19 +1131,22 @@ private fun StaticLargeCard(
             model = imageRequest,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            placeholder = androidx.compose.ui.graphics.painter.ColorPainter(MaterialTheme.colorScheme.surfaceVariant),
+            error = androidx.compose.ui.graphics.painter.ColorPainter(MaterialTheme.colorScheme.surfaceVariant)
         )
         
-        // Gradient overlay
+        // Gradient overlay — memoized to avoid allocation per composition
+        val gradientBrush = remember {
+            Brush.verticalGradient(
+                colors = listOf(Color.Transparent, Color.Black.copy(0.8f)),
+                startY = 100f
+            )
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(0.8f)),
-                        startY = 100f
-                    )
-                )
+                .background(gradientBrush)
         )
         
         Column(
@@ -1208,7 +1201,6 @@ fun YTMSquareCard(
         modifier = Modifier
             .width(140.dp)
             .height(200.dp) // Fixed height for predictable layout
-            .graphicsLayer { clip = true }
             .clickable(
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                 indication = null // Remove ripple for faster response
@@ -1289,7 +1281,6 @@ fun YTMLargeCard(
         modifier = Modifier
             .width(280.dp)
             .height(160.dp)
-            .graphicsLayer { clip = true }
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.onBackground.copy(0.1f))
             .clickable(
@@ -1311,19 +1302,22 @@ fun YTMLargeCard(
             model = imageRequest,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            placeholder = androidx.compose.ui.graphics.painter.ColorPainter(MaterialTheme.colorScheme.surfaceVariant),
+            error = androidx.compose.ui.graphics.painter.ColorPainter(MaterialTheme.colorScheme.surfaceVariant)
         )
         
-        // Gradient overlay (light weight, no recomposition)
+        // Gradient overlay — memoized to avoid allocation per composition
+        val gradientBrush = remember {
+            Brush.verticalGradient(
+                colors = listOf(Color.Transparent, Color.Black.copy(0.8f)),
+                startY = 60f
+            )
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(0.8f)),
-                        startY = 60f
-                    )
-                )
+                .background(gradientBrush)
         )
         
         // Title overlay
@@ -1386,8 +1380,7 @@ fun LazyListScope.YTMGridSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .graphicsLayer { clip = true }, // GPU optimization
+                .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             rowItems.forEach { item ->
@@ -1422,10 +1415,7 @@ fun YTMCompactRow(
 ) {
     Row(
         modifier = modifier
-            .graphicsLayer { 
-                clip = true 
-                shape = RoundedCornerShape(8.dp)
-            }
+            .clip(RoundedCornerShape(8.dp))
             .background(if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
             .clickable { onClick() }
             .padding(8.dp),
@@ -1436,7 +1426,6 @@ fun YTMCompactRow(
             ImageRequest.Builder(context)
                 .data(item.thumbnailUrl)
                 .size(150, 150)
-                .crossfade(true)
                 .build()
         }
         AsyncImage(
@@ -1496,7 +1485,6 @@ fun YTMSongRow(
             ImageRequest.Builder(context)
                 .data(item.thumbnailUrl)
                 .size(120, 120)
-                .crossfade(true)
                 .build()
         }
         AsyncImage(
@@ -2121,13 +2109,8 @@ fun PremiumPlayerContainer(
     val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
     val screenHeightPx = with(density) { screenHeight.toPx() }
     
-    // Physics State - Manual Swipe Detection
-    // Physics State - Manual Swipe Detection
-    val animHeight by animateDpAsState(
-        targetValue = if (isExpanded) screenHeight else 80.dp,
-        animationSpec = spring(dampingRatio = 0.75f, stiffness = 300f),
-        label = "Expansion"
-    )
+    // Direct height — no spring animation to avoid per-frame wake-ups
+    val containerHeight = if (isExpanded) screenHeight else 80.dp
     
     val targetCorner = if(isExpanded) 0.dp else 24.dp
     
@@ -2137,7 +2120,7 @@ fun PremiumPlayerContainer(
             .fillMaxWidth()
             .then(
                 if (isExpanded) Modifier.fillMaxSize() 
-                else Modifier.height(animHeight).padding(horizontal = 8.dp, vertical = 8.dp)
+                else Modifier.height(containerHeight).padding(horizontal = 8.dp, vertical = 8.dp)
             )
             .shadow(
                 elevation = if(isExpanded) 0.dp else 16.dp, 
@@ -2288,8 +2271,15 @@ fun PremiumMiniPlayer(musicItem: MusicItem, isPlaying: Boolean, isLoading: Boole
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val context = LocalContext.current
+        val miniPlayerImageRequest = remember(musicItem.thumbnailUrl) {
+            ImageRequest.Builder(context)
+                .data(musicItem.thumbnailUrl)
+                .size(120, 120)
+                .build()
+        }
         AsyncImage(
-            model = musicItem.thumbnailUrl,
+            model = miniPlayerImageRequest,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
