@@ -1,7 +1,15 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp") version "1.9.22-1.0.17"
+}
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
 }
 
 android {
@@ -49,6 +57,13 @@ android {
         getByName("debug") {
             // Uses default debug keystore
         }
+        create("release") {
+            val storeFilePath = keystoreProperties.getProperty("storeFile")
+            storeFile = storeFilePath?.let { file("../$it") }
+            storePassword = keystoreProperties.getProperty("storePassword")
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+        }
     }
     
     buildTypes {
@@ -63,8 +78,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Sign with debug key for testing
-            signingConfig = signingConfigs.getByName("debug")
+            // Sign with actual release key
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
