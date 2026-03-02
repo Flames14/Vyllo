@@ -68,7 +68,7 @@ In a world full of noise, YMusic focuses on what matters most: **the music**. We
 ## 🎬 App Preview
 
 <div align="center">
-  <video src="demo.mp4" width="100%" controls>
+  <video src="https://github.com/Flames14/YMusic/raw/master/demo.mp4" width="100%" controls>
     Your browser does not support the video tag.
   </video>
 </div>
