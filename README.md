@@ -45,6 +45,11 @@ In a world full of noise, YMusic focuses on what matters most: **the music**. We
 - ✅ Comprehensive playback controls (play/pause/skip)
 - ✅ Progress tracking and resume functionality
 - ✅ Local file playback for downloaded content
+- ✅ **Universal Lyrics Engine**: Intelligent multi-source lyrics fetching with manual search fallback.
+- ✅ **Lyrics Persistence**: Saves and restores preferred lyrics for every song.
+- ✅ **Smart Queue Management**: Functional "Up Next" queue with shuffle/repeat.
+- ✅ **Quick Skip**: 10-second forward/backward controls.
+- ✅ **Premium UI**: Enhanced visibility for light themes and glassmorphism-inspired elements.
 
 ## 🔧 Prerequisites
 
@@ -60,13 +65,12 @@ In a world full of noise, YMusic focuses on what matters most: **the music**. We
 3. Grant necessary permissions when prompted
 
 
-## 🖼️ App Screenshots
+## 🎬 App Preview
 
 <div align="center">
-  <img src="Screenshot_20260223_204506.png" width="23%" alt="Home Screen">
-  <img src="Screenshot_20260223_204555.png" width="23%" alt="Search Screen">
-  <img src="Screenshot_20260223_204638.png" width="23%" alt="Player In-App">
-  <img src="Screenshot_20260223_204658.png" width="23%" alt="Notification Control">
+  <video src="demo.mp4" width="100%" controls>
+    Your browser does not support the video tag.
+  </video>
 </div>
 
 ## 🤝 Contributing
