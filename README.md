@@ -65,9 +65,18 @@ In a world full of noise, YMusic focuses on what matters most: **the music**. We
 3. Grant necessary permissions when prompted
 
 
+## 🖼️ App Screenshots
+
+<div align="center">
+  <img src="screenshot1.jpg" width="23%" alt="Home Screen">
+  <img src="screenshot2.jpg" width="23%" alt="Search Screen">
+  <img src="screenshot3.jpg" width="23%" alt="Player In-App">
+  <img src="screenshot4.jpg" width="23%" alt="Settings">
+</div>
+
 ## 🎬 App Preview
 
-![App Preview](demo.mp4)
+[Watch the Demo Video](https://github.com/Flames14/YMusic/raw/master/demo.mp4)
 
 ## 🤝 Contributing
 
