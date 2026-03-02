@@ -138,7 +138,7 @@ object MusicRepository {
             val seedArtist = topArtists.random()
             return@withContext searchMusic("Mix of $seedArtist")
         } else {
-            return@withContext getTrendingPlaylists()
+            return@withContext searchMusic("Top latest music videos")
         }
     }
 
@@ -197,18 +197,24 @@ object MusicRepository {
         }
     }
 
-    suspend fun getTrendingPlaylists(): List<MusicItem> = withContext(extractorDispatcher) {
+    // --- FEATURE: TRENDING MUSIC ---
+    suspend fun getTrendingMusic(): List<MusicItem> = withContext(extractorDispatcher) {
         try {
-            if (!isInitialized) return@withContext emptyList()
-            val service = ServiceList.YouTube
-            val kiosk = service.getKioskList().getExtractorById("Music", null)
-            kiosk.fetchPage()
+            val youtube = ServiceList.YouTube
+            val kioskList = youtube.kioskList
             
-            // Allow pagination for trending too
-            currentExtractor = kiosk
-            nextSearchPage = kiosk.initialPage.nextPage
-            
-            return@withContext mapItems(kiosk.initialPage.items)
+            val extractor = try {
+                kioskList.javaClass.getMethod("getExtractorById", String::class.java, Page::class.java).invoke(kioskList, "trending_music", null) as? org.schabi.newpipe.extractor.ListExtractor<org.schabi.newpipe.extractor.InfoItem>
+            } catch (e: Exception) {
+                null
+            }
+
+            if (extractor != null) {
+                extractor.fetchPage()
+                val items = extractor.initialPage.items
+                return@withContext mapItems(items)
+            }
+            return@withContext emptyList()
         } catch (e: Exception) {
             e.printStackTrace()
             return@withContext emptyList()
@@ -352,6 +358,13 @@ object MusicRepository {
             preferences?.edit()?.putString("theme_mode", value)?.apply()
         }
 
+    // --- FEATURE: LIQUID SMOOTH SCROLL ---
+    var isLiquidScrollEnabled: Boolean
+        get() = preferences?.getBoolean("liquid_scroll_enabled", false) ?: false
+        set(value) {
+            preferences?.edit()?.putBoolean("liquid_scroll_enabled", value)?.apply()
+        }
+
     // --- FEATURE: HISTORY PERSISTENCE ---
     fun saveHistory(items: List<MusicItem>) {
         val prefs = preferences ?: return
@@ -480,6 +493,189 @@ object MusicRepository {
             android.util.Log.d("MusicRepository", "No local download found for $url")
             null
         }
+    }
+
+    // --- SMART LYRICS ENGINE ---
+    // Logic moved to LyricsEngine.kt
+
+    // --- Lyrics Preference Persistence ---
+
+    private fun lyricsPreferenceKey(videoUrl: String): String {
+        val videoId = extractVideoId(videoUrl) ?: videoUrl.hashCode().toString()
+        return "lyrics_pref_$videoId"
+    }
+
+    fun saveLyricsPreference(videoUrl: String, lrcId: Long) {
+        preferences?.edit()?.putLong(lyricsPreferenceKey(videoUrl), lrcId)?.apply()
+        android.util.Log.d("MusicRepository", "Saved lyrics preference: ${lyricsPreferenceKey(videoUrl)} -> $lrcId")
+    }
+
+    fun getSavedLyricsId(videoUrl: String): Long? {
+        val key = lyricsPreferenceKey(videoUrl)
+        val id = preferences?.getLong(key, -1L) ?: -1L
+        return if (id > 0) id else null
+    }
+
+    fun clearLyricsPreference(videoUrl: String) {
+        preferences?.edit()?.remove(lyricsPreferenceKey(videoUrl))?.apply()
+    }
+
+    suspend fun getLyrics(title: String, artist: String, durationSecs: Long, videoUrl: String = ""): com.example.musicpiped.data.LyricsResponse? = withContext(Dispatchers.IO) {
+        // Check for saved lyrics preference first
+        if (videoUrl.isNotBlank()) {
+            val savedId = getSavedLyricsId(videoUrl)
+            if (savedId != null) {
+                android.util.Log.d("MusicRepository", "Found saved lyrics preference: ID=$savedId")
+                val savedResult = LyricsEngine.getLyricsById(savedId)
+                if (savedResult != null) {
+                    val parsedLines = LyricsEngine.parseSyncedLyrics(savedResult.syncedLyrics)
+                    val detectText = savedResult.syncedLyrics ?: savedResult.plainLyrics ?: ""
+                    return@withContext LyricsResponse(
+                        success = true,
+                        strategy = "SAVED_PREFERENCE",
+                        result = savedResult,
+                        results = listOf(savedResult),
+                        plainLyrics = savedResult.plainLyrics,
+                        syncedLines = parsedLines.takeIf { it.isNotEmpty() },
+                        languages = LyricsEngine.detectLanguage(detectText),
+                        lyricsStatus = com.example.musicpiped.data.LyricsStatus(
+                            hasPlain = savedResult.plainLyrics != null,
+                            hasSynced = savedResult.syncedLyrics != null,
+                            isInstrumental = savedResult.instrumental
+                        )
+                    )
+                }
+                // Saved ID failed, clear it and fall through to normal search
+                android.util.Log.w("MusicRepository", "Saved lyrics ID=$savedId failed, clearing preference")
+                clearLyricsPreference(videoUrl)
+            }
+            
+            // Phase 1: Try perfectly synced YouTube Subtitles first
+            try {
+                val streamInfo = getOrFetchStreamInfo(videoUrl, false)
+                val subtitles = streamInfo.subtitles
+                if (!subtitles.isNullOrEmpty()) {
+                    val targetSub = subtitles.find { 
+                        it.locale?.language?.contains("en", ignoreCase = true) == true 
+                    } ?: subtitles.first()
+                    
+                    val subUrl = try { targetSub.content } catch (_: Exception) { null }
+                        ?: try { targetSub.url } catch (_: Exception) { null }
+                    
+                    if (subUrl != null) {
+                        android.util.Log.d("MusicRepository", "Found YouTube subtitles: ${targetSub.locale?.language} - $subUrl")
+                        
+                        val request = Request.Builder().url(subUrl).build()
+                        val response = client.newCall(request).execute()
+                        
+                        if (response.isSuccessful) {
+                            response.body?.string()?.let { vttBody ->
+                                val syncedLines = parseVttToSyncedLyrics(vttBody)
+                                if (syncedLines.isNotEmpty()) {
+                                    android.util.Log.d("MusicRepository", "Successfully parsed ${syncedLines.size} perfectly synced lines from YouTube CC")
+                                    return@withContext LyricsResponse(
+                                        success = true,
+                                        strategy = "YOUTUBE_CAPTIONS",
+                                        syncedLines = syncedLines,
+                                        plainLyrics = syncedLines.joinToString("\n") { it.content },
+                                        languages = listOf(targetSub.locale?.language ?: "unknown"),
+                                        lyricsStatus = com.example.musicpiped.data.LyricsStatus(
+                                            hasPlain = true,
+                                            hasSynced = true,
+                                            isInstrumental = false
+                                        ),
+                                        result = LyricsResult(
+                                            id = -2L,
+                                            trackName = title,
+                                            artistName = artist,
+                                            albumName = null,
+                                            duration = durationSecs,
+                                            instrumental = false,
+                                            plainLyrics = syncedLines.joinToString("\n") { it.content },
+                                            syncedLyrics = null
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("MusicRepository", "YouTube CC extraction failed: ${e.message}")
+            }
+        }
+
+        // Phase 2: Fall back to LRCLIB Universal Search
+        return@withContext LyricsEngine.findLyricsUniversal(
+            rawTitle = title,
+            rawArtist = artist,
+            durationSecs = durationSecs
+        )
+    }
+
+    /**
+     * Parses standard WebVTT or simple SRT-style millisecond timestamps into SyncedLyricLine.
+     * NewPipe returns `.vtt` format for subtitles.
+     */
+    private fun parseVttToSyncedLyrics(vttContent: String): List<com.example.musicpiped.data.SyncedLyricLine> {
+        val lines = vttContent.lines()
+        val syncedLyrics = mutableListOf<com.example.musicpiped.data.SyncedLyricLine>()
+        
+        // Regex for WebVTT timestamp: 00:00:15.500 --> 00:00:17.340  OR  00:15.500 --> 00:17.340
+        val timeRegex = Regex("(\\d{2}:)?(\\d{2}:\\d{2})[\\.,](\\d{3})\\s*-->\\s*.*")
+        
+        var currentStartTime: Long? = null
+        val currentText = StringBuilder()
+        
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed.uppercase().startsWith("WEBVTT") || trimmed.uppercase() == "NOTE") {
+                continue
+            }
+            
+            val match = timeRegex.find(trimmed)
+            if (match != null) {
+                // If we had a previous block running, save it before starting this new one
+                if (currentStartTime != null && currentText.isNotEmpty()) {
+                    val cleanText = currentText.toString().replace(Regex("<[^>]*>"), "").trim() // Strip HTML/VTT tags
+                    if (cleanText.isNotBlank()) {
+                        syncedLyrics.add(com.example.musicpiped.data.SyncedLyricLine(currentStartTime, cleanText))
+                    }
+                    currentText.clear()
+                }
+                
+                // Parse new start time
+                try {
+                    val hoursStr = match.groupValues[1]
+                    val minSecStr = match.groupValues[2] // "MM:SS"
+                    val msStr = match.groupValues[3] // "MMM"
+                    
+                    val hours = if (hoursStr.isNotBlank()) hoursStr.replace(":", "").toLong() else 0L
+                    val minSecParts = minSecStr.split(":")
+                    val minutes = minSecParts[0].toLong()
+                    val seconds = minSecParts[1].toLong()
+                    val ms = msStr.toLong()
+                    
+                    currentStartTime = (hours * 3600000L) + (minutes * 60000L) + (seconds * 1000L) + ms
+                } catch (e: Exception) {
+                    currentStartTime = null
+                }
+            } else if (currentStartTime != null && !trimmed.all { it.isDigit() }) {
+                // Ignore plain digit lines (often block IDs in SRT/VTT)
+                if (currentText.isNotEmpty()) currentText.append("\n")
+                currentText.append(trimmed)
+            }
+        }
+        
+        // Add final block
+        if (currentStartTime != null && currentText.isNotEmpty()) {
+            val cleanText = currentText.toString().replace(Regex("<[^>]*>"), "").trim()
+            if (cleanText.isNotBlank()) {
+                syncedLyrics.add(com.example.musicpiped.data.SyncedLyricLine(currentStartTime, cleanText))
+            }
+        }
+        
+        return syncedLyrics.sortedBy { it.startTimeMs }
     }
 
     private fun extractVideoId(url: String): String? {

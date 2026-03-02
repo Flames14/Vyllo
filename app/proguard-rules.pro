@@ -1,3 +1,6 @@
+# Keep App Models unconditionally for JSON Serialization
+-keep class com.example.musicpiped.** { *; }
+
 # Keep NewPipe Extractor classes
 -keep class org.schabi.newpipe.extractor.** { *; }
 -keep class org.mozilla.javascript.** { *; }

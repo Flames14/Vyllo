@@ -20,6 +20,11 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.flow.collectLatest
 import com.example.musicpiped.data.download.DownloadEntity
+import com.example.musicpiped.data.LyricsResponse
+import com.example.musicpiped.data.LyricsResult
+import com.example.musicpiped.data.SyncedLyricLine
+import com.example.musicpiped.data.LyricsEngine
+import com.example.musicpiped.data.TranslationEngine
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val context = application.applicationContext
@@ -32,6 +37,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     var exploreCategories by mutableStateOf<List<String>>(
         listOf("New releases", "Charts", "Moods & genres", "Party", "Romance", "Sleep", "Workout")
     )
+    var selectedExploreCategory by mutableStateOf<String?>(null)
     
     // YTM-style categorized home content
     var listenAgainItems by mutableStateOf<List<MusicItem>>(emptyList())
@@ -48,8 +54,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     var trendingNowRows by mutableStateOf<List<List<MusicItem>>>(emptyList())
     
     var selectedChip by mutableStateOf("All")
-    var selectedNavTab by mutableStateOf(0) // 0=Home, 1=Library
+    var selectedNavTab by mutableStateOf(0) // 0=Home, 1=Explore, 2=Library
     
+    var exploreTrendingItems by mutableStateOf<List<MusicItem>>(emptyList())
+    var isLoadingExplore by mutableStateOf(false)
+
     var homeTitle by mutableStateOf("Recommended For You")
     var isLoading by mutableStateOf(false)
     var isLoadingMore by mutableStateOf(false)
@@ -57,6 +66,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     var showSettings by mutableStateOf(false)
     var isFloatingEnabled by mutableStateOf(MusicRepository.isFloatingPlayerEnabled)
     var isBackgroundPlaybackEnabled by mutableStateOf(MusicRepository.isBackgroundPlaybackEnabled)
+    var themeMode by mutableStateOf(MusicRepository.themeMode)
+
     
     // Fix #8: Show buffering state immediately
     var isLoadingPlayer by mutableStateOf(false)
@@ -69,7 +80,31 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     var currentPlayingItem by mutableStateOf<MusicItem?>(null)
     var relatedSongs by mutableStateOf<List<MusicItem>>(emptyList())
     var autoplayEnabled by mutableStateOf(true)
-    
+
+    // --- Lyrics state ---
+    var lyricsResponse by mutableStateOf<LyricsResponse?>(null)
+    var syncedLyricsLines by mutableStateOf<List<SyncedLyricLine>>(emptyList())
+    var currentLyricIndex by mutableStateOf(-1)
+    var lyricsLoading by mutableStateOf(false)
+    var showLyricsSelector by mutableStateOf(false)
+    var lyricsSearchQuery by mutableStateOf("")
+    var lyricsSearchResults by mutableStateOf<List<LyricsResult>>(emptyList())
+    var lyricsSearching by mutableStateOf(false)
+    private var currentLyricsUrl: String? = null
+    private var lyricsJob: Job? = null
+    private var lyricsSearchJob: Job? = null
+
+    // --- Speech-to-text state ---
+    var isListening by mutableStateOf(false)
+
+    // --- Translation state ---
+    var translatedLyricsLines by mutableStateOf<List<String?>>(emptyList())
+    var translatedPlainLyrics by mutableStateOf<String?>(null)
+    var isTranslationEnabled by mutableStateOf(false)
+    var isTranslating by mutableStateOf(false)
+    var detectedLyricsLangCode by mutableStateOf<String?>(null)
+    private var translationJob: Job? = null
+
     // Fix #7: Lock extractor per video (Job cancellation)
     private var playbackJob: Job? = null
 
@@ -111,6 +146,145 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             if (isActive) { // Only return result if job wasn't cancelled
                 onResult(url)
             }
+        }
+    }
+
+    private var lastFetchedDuration: Long = 0
+
+    fun fetchLyrics(item: MusicItem, durationSecs: Long) {
+        // Only return if it's the same URL AND we already have a valid duration-based fetch
+        if (currentLyricsUrl == item.url && (lastFetchedDuration > 0 || durationSecs == 0L)) return 
+        
+        currentLyricsUrl = item.url
+        lastFetchedDuration = durationSecs
+        lyricsResponse = null
+        syncedLyricsLines = emptyList()
+        currentLyricIndex = -1
+        lyricsLoading = true
+        showLyricsSelector = false
+        lyricsSearchQuery = ""
+        lyricsSearchResults = emptyList()
+        // Reset translation state on song change
+        translatedLyricsLines = emptyList()
+        translatedPlainLyrics = null
+        isTranslationEnabled = false
+        isTranslating = false
+        detectedLyricsLangCode = null
+        translationJob?.cancel()
+        TranslationEngine.resetSession()
+        lyricsJob?.cancel()
+        lyricsJob = viewModelScope.launch(Dispatchers.IO) {
+            val result = MusicRepository.getLyrics(
+                title = item.title,
+                artist = item.uploader,
+                durationSecs = durationSecs,
+                videoUrl = item.url
+            )
+            lyricsResponse = result
+            syncedLyricsLines = result?.syncedLines ?: emptyList()
+            lyricsLoading = false
+
+            // Use local language detection for translation toggle visibility
+            // LyricsEngine.detectLanguage() already ran during buildResponse()
+            val detectedLanguages = result?.languages ?: listOf("english")
+            detectedLyricsLangCode = if (detectedLanguages.any { it != "english" }) {
+                detectedLanguages.firstOrNull { it != "english" } ?: "english"
+            } else {
+                "english"
+            }
+        }
+    }
+
+    fun updateLyricsPosition(positionMs: Long) {
+        val index = LyricsEngine.getCurrentLyricLine(syncedLyricsLines, positionMs)
+        if (index != currentLyricIndex) {
+            currentLyricIndex = index
+        }
+    }
+
+    /**
+     * Switches to a different lyrics candidate from the available alternatives.
+     * Also saves the preference so it persists across sessions.
+     */
+    fun selectAlternativeLyrics(result: LyricsResult) {
+        val parsedLines = LyricsEngine.parseSyncedLyrics(result.syncedLyrics)
+        syncedLyricsLines = parsedLines
+        currentLyricIndex = -1
+        showLyricsSelector = false
+        lyricsSearchQuery = ""
+        lyricsSearchResults = emptyList()
+
+        // Save preference for this song
+        currentLyricsUrl?.let { url ->
+            MusicRepository.saveLyricsPreference(url, result.id)
+        }
+
+        // Update the lyricsResponse to reflect the new selection
+        lyricsResponse = lyricsResponse?.copy(
+            result = result,
+            plainLyrics = result.plainLyrics,
+            syncedLines = parsedLines.takeIf { it.isNotEmpty() },
+            lyricsStatus = com.example.musicpiped.data.LyricsStatus(
+                hasPlain = result.plainLyrics != null,
+                hasSynced = result.syncedLyrics != null,
+                isInstrumental = result.instrumental
+            )
+        )
+    }
+
+    /**
+     * Manual lyrics search by custom query.
+     */
+    fun searchForLyrics(query: String) {
+        if (query.isBlank()) return
+        lyricsSearching = true
+        lyricsSearchJob?.cancel()
+        lyricsSearchJob = viewModelScope.launch(Dispatchers.IO) {
+            val results = LyricsEngine.searchLyrics(query)
+            lyricsSearchResults = results
+            lyricsSearching = false
+        }
+    }
+
+    fun clearLyricsSearch() {
+        lyricsSearchQuery = ""
+        lyricsSearchResults = emptyList()
+        lyricsSearching = false
+        lyricsSearchJob?.cancel()
+    }
+
+    /**
+     * Translates the currently loaded lyrics (synced or plain) to English.
+     */
+    fun translateCurrentLyrics() {
+        translationJob?.cancel()
+        isTranslating = true
+        translationJob = viewModelScope.launch(Dispatchers.IO) {
+            val sourceLang = "auto"
+
+            if (syncedLyricsLines.isNotEmpty()) {
+                // Translate synced lyrics line by line
+                val translated = TranslationEngine.translateLines(syncedLyricsLines, sourceLang)
+                translatedLyricsLines = translated
+            } else {
+                // Translate plain lyrics
+                val plain = lyricsResponse?.plainLyrics
+                if (!plain.isNullOrBlank()) {
+                    translatedPlainLyrics = TranslationEngine.translatePlainLyrics(plain, sourceLang)
+                }
+            }
+
+            isTranslating = false
+        }
+    }
+
+    /**
+     * Toggles translation on/off. Fetches translations on first enable.
+     */
+    fun toggleTranslation(enabled: Boolean) {
+        isTranslationEnabled = enabled
+        if (enabled && translatedLyricsLines.isEmpty() && translatedPlainLyrics == null) {
+            translateCurrentLyrics()
         }
     }
 
@@ -207,6 +381,19 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         MusicRepository.isBackgroundPlaybackEnabled = enabled
     }
 
+    fun updateThemeMode(newTheme: String) {
+        themeMode = newTheme
+        MusicRepository.themeMode = newTheme
+    }
+
+    var isLiquidScrollEnabled by mutableStateOf(MusicRepository.isLiquidScrollEnabled)
+
+    fun toggleLiquidScroll(enabled: Boolean) {
+        isLiquidScrollEnabled = enabled
+        MusicRepository.isLiquidScrollEnabled = enabled
+    }
+
+
     fun loadHomeContent() {
         viewModelScope.launch {
             isLoading = true
@@ -246,6 +433,52 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    fun loadExploreContent() {
+        if (exploreTrendingItems.isNotEmpty() && selectedExploreCategory == null) return // Already loaded
+        
+        viewModelScope.launch {
+            isLoadingExplore = true
+            try {
+                exploreTrendingItems = MusicRepository.getTrendingMusic()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                isLoadingExplore = false
+            }
+        }
+    }
+
+    fun onExploreCategorySelected(category: String) {
+        if (selectedExploreCategory == category) {
+            selectedExploreCategory = null
+            exploreTrendingItems = emptyList() // clear it to force loading default
+            loadExploreContent()
+            return
+        }
+        
+        selectedExploreCategory = category
+        viewModelScope.launch {
+            isLoadingExplore = true
+            try {
+                val query = when (category) {
+                    "New releases" -> "new music releases official"
+                    "Charts" -> "top music charts global official"
+                    "Moods & genres" -> "moods and genres music mix"
+                    "Party" -> "party playlist official"
+                    "Romance" -> "romantic love songs playlist"
+                    "Sleep" -> "sleep relaxing music"
+                    "Workout" -> "workout gym motivation playlist"
+                    else -> "$category playlist"
+                }
+                exploreTrendingItems = MusicRepository.searchMusic(query, maintainSession = false)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                isLoadingExplore = false
+            }
+        }
+    }
+
     private fun loadMoodContent() {
         viewModelScope.launch {
             // Load chill/relax music - use maintainSession=false to keep main extractor
