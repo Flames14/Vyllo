@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "bing-translate-api": "^4.2.0"
+  }
+}
