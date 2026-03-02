@@ -67,7 +67,7 @@ In a world full of noise, YMusic focuses on what matters most: **the music**. We
 
 ## 🎬 App Preview
 
-https://github.com/Flames14/YMusic/raw/master/demo.mp4
+![App Preview](demo.mp4)
 
 ## 🤝 Contributing
 
