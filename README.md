@@ -59,10 +59,19 @@ In a world full of noise, YMusic focuses on what matters most: **the music**. We
 
 ## 🚀 Installation
 
-### From GitHub Releases
-1. Download the latest APK from the [Releases](https://github.com/Flames14/YMusic/releases) page
+### From APKPure
+1. Download the app from [APKPure](https://apkpure.com/ymusic/com.example.musicpiped)
+2. Install the APK on your Android device
+
+### From GitHub
+1. Download the latest APK from the [GitHub Releases](https://github.com/Flames14/YMusic/releases) page
 2. Install the APK on your Android device
 3. Grant necessary permissions when prompted
+
+## 🔗 Project Links
+
+- **GitHub Repository**: [https://github.com/Flames14/YMusic](https://github.com/Flames14/YMusic)
+- **APKPure Page**: [https://apkpure.com/ymusic/com.example.musicpiped](https://apkpure.com/ymusic/com.example.musicpiped)
 
 
 ## 🖼️ App Screenshots
