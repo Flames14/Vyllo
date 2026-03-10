@@ -113,6 +113,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             val related = MusicRepository.getRelatedSongs(item.url)
             if (related.isNotEmpty()) {
                 relatedSongs = related
+                
+                // Sync related songs into the service queue so background autoplay
+                // uses the "Up Next" list instead of the original quick picks
+                val currentIdx = MusicRepository.currentIndex
+                if (currentIdx >= 0) {
+                    // Keep items up to and including current, replace the rest with related songs
+                    val kept = MusicRepository.currentQueue.take(currentIdx + 1)
+                    MusicRepository.currentQueue.clear()
+                    MusicRepository.currentQueue.addAll(kept)
+                    MusicRepository.currentQueue.addAll(related)
+                }
             }
         }
     }

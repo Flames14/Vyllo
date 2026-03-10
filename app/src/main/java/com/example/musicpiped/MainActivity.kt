@@ -365,17 +365,13 @@ class MainActivity : ComponentActivity() {
         viewModel.currentPlayingItem = item
         
         // Update Repository Queue for Background Service source of truth
-        val currentList = if (viewModel.searchResults.isNotEmpty()) viewModel.searchResults else viewModel.homePlaylists
-        if (currentList.isNotEmpty()) {
-            MusicRepository.currentQueue.clear()
-            MusicRepository.currentQueue.addAll(currentList)
-            MusicRepository.currentIndex = MusicRepository.currentQueue.indexOfFirst { it.url == item.url }
-        } else {
-            // Single song play (no search results/playlists active)
-            MusicRepository.currentQueue.clear()
-            MusicRepository.currentQueue.add(item)
-            MusicRepository.currentIndex = 0
-        }
+        // NEW logic: Always treat single song selections as "Autoplay/Radio" starts.
+        // We only populate a full queue if we are playing from a curated playlist (todo).
+        // For now, clearing and adding the single item ensures that loadRelatedSongs()
+        // or the Service's own discovery logic determines the NEXT tracks.
+        MusicRepository.currentQueue.clear()
+        MusicRepository.currentQueue.add(item)
+        MusicRepository.currentIndex = 0
         
         val controller = mediaController ?: return
         controller.stop()
