@@ -36,6 +36,10 @@ object MusicRepository {
     private var currentExtractor: org.schabi.newpipe.extractor.ListExtractor<*>? = null
     private var nextSearchPage: Page? = null
     
+    // --- GLOBAL PLAYBACK QUEUE ---
+    var currentQueue = mutableListOf<MusicItem>()
+    var currentIndex = -1
+    
     // Cache for current song to avoid double extraction (getStreamUrl + getRelatedSongs)
     private var currentStreamUrl: String? = null
     private var currentStreamInfo: StreamInfo? = null

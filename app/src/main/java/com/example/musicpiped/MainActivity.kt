@@ -6,8 +6,10 @@ import android.os.Bundle
 import android.widget.Toast
 import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.PowerManager
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.activity.ComponentActivity
@@ -129,6 +131,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var controllerFuture: ListenableFuture<MediaController>
     private var mediaController by mutableStateOf<MediaController?>(null)
     private val viewModel: MusicViewModel by viewModels()
+    private var transitionWakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -152,6 +155,8 @@ class MainActivity : ComponentActivity() {
         }
         hideSystemBars()
         
+        // Removed transitionWakeLock from Activity, moving to Service for robustness
+        
         MusicRepository.init(applicationContext)
 
 
@@ -167,11 +172,8 @@ class MainActivity : ComponentActivity() {
                 
                 // Add permanent continuous listener for background playback progression
                 controller.addListener(object : androidx.media3.common.Player.Listener {
-                    override fun onPlaybackStateChanged(playbackState: Int) {
-                        if (playbackState == androidx.media3.common.Player.STATE_ENDED) {
-                            playNext(viewModel, viewModel.currentPlayingItem)
-                        }
-                    }
+                    // All background transition logic moved to MusicService.kt
+                    // for robustness against Activity suspension.
                 })
             } catch (e: Exception) { e.printStackTrace() }
         }, androidx.core.content.ContextCompat.getMainExecutor(this))
@@ -362,6 +364,19 @@ class MainActivity : ComponentActivity() {
         // Optimistic update: Show player immediately
         viewModel.currentPlayingItem = item
         
+        // Update Repository Queue for Background Service source of truth
+        val currentList = if (viewModel.searchResults.isNotEmpty()) viewModel.searchResults else viewModel.homePlaylists
+        if (currentList.isNotEmpty()) {
+            MusicRepository.currentQueue.clear()
+            MusicRepository.currentQueue.addAll(currentList)
+            MusicRepository.currentIndex = MusicRepository.currentQueue.indexOfFirst { it.url == item.url }
+        } else {
+            // Single song play (no search results/playlists active)
+            MusicRepository.currentQueue.clear()
+            MusicRepository.currentQueue.add(item)
+            MusicRepository.currentIndex = 0
+        }
+        
         val controller = mediaController ?: return
         controller.stop()
         
@@ -373,7 +388,11 @@ class MainActivity : ComponentActivity() {
                     .setArtist(item.uploader)
                     .setArtworkUri(android.net.Uri.parse(item.thumbnailUrl))
                     .build()
-                val mediaItem = MediaItem.Builder().setUri(streamUrl).setMediaMetadata(metadata).build()
+                val mediaItem = MediaItem.Builder()
+                    .setMediaId(item.url) // Critical for background transition sync
+                    .setUri(streamUrl)
+                    .setMediaMetadata(metadata)
+                    .build()
                 controller.setMediaItem(mediaItem)
                 controller.prepare()
                 controller.play()
@@ -512,16 +531,24 @@ fun MusicAppContent(
         val listener = object : androidx.media3.common.Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                mediaItem?.mediaMetadata?.let { meta ->
-                    val newItemTitle = meta.title.toString()
-                    if (viewModel.currentPlayingItem?.title != newItemTitle) {
-                         viewModel.currentPlayingItem = MusicItem(
-                            title = newItemTitle,
-                            uploader = meta.artist.toString(),
-                            thumbnailUrl = meta.artworkUri.toString(),
-                            url = "" 
-                        )
-                    }
+                val mediaId = mediaItem?.mediaId ?: return
+                // Try to find the full item from global queue or recently played
+                val fullItem = MusicRepository.currentQueue.find { it.url == mediaId }
+                
+                if (fullItem != null) {
+                    viewModel.currentPlayingItem = fullItem
+                    // Also update repository index if needed (e.g. if transition happened in bg)
+                    val idx = MusicRepository.currentQueue.indexOf(fullItem)
+                    if (idx != -1) MusicRepository.currentIndex = idx
+                } else if (mediaItem.mediaMetadata.title != null) {
+                    // Fallback to basic reconstruction if not in queue
+                    val meta = mediaItem.mediaMetadata
+                    viewModel.currentPlayingItem = MusicItem(
+                        title = meta.title.toString(),
+                        uploader = meta.artist.toString(),
+                        thumbnailUrl = meta.artworkUri.toString(),
+                        url = mediaId
+                    )
                 }
             }
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
