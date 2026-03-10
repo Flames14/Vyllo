@@ -107,7 +107,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 
 dependencies {
     // NewPipe Extractor
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.25.2")
+    implementation("com.github.teamnewpipe:newpipeextractor:v0.26.0")
 
     // Network
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

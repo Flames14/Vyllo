@@ -14,7 +14,17 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import android.net.wifi.WifiManager
+import android.os.PowerManager
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
 import com.example.musicpiped.MainActivity
+import com.example.musicpiped.data.MusicRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -23,6 +33,14 @@ import kotlin.system.exitProcess
 class MusicService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var player: ExoPlayer? = null
+    
+    // Background execution scope
+    private val serviceJob = SupervisorJob()
+    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
+    
+    // Locks for background transition
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var wifiLock: WifiManager.WifiLock? = null
 
     companion object {
         @Volatile
@@ -82,18 +100,40 @@ class MusicService : MediaSessionService() {
                     .build(), 
                 false // Disable automatic audio focus handling (fix for camera interruption)
             )
+            .setWakeMode(C.WAKE_MODE_NETWORK) // Keep CPU awake during network fetch and playback
             .build()
 
-        // --- RETRY MECHANISM ---
-        player?.addListener(object : androidx.media3.common.Player.Listener {
+        // Initialize Locks
+        val powerManager = getSystemService(android.content.Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MusicPiped::ServiceWakeLock")
+        
+        val wifiManager = getSystemService(android.content.Context.WIFI_SERVICE) as WifiManager
+        wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "MusicPiped::ServiceWifiLock")
+
+        // --- RETRY & AUTO-PLAY MECHANISM ---
+        player?.addListener(object : Player.Listener {
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                // Check if it's a network error (BehindLiveWindowException is common for live streams, but for files it's often network)
-                // We'll retry for any error to be robust, with a small delay
                 val handler = android.os.Handler(android.os.Looper.getMainLooper())
                 handler.postDelayed({
                     player?.prepare()
                     player?.play()
-                }, 2000) // Retry after 2 seconds
+                }, 2000)
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) {
+                    val p = player ?: return
+                    // Fallback: if prefetch failed or queue ended, try playing next explicitly
+                    if (!p.hasNextMediaItem()) {
+                        playNextTrack()
+                    }
+                }
+            }
+            
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                // Eagerly prefetch and enqueue the next song so ExoPlayer can buffer it
+                // natively and seamlessly transition without dropping the active WakeLock.
+                enqueueNextTrackIfNeeded(mediaItem)
             }
         })
         
@@ -135,8 +175,107 @@ class MusicService : MediaSessionService() {
         super.onTaskRemoved(rootIntent)
     }
 
+    private fun enqueueNextTrackIfNeeded(currentMediaItem: MediaItem?) {
+        val player = this.player ?: return
+        val currentMediaId = currentMediaItem?.mediaId ?: return
+        
+        serviceScope.launch {
+            val queue = MusicRepository.currentQueue
+            val currentIndex = queue.indexOfFirst { it.url == currentMediaId }
+            if (currentIndex == -1) return@launch
+            
+            MusicRepository.currentIndex = currentIndex
+            
+            // Check if player already has upcoming items
+            if (player.mediaItemCount > 1 && player.currentMediaItemIndex < player.mediaItemCount - 1) {
+                return@launch
+            }
+            
+            val nextIndex = currentIndex + 1
+            if (nextIndex < queue.size) {
+                val nextTrack = queue[nextIndex]
+                try {
+                    // Acquire locks to prevent Deep Sleep during background stream extraction
+                    wakeLock?.acquire(30000L)
+                    wifiLock?.acquire()
+                    
+                    val streamUrl = MusicRepository.getStreamUrl(nextTrack.url, force = false)
+                    if (streamUrl != null) {
+                        val metadata = MediaMetadata.Builder()
+                            .setTitle(nextTrack.title)
+                            .setArtist(nextTrack.uploader)
+                            .setArtworkUri(android.net.Uri.parse(nextTrack.thumbnailUrl))
+                            .build()
+                        
+                        val mediaItem = MediaItem.Builder()
+                            .setMediaId(nextTrack.url) // Critical for UI sync
+                            .setUri(streamUrl)
+                            .setMediaMetadata(metadata)
+                            .build()
+                        
+                        // Append to ExoPlayer's internal playlist
+                        player.addMediaItem(mediaItem)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    if (wakeLock?.isHeld == true) wakeLock?.release()
+                    if (wifiLock?.isHeld == true) wifiLock?.release()
+                }
+            }
+        }
+    }
+
+    private fun playNextTrack() {
+        val nextIndex = MusicRepository.currentIndex + 1
+        if (nextIndex < MusicRepository.currentQueue.size) {
+            val nextTrack = MusicRepository.currentQueue[nextIndex]
+            MusicRepository.currentIndex = nextIndex
+            
+            // Resolve & Play in background scope
+            serviceScope.launch {
+                try {
+                    // Acquire locks to prevent CPU/Network sleep during extraction
+                    wakeLock?.acquire(15000L)
+                    wifiLock?.acquire()
+                    
+                    val streamUrl = MusicRepository.getStreamUrl(nextTrack.url, force = false)
+                    if (streamUrl != null) {
+                        val metadata = MediaMetadata.Builder()
+                            .setTitle(nextTrack.title)
+                            .setArtist(nextTrack.uploader)
+                            .setArtworkUri(android.net.Uri.parse(nextTrack.thumbnailUrl))
+                            .build()
+                        
+                        val mediaItem = MediaItem.Builder()
+                            .setMediaId(nextTrack.url) // Critical for UI sync
+                            .setUri(streamUrl)
+                            .setMediaMetadata(metadata)
+                            .build()
+                        
+                        player?.let { p ->
+                            p.setMediaItem(mediaItem)
+                            p.prepare()
+                            p.play()
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    // Always release locks
+                    if (wakeLock?.isHeld == true) wakeLock?.release()
+                    if (wifiLock?.isHeld == true) wifiLock?.release()
+                }
+            }
+        }
+    }
+
     // Cleanup
     override fun onDestroy() {
+        serviceJob.cancel()
+        if (wakeLock?.isHeld == true) wakeLock?.release()
+        if (wifiLock?.isHeld == true) wifiLock?.release()
+        
         mediaSession?.run {
             player?.release()
             release()
