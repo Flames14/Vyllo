@@ -51,10 +51,11 @@ object MusicRepository {
         .build()
 
     // Chipset-aware Optimization: Specialized dispatcher for heavy extraction work
-    // Single thread (limit concurrency) + Background priority (keep big cores for UI)
+    // Single thread (limit concurrency) + NORMAL priority (prevent Doze mode starvation)
+    // Note: Thread.priority uses Java range 1-10 (Thread.NORM_PRIORITY=5), NOT Android Process priorities
     private val extractorDispatcher = java.util.concurrent.Executors.newFixedThreadPool(1) { r ->
         Thread(r).apply {
-            priority = android.os.Process.THREAD_PRIORITY_BACKGROUND
+            priority = Thread.NORM_PRIORITY  // Java Thread priority 5 (normal)
         }
     }.asCoroutineDispatcher()
 

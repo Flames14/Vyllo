@@ -105,10 +105,14 @@ class MusicService : MediaSessionService() {
 
         // Initialize Locks
         val powerManager = getSystemService(android.content.Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MusicPiped::ServiceWakeLock")
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MusicPiped::ServiceWakeLock").apply {
+            setReferenceCounted(false)
+        }
         
         val wifiManager = getSystemService(android.content.Context.WIFI_SERVICE) as WifiManager
-        wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "MusicPiped::ServiceWifiLock")
+        wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "MusicPiped::ServiceWifiLock").apply {
+            setReferenceCounted(false)
+        }
 
         // --- RETRY & AUTO-PLAY MECHANISM ---
         player?.addListener(object : Player.Listener {
@@ -191,11 +195,43 @@ class MusicService : MediaSessionService() {
                 return@launch
             }
             
-            val nextIndex = currentIndex + 1
-            if (nextIndex < queue.size) {
-                val nextTrack = queue[nextIndex]
+            var nextIndex = currentIndex + 1
+            
+            // If queue is exhausted, proactively discover related songs NOW
+            // (don't wait until the song ends — prefetch so ExoPlayer can buffer seamlessly)
+            if (nextIndex >= queue.size) {
                 try {
-                    // Acquire locks to prevent Deep Sleep during background stream extraction
+                    wakeLock?.acquire(60000L)
+                    wifiLock?.acquire()
+                    
+                    android.util.Log.d("MusicService", "Prefetch: Queue exhausted, discovering related songs...")
+                    val currentUrl = queue.getOrNull(currentIndex)?.url ?: return@launch
+                    val related = MusicRepository.getRelatedSongs(currentUrl)
+                    if (related.isNotEmpty()) {
+                        val existingUrls = queue.map { it.url }.toSet()
+                        val newSongs = related.filter { it.url !in existingUrls }
+                        if (newSongs.isNotEmpty()) {
+                            MusicRepository.currentQueue.addAll(newSongs)
+                            android.util.Log.d("MusicService", "Prefetch: Added ${newSongs.size} related songs to queue")
+                        } else {
+                            MusicRepository.currentQueue.addAll(related.take(5))
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("MusicService", "Prefetch discovery failed", e)
+                } finally {
+                    kotlinx.coroutines.delay(2000L)
+                    if (wakeLock?.isHeld == true) wakeLock?.release()
+                    if (wifiLock?.isHeld == true) wifiLock?.release()
+                }
+                // Re-check after discovery
+                nextIndex = currentIndex + 1
+            }
+            
+            // Now enqueue the next track if available
+            if (nextIndex < MusicRepository.currentQueue.size) {
+                val nextTrack = MusicRepository.currentQueue[nextIndex]
+                try {
                     wakeLock?.acquire(30000L)
                     wifiLock?.acquire()
                     
@@ -208,17 +244,19 @@ class MusicService : MediaSessionService() {
                             .build()
                         
                         val mediaItem = MediaItem.Builder()
-                            .setMediaId(nextTrack.url) // Critical for UI sync
+                            .setMediaId(nextTrack.url)
                             .setUri(streamUrl)
                             .setMediaMetadata(metadata)
                             .build()
                         
-                        // Append to ExoPlayer's internal playlist
+                        // Append to ExoPlayer's internal playlist for seamless transition
                         player.addMediaItem(mediaItem)
+                        android.util.Log.d("MusicService", "Prefetch: Enqueued '${nextTrack.title}' for seamless playback")
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 } finally {
+                    kotlinx.coroutines.delay(2000L)
                     if (wakeLock?.isHeld == true) wakeLock?.release()
                     if (wifiLock?.isHeld == true) wifiLock?.release()
                 }
@@ -229,43 +267,83 @@ class MusicService : MediaSessionService() {
     private fun playNextTrack() {
         val nextIndex = MusicRepository.currentIndex + 1
         if (nextIndex < MusicRepository.currentQueue.size) {
-            val nextTrack = MusicRepository.currentQueue[nextIndex]
-            MusicRepository.currentIndex = nextIndex
-            
-            // Resolve & Play in background scope
-            serviceScope.launch {
-                try {
-                    // Acquire locks to prevent CPU/Network sleep during extraction
-                    wakeLock?.acquire(15000L)
-                    wifiLock?.acquire()
-                    
-                    val streamUrl = MusicRepository.getStreamUrl(nextTrack.url, force = false)
-                    if (streamUrl != null) {
-                        val metadata = MediaMetadata.Builder()
-                            .setTitle(nextTrack.title)
-                            .setArtist(nextTrack.uploader)
-                            .setArtworkUri(android.net.Uri.parse(nextTrack.thumbnailUrl))
-                            .build()
+            playTrackAtIndex(nextIndex)
+        } else {
+            // Queue exhausted — discover related songs for autoplay
+            // This is the key fix: the service fetches new songs itself,
+            // so autoplay works even when the UI/ViewModel is inactive (screen locked)
+            val currentUrl = MusicRepository.currentQueue.getOrNull(MusicRepository.currentIndex)?.url
+            if (currentUrl != null) {
+                serviceScope.launch {
+                    try {
+                        wakeLock?.acquire(60000L)  // Longer timeout for discovery + play
+                        wifiLock?.acquire()
                         
-                        val mediaItem = MediaItem.Builder()
-                            .setMediaId(nextTrack.url) // Critical for UI sync
-                            .setUri(streamUrl)
-                            .setMediaMetadata(metadata)
-                            .build()
-                        
-                        player?.let { p ->
-                            p.setMediaItem(mediaItem)
-                            p.prepare()
-                            p.play()
+                        android.util.Log.d("MusicService", "Queue exhausted. Fetching related songs for autoplay...")
+                        val related = MusicRepository.getRelatedSongs(currentUrl)
+                        if (related.isNotEmpty()) {
+                            // Filter out songs already in queue to avoid loops
+                            val existingUrls = MusicRepository.currentQueue.map { it.url }.toSet()
+                            val newSongs = related.filter { it.url !in existingUrls }
+                            
+                            if (newSongs.isNotEmpty()) {
+                                MusicRepository.currentQueue.addAll(newSongs)
+                                android.util.Log.d("MusicService", "Added ${newSongs.size} related songs to queue. Playing next...")
+                                playTrackAtIndex(MusicRepository.currentIndex + 1)
+                            } else {
+                                // All related songs are already played, just add them anyway to keep music going
+                                MusicRepository.currentQueue.addAll(related.take(5))
+                                playTrackAtIndex(MusicRepository.currentIndex + 1)
+                            }
                         }
+                    } catch (e: Exception) {
+                        android.util.Log.e("MusicService", "Autoplay discovery failed", e)
+                    } finally {
+                        kotlinx.coroutines.delay(2000L)
+                        if (wakeLock?.isHeld == true) wakeLock?.release()
+                        if (wifiLock?.isHeld == true) wifiLock?.release()
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                } finally {
-                    // Always release locks
-                    if (wakeLock?.isHeld == true) wakeLock?.release()
-                    if (wifiLock?.isHeld == true) wifiLock?.release()
                 }
+            }
+        }
+    }
+
+    private fun playTrackAtIndex(index: Int) {
+        if (index >= MusicRepository.currentQueue.size) return
+        val track = MusicRepository.currentQueue[index]
+        MusicRepository.currentIndex = index
+        
+        serviceScope.launch {
+            try {
+                wakeLock?.acquire(30000L)
+                wifiLock?.acquire()
+                
+                val streamUrl = MusicRepository.getStreamUrl(track.url, force = false)
+                if (streamUrl != null) {
+                    val metadata = MediaMetadata.Builder()
+                        .setTitle(track.title)
+                        .setArtist(track.uploader)
+                        .setArtworkUri(android.net.Uri.parse(track.thumbnailUrl))
+                        .build()
+                    
+                    val mediaItem = MediaItem.Builder()
+                        .setMediaId(track.url)
+                        .setUri(streamUrl)
+                        .setMediaMetadata(metadata)
+                        .build()
+                    
+                    player?.let { p ->
+                        p.setMediaItem(mediaItem)
+                        p.prepare()
+                        p.play()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                kotlinx.coroutines.delay(2000L)
+                if (wakeLock?.isHeld == true) wakeLock?.release()
+                if (wifiLock?.isHeld == true) wifiLock?.release()
             }
         }
     }
