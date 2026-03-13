@@ -1,6 +1,8 @@
 package com.example.musicpiped.data
 
 import com.example.musicpiped.network.OkHttpDownloader
+import com.example.musicpiped.data.download.PlaylistEntity
+import com.example.musicpiped.data.download.PlaylistSongEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -287,15 +289,15 @@ object MusicRepository {
             if (!isInitialized) return@withContext null
             val streamInfo = getOrFetchStreamInfo(url, force)
             
-            // Priority: Opus > M4A > MP3, then bitrate
+            // Priority: M4A > MP3 > Opus, then bitrate
             var audioStream = streamInfo.audioStreams
                 .filter { 
                     val fmt = it.format?.toString()?.uppercase() ?: ""
-                    fmt.contains("OPUS") || fmt.contains("M4A")
+                    fmt.contains("M4A") || fmt.contains("MP3")
                 }
                 .maxByOrNull { it.averageBitrate } 
             
-            // Fallback 1: Any audio stream with highest bitrate
+            // Fallback 1: Any audio stream (including Opus) with highest bitrate
             if (audioStream == null) {
                 audioStream = streamInfo.audioStreams.maxByOrNull { it.averageBitrate }
             }
@@ -363,12 +365,40 @@ object MusicRepository {
             preferences?.edit()?.putString("theme_mode", value)?.apply()
         }
 
+    // --- FEATURE: KEEP AUDIO PLAYING ---
+    var isKeepAudioPlayingEnabled: Boolean
+        get() = preferences?.getBoolean("keep_audio_playing_enabled", false) ?: false
+        set(value) {
+            preferences?.edit()?.putBoolean("keep_audio_playing_enabled", value)?.apply()
+        }
+
     // --- FEATURE: LIQUID SMOOTH SCROLL ---
     var isLiquidScrollEnabled: Boolean
         get() = preferences?.getBoolean("liquid_scroll_enabled", false) ?: false
         set(value) {
             preferences?.edit()?.putBoolean("liquid_scroll_enabled", value)?.apply()
         }
+
+    // --- FEATURE: SEARCH HISTORY ---
+    fun saveSearchQuery(query: String) {
+        if (query.isBlank()) return
+        val prefs = preferences ?: return
+        val history = loadSearchHistory().toMutableList()
+        history.remove(query)
+        history.add(0, query)
+        val limitedHistory = history.take(10)
+        prefs.edit().putString("search_history", limitedHistory.joinToString("|||")).apply()
+    }
+
+    fun loadSearchHistory(): List<String> {
+        val prefs = preferences ?: return emptyList()
+        val historyString = prefs.getString("search_history", "") ?: ""
+        return if (historyString.isBlank()) emptyList() else historyString.split("|||")
+    }
+
+    fun clearSearchHistory() {
+        preferences?.edit()?.remove("search_history")?.apply()
+    }
 
     // --- FEATURE: HISTORY PERSISTENCE ---
     fun saveHistory(items: List<MusicItem>) {
@@ -413,6 +443,41 @@ object MusicRepository {
         }
         return items
     }
+
+    // --- PLAYLIST FEATURE METHODS ---
+
+    fun getPlaylistDao(context: android.content.Context) = 
+        DownloadDatabase.getInstance(context).playlistDao()
+
+    fun getAllPlaylists(context: android.content.Context) = 
+        getPlaylistDao(context).getAllPlaylists()
+
+    suspend fun createPlaylist(context: android.content.Context, name: String) {
+        getPlaylistDao(context).insertPlaylist(PlaylistEntity(name = name))
+    }
+
+    suspend fun deletePlaylist(context: android.content.Context, playlist: PlaylistEntity) {
+        getPlaylistDao(context).deletePlaylist(playlist)
+    }
+
+    suspend fun addSongToPlaylist(context: android.content.Context, playlistId: Long, item: MusicItem) {
+        getPlaylistDao(context).insertSongToPlaylist(
+            PlaylistSongEntity(
+                playlistId = playlistId,
+                url = item.url,
+                title = item.title,
+                uploader = item.uploader,
+                thumbnailUrl = item.thumbnailUrl
+            )
+        )
+    }
+
+    suspend fun removeSongFromPlaylist(context: android.content.Context, playlistId: Long, url: String) {
+        getPlaylistDao(context).removeSongFromPlaylist(playlistId, url)
+    }
+
+    fun getSongsInPlaylist(context: android.content.Context, playlistId: Long) = 
+        getPlaylistDao(context).getSongsByPlaylist(playlistId)
 
     // --- DOWNLOAD FEATURE METHODS ---
 

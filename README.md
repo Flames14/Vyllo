@@ -47,6 +47,9 @@ In a world full of noise, YMusic focuses on what matters most: **the music**. We
 - ✅ Local file playback for downloaded content
 - ✅ **Universal Lyrics Engine**: Intelligent multi-source lyrics fetching with manual search fallback.
 - ✅ **Lyrics Persistence**: Saves and restores preferred lyrics for every song.
+- ✅ **Manual Lyrics Search**: Easily correct wrong lyrics with a permanent manual search option.
+- ✅ **Improved Lyrics Sync**: Relocated sync controls for a distraction-free reading experience.
+- ✅ **Keep Audio Playing**: Option in Settings to continue playback even when using microphone or camera.
 - ✅ **Smart Queue Management**: Functional "Up Next" queue with shuffle/repeat.
 - ✅ **Quick Skip**: 10-second forward/backward controls.
 - ✅ **Premium UI**: Enhanced visibility for light themes and glassmorphism-inspired elements.

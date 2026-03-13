@@ -2,6 +2,8 @@ package com.example.musicpiped
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,6 +22,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.flow.collectLatest
 import com.example.musicpiped.data.download.DownloadEntity
+import com.example.musicpiped.data.download.PlaylistEntity
+import com.example.musicpiped.data.download.PlaylistSongEntity
 import com.example.musicpiped.data.LyricsResponse
 import com.example.musicpiped.data.LyricsResult
 import com.example.musicpiped.data.SyncedLyricLine
@@ -32,6 +36,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     var searchQuery by mutableStateOf("")
     var searchResults by mutableStateOf<List<MusicItem>>(emptyList())
     var suggestions by mutableStateOf<List<String>>(emptyList())
+    var searchHistory by mutableStateOf<List<String>>(emptyList())
     var homePlaylists by mutableStateOf<List<MusicItem>>(emptyList())
     var recentlyPlayed by mutableStateOf<List<MusicItem>>(emptyList())
     var exploreCategories by mutableStateOf<List<String>>(
@@ -66,9 +71,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     var showSettings by mutableStateOf(false)
     var isFloatingEnabled by mutableStateOf(MusicRepository.isFloatingPlayerEnabled)
     var isBackgroundPlaybackEnabled by mutableStateOf(MusicRepository.isBackgroundPlaybackEnabled)
+    var isKeepAudioPlayingEnabled by mutableStateOf(MusicRepository.isKeepAudioPlayingEnabled)
     var themeMode by mutableStateOf(MusicRepository.themeMode)
 
-    
+    // Local Playlist states
+    var allPlaylists by mutableStateOf<List<PlaylistEntity>>(emptyList())
+    var currentPlaylistSongs by mutableStateOf<List<PlaylistSongEntity>>(emptyList())
+    var showPlaylistAddDialog by mutableStateOf(false)
+    var songToAddToPlaylist by mutableStateOf<MusicItem?>(null)
+    var selectedLocalPlaylist by mutableStateOf<PlaylistEntity?>(null)
+
     // Fix #8: Show buffering state immediately
     var isLoadingPlayer by mutableStateOf(false)
 
@@ -84,8 +96,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // --- Lyrics state ---
     var lyricsResponse by mutableStateOf<LyricsResponse?>(null)
     var syncedLyricsLines by mutableStateOf<List<SyncedLyricLine>>(emptyList())
-    var currentLyricIndex by mutableStateOf(-1)
+    var currentLyricIndex by mutableIntStateOf(-1)
     var lyricsLoading by mutableStateOf(false)
+    var lyricsOffsetMs by mutableLongStateOf(0L)
     var showLyricsSelector by mutableStateOf(false)
     var lyricsSearchQuery by mutableStateOf("")
     var lyricsSearchResults by mutableStateOf<List<LyricsResult>>(emptyList())
@@ -113,7 +126,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             val related = MusicRepository.getRelatedSongs(item.url)
             if (related.isNotEmpty()) {
                 relatedSongs = related
-                
+
                 // Sync related songs into the service queue so background autoplay
                 // uses the "Up Next" list instead of the original quick picks
                 val currentIdx = MusicRepository.currentIndex
@@ -127,13 +140,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-    
+
     // Fix #5, #6, #7: Atomic stream resolution with retry
     fun resolveStream(item: MusicItem, onResult: (String?) -> Unit) {
         playbackJob?.cancel() // Cancel previous resolution if user clicks fast
         playbackJob = viewModelScope.launch {
             isLoadingPlayer = true
-            
+
             // Step 0: Check local download first
             val localUrl = MusicRepository.getLocalStreamUrl(context, item.url)
             if (localUrl != null) {
@@ -146,13 +159,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
             // Step 1: Try standard resolution (uses cache if available)
             var url = MusicRepository.getStreamUrl(item.url, force = false)
-            
+
             // Step 2: If failed, try FORCE resolution (Fix #6)
             if (url == null) {
                  delay(300) // Small breather
                  url = MusicRepository.getStreamUrl(item.url, force = true)
             }
-            
+
             isLoadingPlayer = false
             if (isActive) { // Only return result if job wasn't cancelled
                 onResult(url)
@@ -164,8 +177,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun fetchLyrics(item: MusicItem, durationSecs: Long) {
         // Only return if it's the same URL AND we already have a valid duration-based fetch
-        if (currentLyricsUrl == item.url && (lastFetchedDuration > 0 || durationSecs == 0L)) return 
-        
+        if (currentLyricsUrl == item.url && (lastFetchedDuration > 0 || durationSecs == 0L)) return
+
         currentLyricsUrl = item.url
         lastFetchedDuration = durationSecs
         lyricsResponse = null
@@ -207,10 +220,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateLyricsPosition(positionMs: Long) {
-        val index = LyricsEngine.getCurrentLyricLine(syncedLyricsLines, positionMs)
+        val index = LyricsEngine.getCurrentLyricLine(syncedLyricsLines, positionMs + lyricsOffsetMs)
         if (index != currentLyricIndex) {
             currentLyricIndex = index
         }
+    }
+
+    fun adjustLyricsOffset(deltaMs: Long) {
+        lyricsOffsetMs += deltaMs
     }
 
     /**
@@ -301,16 +318,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun getNextAutoplayItem(): MusicItem? {
         if (!autoplayEnabled) return null
-        
+
         // 1. Filter out already recent played songs to avoid loops
         val candidates = relatedSongs.filter { candidate ->
             recentlyPlayed.none { it.title == candidate.title }
         }
-        
+
         // 2. Prioritize Songs over Playlists
         val bestMatch = candidates.firstOrNull { it.type == MusicItemType.SONG }
             ?: candidates.firstOrNull()
-            
+
         // 3. Fallback: If all suggestions are in history, just pick the first suggestion (loop > silence)
         return bestMatch ?: relatedSongs.firstOrNull()
     }
@@ -322,7 +339,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         currentList.removeAll { it.title == item.title }
         currentList.add(0, item)
         recentlyPlayed = currentList.take(20)
-        
+
         // Record for pattern analysis
         MusicRepository.recordListen(item)
         // Persist history
@@ -333,13 +350,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         // Fix #1 & #2: Allow first frame to render before loading content
         viewModelScope.launch {
             delay(150) // Small breather for UI thread
-            
-            launch(Dispatchers.IO) { 
-                MusicRepository.warmUp() 
+
+            launch(Dispatchers.IO) {
+                MusicRepository.warmUp()
             }
-            
+
+            searchHistory = MusicRepository.loadSearchHistory()
             loadHomeContent()
             observeDownloads()
+            observePlaylists()
         }
     }
 
@@ -349,6 +368,53 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 downloadedSongs = downloads
             }
         }
+    }
+
+    private fun observePlaylists() {
+        viewModelScope.launch {
+            MusicRepository.getAllPlaylists(context).collectLatest { playlists ->
+                allPlaylists = playlists
+            }
+        }
+    }
+
+    fun createPlaylist(name: String) {
+        viewModelScope.launch {
+            MusicRepository.createPlaylist(context, name)
+        }
+    }
+
+    fun deletePlaylist(playlist: PlaylistEntity) {
+        viewModelScope.launch {
+            MusicRepository.deletePlaylist(context, playlist)
+        }
+    }
+
+    fun addSongToPlaylist(playlistId: Long, item: MusicItem) {
+        viewModelScope.launch {
+            MusicRepository.addSongToPlaylist(context, playlistId, item)
+            showPlaylistAddDialog = false
+            songToAddToPlaylist = null
+        }
+    }
+
+    fun removeSongFromPlaylist(playlistId: Long, url: String) {
+        viewModelScope.launch {
+            MusicRepository.removeSongFromPlaylist(context, playlistId, url)
+        }
+    }
+
+    fun loadPlaylistSongs(playlistId: Long) {
+        viewModelScope.launch {
+            MusicRepository.getSongsInPlaylist(context, playlistId).collectLatest { songs ->
+                currentPlaylistSongs = songs
+            }
+        }
+    }
+
+    fun showPlaylistAddDialog(item: MusicItem) {
+        songToAddToPlaylist = item
+        showPlaylistAddDialog = true
     }
 
     fun startProgressObserver(url: String) {
@@ -362,7 +428,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         if (progress > 0) {
                             downloadProgress[url] = progress
                         }
-                        
+
                         if (workInfo.state.isFinished) {
                             downloadProgress.remove(url)
                         }
@@ -392,6 +458,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         MusicRepository.isBackgroundPlaybackEnabled = enabled
     }
 
+    fun toggleKeepAudioPlaying(enabled: Boolean) {
+        isKeepAudioPlayingEnabled = enabled
+        MusicRepository.isKeepAudioPlayingEnabled = enabled
+    }
+
     fun updateThemeMode(newTheme: String) {
         themeMode = newTheme
         MusicRepository.themeMode = newTheme
@@ -403,7 +474,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         isLiquidScrollEnabled = enabled
         MusicRepository.isLiquidScrollEnabled = enabled
     }
-
 
     fun loadHomeContent() {
         viewModelScope.launch {
@@ -557,10 +627,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         isLoading = true
         suggestions = emptyList()
         
+        MusicRepository.saveSearchQuery(query)
+        searchHistory = MusicRepository.loadSearchHistory()
+
         viewModelScope.launch {
             searchResults = MusicRepository.searchMusic(query)
             isLoading = false
         }
+    }
+
+    fun clearSearchHistory() {
+        MusicRepository.clearSearchHistory()
+        searchHistory = emptyList()
     }
 
     fun loadNextPage() {

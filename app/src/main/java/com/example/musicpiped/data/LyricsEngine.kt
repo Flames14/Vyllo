@@ -52,6 +52,8 @@ object LyricsEngine {
         .build()
 
     private const val API_BASE = "https://lrclib.net/api"
+    private const val NETEASE_SEARCH_API = "https://music.163.com/api/search/get"
+    private const val NETEASE_LYRIC_API = "https://music.163.com/api/song/lyric"
     private const val CLIENT_HEADER = "YMusic-Universal"
 
     // Minimum score to accept a candidate as valid.
@@ -91,7 +93,9 @@ object LyricsEngine {
     fun parseSyncedLyrics(lrcString: String?): List<SyncedLyricLine> {
         if (lrcString.isNullOrBlank()) return emptyList()
         val lines = mutableListOf<SyncedLyricLine>()
-        val regex = Regex("\\[(\\d{2}):(\\d{2})\\.(\\d{2,3})\\]\\s*(.*)")
+        // More robust regex for various LRC formats
+        // [mm:ss.xx], [mm:ss:xx], [mm:ss.xxx], [mm:ss]
+        val regex = Regex("\\[(\\d{1,3}):(\\d{2})(?:[\\.\\:](\\d{2,3}))?\\]\\s*(.*)")
 
         lrcString.lines().forEach { line ->
             val matchResult = regex.find(line)
@@ -100,12 +104,18 @@ object LyricsEngine {
                     val minutes = matchResult.groupValues[1].toLong()
                     val seconds = matchResult.groupValues[2].toLong()
                     val fractionStr = matchResult.groupValues[3]
-                    val fractionMs = if (fractionStr.length == 2) fractionStr.toLong() * 10 else fractionStr.toLong()
+                    val fractionMs = when (fractionStr.length) {
+                        2 -> fractionStr.toLong() * 10
+                        3 -> fractionStr.toLong()
+                        0 -> 0L
+                        else -> fractionStr.take(3).toLong()
+                    }
 
                     val text = matchResult.groupValues[4].trim()
-
-                    val timeMs = (minutes * 60 + seconds) * 1000 + fractionMs
-                    lines.add(SyncedLyricLine(timeMs, text))
+                    if (text.isNotBlank() || lines.isNotEmpty()) { // Allow empty lines for pauses if not first
+                        val timeMs = (minutes * 60 + seconds) * 1000 + fractionMs
+                        lines.add(SyncedLyricLine(timeMs, text))
+                    }
                 } catch (e: Exception) {
                     // Skip malformed lines
                 }
@@ -117,7 +127,7 @@ object LyricsEngine {
     fun getCurrentLyricLine(syncedLyrics: List<SyncedLyricLine>?, currentTimeMs: Long): Int {
         if (syncedLyrics.isNullOrEmpty()) return -1
         for (i in syncedLyrics.indices.reversed()) {
-            if (syncedLyrics[i].startTimeMs <= currentTimeMs + 100) {
+            if (syncedLyrics[i].startTimeMs <= currentTimeMs + 50) { // Reduced offset for 50ms sync
                 return i
             }
         }
@@ -497,14 +507,6 @@ object LyricsEngine {
 
     /**
      * Full multi-factor scoring of a candidate.
-     *
-     * For regional/Indian music, the YouTube "artist" is typically a label or
-     * movie name, not the actual singer. When we detect this pattern (strong
-     * title match but zero artist match), we dynamically shift weight from
-     * artist to title+context.
-     *
-     * Base weights: Title 40%, Artist 25%, Duration 25%, Lyrics 10%
-     * Adjusted: Title 50%, Artist 5%, Duration 25%, Context 10%, Lyrics 10%
      */
     private fun scoreCandidate(
         candidate: LyricsResult,
@@ -536,6 +538,93 @@ object LyricsEngine {
         return minOf(score, 1.0)
     }
 
+    // --- Multi-Source Orchestration ---
+
+    private data class ScoredCandidate(
+        val result: LyricsResult,
+        val score: Double,
+        val query: String,
+        val source: String = "LRCLIB"
+    )
+
+    private suspend fun fetchFromNetEase(
+        title: String,
+        artist: String,
+        durationSecs: Long,
+        titleKeywords: Set<String>,
+        artistKeywords: Set<String>,
+        featuredArtists: List<String>,
+        movieOrAlbum: String?
+    ): List<ScoredCandidate> = withContext(Dispatchers.IO) {
+        val candidates = mutableListOf<ScoredCandidate>()
+        try {
+            val query = "$title $artist".trim()
+            val eQuery = URLEncoder.encode(query, "UTF-8")
+            val url = "$NETEASE_SEARCH_API?s=$eQuery&type=1&limit=5"
+            
+            val response = client.newCall(Request.Builder().url(url).build()).execute()
+            if (!response.isSuccessful) return@withContext emptyList()
+            
+            val body = response.body?.string() ?: return@withContext emptyList()
+            val json = JSONObject(body)
+            val resultObj = json.optJSONObject("result") ?: return@withContext emptyList()
+            val songs = resultObj.optJSONArray("songs") ?: return@withContext emptyList()
+            
+            for (i in 0 until songs.length()) {
+                val song = songs.getJSONObject(i)
+                val id = song.optLong("id")
+                val name = song.optString("name")
+                val artistsArr = song.optJSONArray("artists")
+                val artistName = if (artistsArr != null && artistsArr.length() > 0) {
+                    artistsArr.getJSONObject(0).optString("name")
+                } else "Unknown"
+                val album = song.optJSONObject("album")
+                val albumName = album?.optString("name")
+                val durationMs = song.optLong("duration")
+                
+                // Fetch lyrics for each candidate to score accurately
+                val lyricUrl = "$NETEASE_LYRIC_API?id=$id&lv=1&kv=1&tv=-1"
+                val lyricResp = client.newCall(Request.Builder().url(lyricUrl).build()).execute()
+                if (lyricResp.isSuccessful) {
+                    val lyricBody = lyricResp.body?.string() ?: ""
+                    val lyricJson = JSONObject(lyricBody)
+                    val lrcObj = lyricJson.optJSONObject("lrc")
+                    val syncedLrc = lrcObj?.optString("lyric")
+                    val tlyricObj = lyricJson.optJSONObject("tlyric")
+                    val transLrc = tlyricObj?.optString("lyric")
+                    
+                    // Combine original and translated lyrics if available
+                    val combinedLrc = if (!transLrc.isNullOrBlank()) {
+                        "$syncedLrc\n$transLrc"
+                    } else syncedLrc
+
+                    if (!syncedLrc.isNullOrBlank()) {
+                        val result = LyricsResult(
+                            id = id,
+                            trackName = name,
+                            artistName = artistName,
+                            albumName = albumName,
+                            duration = durationMs / 1000,
+                            instrumental = false,
+                            plainLyrics = null,
+                            syncedLyrics = combinedLrc
+                        )
+                        
+                        val score = scoreCandidate(
+                            result, title, titleKeywords, artist, artistKeywords, 
+                            featuredArtists, durationSecs, movieOrAlbum
+                        )
+                        
+                        candidates.add(ScoredCandidate(result, score, "NetEase:$query", "NetEase"))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("LyricsEngine", "NetEase fetch failed: ${e.message}")
+        }
+        return@withContext candidates
+    }
+
     // --- Main Entry Point ---
 
     suspend fun findLyricsUniversal(
@@ -553,7 +642,7 @@ object LyricsEngine {
         val featuredArtists = titleMeta.featuredArtists + artistMeta.featuredArtists
         val movieOrAlbum = titleMeta.movieOrAlbum
 
-        // Extract language if present (common in Indian music videos)
+        // Extract language if present
         var extractedLanguage = ""
         val languageRegex = Regex("(?i)\\b(tamil|telugu|hindi|malayalam|kannada|punjabi|bengali|marathi|gujarati|urdu|bhojpuri|odia|assamese|nepali|sinhala)\\b")
         val langMatch = languageRegex.find(rawTitle) ?: languageRegex.find(rawArtist)
@@ -561,7 +650,6 @@ object LyricsEngine {
             extractedLanguage = langMatch.groupValues[1]
         }
 
-        // Strip the language tag from the clean title
         val titleWithoutLang = if (extractedLanguage.isNotBlank()) {
             originalCleanTitle.replace(Regex("(?i)\\b$extractedLanguage\\b"), "").replace(Regex("\\s+"), " ").trim()
         } else originalCleanTitle
@@ -571,7 +659,6 @@ object LyricsEngine {
         var splitPartA = ""
         var splitPartB = ""
 
-        // Try to split title if it contains common separators
         val separators = listOf(" - ", " – ", " — ", " : ", " | ")
         for (sep in separators) {
             if (rawTitle.contains(sep)) {
@@ -590,16 +677,13 @@ object LyricsEngine {
             }
         }
 
-        // --- Separate keyword sets (Change 2) ---
         val titleKeywords = extractKeywords(extractedTitle)
         val artistKeywords = extractKeywords(extractedArtist)
 
-        android.util.Log.d("LyricsEngine", "Multi-Trial Search: T='$extractedTitle' A='$extractedArtist' " +
-                "Lang='$extractedLanguage' Movie='$movieOrAlbum' Feat=$featuredArtists Dur=${durationSecs}s " +
-                "TitleKW=$titleKeywords ArtistKW=$artistKeywords")
+        android.util.Log.d("LyricsEngine", "Multi-Source Search: T='$extractedTitle' A='$extractedArtist'")
 
         try {
-            // STRATEGY 1: Exact Match with Duration (highest confidence)
+            // STRATEGY 1: Exact Match with Duration
             if (extractedTitle.isNotBlank() && extractedArtist.isNotBlank() && durationSecs > 0) {
                 val eTitle = URLEncoder.encode(extractedTitle, "UTF-8")
                 val eArtist = URLEncoder.encode(extractedArtist, "UTF-8")
@@ -611,7 +695,6 @@ object LyricsEngine {
                         if (body.isNotBlank()) {
                             val json = JSONObject(body)
                             if (json.has("id")) {
-                                android.util.Log.d("LyricsEngine", "Hit Strategy 1 - Exact match")
                                 return@withContext buildResponse("STRATEGY_1_EXACT_DURATION", parseResult(json))
                             }
                         }
@@ -619,211 +702,65 @@ object LyricsEngine {
                 }
             }
 
-            // ====================================================================
-            // MULTI-TRIAL SEARCH: Try many queries, collect & score candidates
-            // ====================================================================
-            data class ScoredCandidate(
-                val result: LyricsResult,
-                val score: Double,
-                val query: String
-            )
-
             val allCandidates = mutableListOf<ScoredCandidate>()
-            val seenIds = mutableSetOf<Long>()
-            var earlyTermination = false  // Change 6: Early termination flag
+            val seenIds = mutableSetOf<String>()
+            var earlyTermination = false
 
-            // Helper to execute a search query and collect scored candidates.
-            // Returns true if early termination should happen.
-            fun executeSearchQuery(
-                queryUrl: String,
-                queryLabel: String
-            ): Boolean {
+            fun executeLrclibSearch(queryUrl: String, label: String): Boolean {
                 try {
-                    val response = client.newCall(
-                        Request.Builder().url(queryUrl).header("Lrclib-Client", CLIENT_HEADER).build()
-                    ).execute()
-
+                    val response = client.newCall(Request.Builder().url(queryUrl).header("Lrclib-Client", CLIENT_HEADER).build()).execute()
                     if (response.isSuccessful) {
                         response.body?.string()?.let { body ->
                             val arr = JSONArray(body)
-                            val limit = minOf(arr.length(), 10)
-                            for (i in 0 until limit) {
+                            for (i in 0 until minOf(arr.length(), 10)) {
                                 val result = parseResult(arr.getJSONObject(i))
-                                if (result.id !in seenIds) {
-                                    seenIds.add(result.id)
-                                    val score = scoreCandidate(
-                                        result, extractedTitle, titleKeywords,
-                                        extractedArtist, artistKeywords,
-                                        featuredArtists, durationSecs,
-                                        movieOrAlbum
-                                    )
-                                    allCandidates.add(ScoredCandidate(result, score, queryLabel))
-
-                                    // Change 6: Early termination on high confidence
-                                    if (score >= HIGH_CONFIDENCE_THRESHOLD) {
-                                        android.util.Log.d("LyricsEngine",
-                                            "Early termination! Score=${String.format("%.3f", score)} " +
-                                            "for '${result.trackName}' by '${result.artistName}' (query='$queryLabel')")
-                                        return true
-                                    }
+                                val gid = "LRCLIB:${result.id}"
+                                if (gid !in seenIds) {
+                                    seenIds.add(gid)
+                                    val score = scoreCandidate(result, extractedTitle, titleKeywords, extractedArtist, artistKeywords, featuredArtists, durationSecs, movieOrAlbum)
+                                    allCandidates.add(ScoredCandidate(result, score, label))
+                                    if (score >= HIGH_CONFIDENCE_THRESHOLD) return true
                                 }
                             }
                         }
                     }
-                } catch (e: Exception) {
-                    android.util.Log.w("LyricsEngine", "Query failed: $queryLabel - ${e.message}")
-                }
+                } catch (e: Exception) {}
                 return false
             }
 
-            // --- Change 3: Structured searches FIRST (more precise) ---
-
-            // Structured: track_name + artist_name
+            // Phase 1: Structured LRCLIB
             if (extractedTitle.isNotBlank() && extractedArtist.isNotBlank()) {
                 val eTitle = URLEncoder.encode(extractedTitle, "UTF-8")
                 val eArtist = URLEncoder.encode(extractedArtist, "UTF-8")
-                val url = "$API_BASE/search?track_name=$eTitle&artist_name=$eArtist"
-                earlyTermination = executeSearchQuery(url, "structured:$extractedTitle+$extractedArtist")
+                earlyTermination = executeLrclibSearch("$API_BASE/search?track_name=$eTitle&artist_name=$eArtist", "structured")
             }
 
-            // Structured: track_name only
-            if (!earlyTermination && extractedTitle.isNotBlank()) {
-                val eTitle = URLEncoder.encode(extractedTitle, "UTF-8")
-                val url = "$API_BASE/search?track_name=$eTitle"
-                earlyTermination = executeSearchQuery(url, "track_name:$extractedTitle")
-            }
-
-            // Structured: artist_name + q (title as text)
-            if (!earlyTermination && extractedArtist.isNotBlank() && extractedTitle.isNotBlank()) {
-                val eArtist = URLEncoder.encode(extractedArtist, "UTF-8")
-                val eTitle = URLEncoder.encode(extractedTitle, "UTF-8")
-                val url = "$API_BASE/search?artist_name=$eArtist&q=$eTitle"
-                earlyTermination = executeSearchQuery(url, "artist+q:$extractedArtist+$extractedTitle")
-            }
-
-            // Structured: with album/movie context if available
-            if (!earlyTermination && movieOrAlbum != null && extractedTitle.isNotBlank()) {
-                val eTitle = URLEncoder.encode(extractedTitle, "UTF-8")
-                val eAlbum = URLEncoder.encode(movieOrAlbum, "UTF-8")
-                val url = "$API_BASE/search?track_name=$eTitle&album_name=$eAlbum"
-                earlyTermination = executeSearchQuery(url, "track+album:$extractedTitle+$movieOrAlbum")
-            }
-
-            // --- Free-text queries (fallback, broader but less precise) ---
+            // Phase 2: NetEase
             if (!earlyTermination) {
-                val queries = mutableListOf<String>()
+                val neteaseResults = fetchFromNetEase(extractedTitle, extractedArtist, durationSecs, titleKeywords, artistKeywords, featuredArtists, movieOrAlbum)
+                allCandidates.addAll(neteaseResults)
+                if (neteaseResults.any { it.score >= HIGH_CONFIDENCE_THRESHOLD }) earlyTermination = true
+            }
 
-                // Language-optimized queries
-                if (extractedLanguage.isNotBlank()) {
-                    if (splitPartA.isNotBlank() && splitPartB.isNotBlank()) {
-                        queries.add("$splitPartB $splitPartA $extractedLanguage")
-                        queries.add("$splitPartA $splitPartB $extractedLanguage")
-                    }
-                    if (extractedTitle.isNotBlank()) {
-                        queries.add("$extractedTitle $extractedLanguage")
-                    }
-                    if (titleWithoutLang.isNotBlank() && titleWithoutLang != extractedTitle) {
-                        queries.add("$titleWithoutLang $extractedLanguage")
-                    }
-                }
-
-                // Split-based permutations
-                if (splitPartA.isNotBlank() && splitPartB.isNotBlank()) {
-                    queries.add("$splitPartA $splitPartB")
-                    queries.add("$splitPartB $splitPartA")
-                    queries.add(splitPartB)
-                    queries.add(splitPartA)
-                }
-
-                // Full title queries
-                if (originalCleanTitle.isNotBlank()) {
-                    queries.add(originalCleanTitle)
-                }
-                if (titleWithoutLang.isNotBlank() && titleWithoutLang != originalCleanTitle) {
-                    queries.add(titleWithoutLang)
-                }
-
-                // Title + Artist combinations
-                if (originalCleanTitle.isNotBlank() && originalCleanArtist.isNotBlank()) {
-                    queries.add("$originalCleanArtist $originalCleanTitle")
-                    queries.add("$originalCleanTitle $originalCleanArtist")
-                }
-
-                // Featured artists combinations
-                if (featuredArtists.isNotEmpty() && extractedTitle.isNotBlank()) {
-                    for (feat in featuredArtists) {
-                        val cleanFeat = cleanMetadataPart(feat)
-                        if (cleanFeat.isNotBlank()) {
-                            queries.add("$extractedTitle $cleanFeat")
-                        }
-                    }
-                }
-
-                // Raw title as last resort
-                if (rawTitle.isNotBlank()) {
-                    queries.add(rawTitle)
-                }
-
-                // Single significant word fallbacks
-                val titleWords = extractKeywords(originalCleanTitle).filter { it.length > 3 }
-                if (titleWords.size in 1..3) {
-                    for (word in titleWords) {
-                        queries.add(word)
-                    }
-                }
-
-                android.util.Log.d("LyricsEngine", "Generated ${queries.distinct().size} free-text queries")
-
-                // Execute free-text queries
-                for (query in queries.distinct()) {
-                    if (earlyTermination) break  // Change 6
-
-                    val eQuery = URLEncoder.encode(query, "UTF-8")
-                    val url = "$API_BASE/search?q=$eQuery"
-                    earlyTermination = executeSearchQuery(url, "q:$query")
+            // Phase 3: Fallback LRCLIB
+            if (!earlyTermination) {
+                val fallbackQuery = "$extractedTitle $extractedArtist".trim()
+                if (fallbackQuery.isNotBlank()) {
+                    val eQuery = URLEncoder.encode(fallbackQuery, "UTF-8")
+                    executeLrclibSearch("$API_BASE/search?q=$eQuery", "fallback")
                 }
             }
 
-            // --- Pick the best candidate by score ---
             if (allCandidates.isNotEmpty()) {
-                val sorted = allCandidates.sortedByDescending { it.score }
-                val best = sorted.first()
-
-                android.util.Log.d("LyricsEngine", "Multi-Trial: ${allCandidates.size} candidates scored. " +
-                    "Best: '${best.result.trackName}' by '${best.result.artistName}' " +
-                    "(score=${String.format("%.3f", best.score)}, query='${best.query}')")
-
-                // Log top 3 for debugging
-                sorted.take(3).forEachIndexed { idx, c ->
-                    android.util.Log.d("LyricsEngine", "  #${idx+1}: '${c.result.trackName}' by '${c.result.artistName}' " +
-                        "score=${String.format("%.3f", c.score)} query='${c.query}'")
+                val best = allCandidates.maxByOrNull { it.score }!!
+                if (best.score >= MIN_CONFIDENCE_SCORE) {
+                    val sorted = allCandidates.sortedByDescending { it.score }.map { it.result }
+                    return@withContext buildResponse("MULTI_SOURCE_${best.source}", best.result, sorted)
                 }
-
-                // Change 4: Minimum confidence threshold
-                if (best.score < MIN_CONFIDENCE_SCORE) {
-                    android.util.Log.d("LyricsEngine", "Best score ${String.format("%.3f", best.score)} " +
-                        "is below min confidence $MIN_CONFIDENCE_SCORE. Rejecting.")
-                    return@withContext LyricsResponse(
-                        success = false,
-                        strategy = "LOW_CONFIDENCE",
-                        error = "Best match confidence (${String.format("%.1f%%", best.score * 100)}) " +
-                                "is too low to be reliable"
-                    )
-                }
-
-                val allResults = sorted.map { it.result }
-                    .filter { it.plainLyrics != null || it.syncedLyrics != null }
-                val strategyName = if (earlyTermination) "EARLY_HIGH_CONFIDENCE" else "MULTI_TRIAL_SCORED"
-                return@withContext buildResponse(strategyName, best.result, allResults)
             }
 
-            // No strategies yielded a result
-            android.util.Log.d("LyricsEngine", "All strategies exhausted. No lyrics found.")
-            return@withContext LyricsResponse(success = false, strategy = "EXHAUSTED", error = "No results found for track")
-
+            return@withContext LyricsResponse(success = false, error = "No lyrics found")
         } catch (e: Exception) {
-            e.printStackTrace()
-            android.util.Log.e("LyricsEngine", "Engine Error: ${e.message}")
             return@withContext LyricsResponse(success = false, error = e.localizedMessage)
         }
     }

@@ -12,8 +12,9 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
+import androidx.media3.session.*
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 import android.net.wifi.WifiManager
 import android.os.PowerManager
 import androidx.media3.common.MediaItem
@@ -42,6 +43,16 @@ class MusicService : MediaSessionService() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
 
+    private val preferenceListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
+        if (key == "keep_audio_playing_enabled") {
+            val enabled = prefs.getBoolean(key, false)
+            player?.setAudioAttributes(
+                AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).setUsage(C.USAGE_MEDIA).build(),
+                !enabled // false means keep playing when mic/camera is used
+            )
+        }
+    }
+
     companion object {
         @Volatile
         private var simpleCache: SimpleCache? = null
@@ -61,46 +72,37 @@ class MusicService : MediaSessionService() {
         super.onCreate()
 
         // Optimize OkHttp
-        // Optimize OkHttp
         val okHttpClient = OkHttpClient.Builder()
             .connectionPool(okhttp3.ConnectionPool(10, 5, TimeUnit.MINUTES))
-            .protocols(listOf(okhttp3.Protocol.HTTP_1_1)) // Fix: Disable HTTP/2 to prevent potential playback speed/sync issues
             .readTimeout(15, TimeUnit.SECONDS)
             .connectTimeout(15, TimeUnit.SECONDS)
             .build()
 
-        // Configure Cache with DefaultDataSource to support both Network and Local Files
+        // Configure Cache
         val upstreamFactory = androidx.media3.datasource.DefaultDataSource.Factory(this, OkHttpDataSource.Factory(okHttpClient))
         val cacheDataSourceFactory = CacheDataSource.Factory()
             .setCache(getSimpleCache(this))
             .setUpstreamDataSourceFactory(upstreamFactory)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
-        // Configure LoadControl (Buffer)
+        // Configure LoadControl
         val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                30000,   // minBufferMs
-                60000,   // maxBufferMs
-                2500,    // bufferForPlaybackMs
-                5000     // bufferForPlaybackAfterRebufferMs
-            )
+            .setBufferDurationsMs(30000, 60000, 2500, 5000)
             .build()
         
-        // 1. Initialize Player with Audio Focus handling and Optimizations
+        val prefs = getSharedPreferences("music_prefs", android.content.Context.MODE_PRIVATE)
+        val keepAudioPlaying = prefs.getBoolean("keep_audio_playing_enabled", false)
+        prefs.registerOnSharedPreferenceChangeListener(preferenceListener)
+
+        // 1. Initialize Player
         player = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(
-                DefaultMediaSourceFactory(this)
-                    .setDataSourceFactory(cacheDataSourceFactory)
-            )
+            .setMediaSourceFactory(DefaultMediaSourceFactory(this).setDataSourceFactory(cacheDataSourceFactory))
             .setLoadControl(loadControl)
             .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .setUsage(C.USAGE_MEDIA)
-                    .build(), 
-                false // Disable automatic audio focus handling (fix for camera interruption)
+                AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).setUsage(C.USAGE_MEDIA).build(), 
+                !keepAudioPlaying // Re-enable automatic audio focus if keepAudioPlaying is false
             )
-            .setWakeMode(C.WAKE_MODE_NETWORK) // Keep CPU awake during network fetch and playback
+            .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
 
         // Initialize Locks
@@ -127,7 +129,6 @@ class MusicService : MediaSessionService() {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) {
                     val p = player ?: return
-                    // Fallback: if prefetch failed or queue ended, try playing next explicitly
                     if (!p.hasNextMediaItem()) {
                         playNextTrack()
                     }
@@ -135,16 +136,13 @@ class MusicService : MediaSessionService() {
             }
             
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                // Eagerly prefetch and enqueue the next song so ExoPlayer can buffer it
-                // natively and seamlessly transition without dropping the active WakeLock.
                 enqueueNextTrackIfNeeded(mediaItem)
             }
         })
         
-        // Fix: Explicitly enforce 1.0x playback speed
+        // Force 1.0x playback speed to prevent "super fast" playback bugs on some devices/emulators
         player?.playbackParameters = androidx.media3.common.PlaybackParameters(1.0f)
 
-        // 2. Create an Intent to open UI when notification is clicked
         val openIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this, 0, openIntent, 
@@ -157,22 +155,17 @@ class MusicService : MediaSessionService() {
             .build()
     }
 
-    // Required method: Gives the controller (UI) access to the session
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
         return mediaSession
     }
 
-    // --- NEW: FORCE STOP LOGIC ---
     override fun onTaskRemoved(rootIntent: Intent?) {
         val player = mediaSession?.player
         if (player != null && !player.playWhenReady) {
-            // If not playing, stop immediately
             stopSelf()
         } else {
-            // Use this if you want to kill it EVEN IF playing music:
             player?.release()
             stopSelf()
-            // Completely kill the process (Aggressive optimization)
             android.os.Process.killProcess(android.os.Process.myPid())
             exitProcess(1)
         }
@@ -190,21 +183,16 @@ class MusicService : MediaSessionService() {
             
             MusicRepository.currentIndex = currentIndex
             
-            // Check if player already has upcoming items
             if (player.mediaItemCount > 1 && player.currentMediaItemIndex < player.mediaItemCount - 1) {
                 return@launch
             }
             
             var nextIndex = currentIndex + 1
             
-            // If queue is exhausted, proactively discover related songs NOW
-            // (don't wait until the song ends — prefetch so ExoPlayer can buffer seamlessly)
             if (nextIndex >= queue.size) {
                 try {
                     wakeLock?.acquire(60000L)
                     wifiLock?.acquire()
-                    
-                    android.util.Log.d("MusicService", "Prefetch: Queue exhausted, discovering related songs...")
                     val currentUrl = queue.getOrNull(currentIndex)?.url ?: return@launch
                     val related = MusicRepository.getRelatedSongs(currentUrl)
                     if (related.isNotEmpty()) {
@@ -212,7 +200,6 @@ class MusicService : MediaSessionService() {
                         val newSongs = related.filter { it.url !in existingUrls }
                         if (newSongs.isNotEmpty()) {
                             MusicRepository.currentQueue.addAll(newSongs)
-                            android.util.Log.d("MusicService", "Prefetch: Added ${newSongs.size} related songs to queue")
                         } else {
                             MusicRepository.currentQueue.addAll(related.take(5))
                         }
@@ -224,11 +211,9 @@ class MusicService : MediaSessionService() {
                     if (wakeLock?.isHeld == true) wakeLock?.release()
                     if (wifiLock?.isHeld == true) wifiLock?.release()
                 }
-                // Re-check after discovery
                 nextIndex = currentIndex + 1
             }
             
-            // Now enqueue the next track if available
             if (nextIndex < MusicRepository.currentQueue.size) {
                 val nextTrack = MusicRepository.currentQueue[nextIndex]
                 try {
@@ -249,9 +234,7 @@ class MusicService : MediaSessionService() {
                             .setMediaMetadata(metadata)
                             .build()
                         
-                        // Append to ExoPlayer's internal playlist for seamless transition
                         player.addMediaItem(mediaItem)
-                        android.util.Log.d("MusicService", "Prefetch: Enqueued '${nextTrack.title}' for seamless playback")
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -269,29 +252,20 @@ class MusicService : MediaSessionService() {
         if (nextIndex < MusicRepository.currentQueue.size) {
             playTrackAtIndex(nextIndex)
         } else {
-            // Queue exhausted — discover related songs for autoplay
-            // This is the key fix: the service fetches new songs itself,
-            // so autoplay works even when the UI/ViewModel is inactive (screen locked)
             val currentUrl = MusicRepository.currentQueue.getOrNull(MusicRepository.currentIndex)?.url
             if (currentUrl != null) {
                 serviceScope.launch {
                     try {
-                        wakeLock?.acquire(60000L)  // Longer timeout for discovery + play
+                        wakeLock?.acquire(60000L)
                         wifiLock?.acquire()
-                        
-                        android.util.Log.d("MusicService", "Queue exhausted. Fetching related songs for autoplay...")
                         val related = MusicRepository.getRelatedSongs(currentUrl)
                         if (related.isNotEmpty()) {
-                            // Filter out songs already in queue to avoid loops
                             val existingUrls = MusicRepository.currentQueue.map { it.url }.toSet()
                             val newSongs = related.filter { it.url !in existingUrls }
-                            
                             if (newSongs.isNotEmpty()) {
                                 MusicRepository.currentQueue.addAll(newSongs)
-                                android.util.Log.d("MusicService", "Added ${newSongs.size} related songs to queue. Playing next...")
                                 playTrackAtIndex(MusicRepository.currentIndex + 1)
                             } else {
-                                // All related songs are already played, just add them anyway to keep music going
                                 MusicRepository.currentQueue.addAll(related.take(5))
                                 playTrackAtIndex(MusicRepository.currentIndex + 1)
                             }
@@ -317,7 +291,6 @@ class MusicService : MediaSessionService() {
             try {
                 wakeLock?.acquire(30000L)
                 wifiLock?.acquire()
-                
                 val streamUrl = MusicRepository.getStreamUrl(track.url, force = false)
                 if (streamUrl != null) {
                     val metadata = MediaMetadata.Builder()
@@ -325,13 +298,11 @@ class MusicService : MediaSessionService() {
                         .setArtist(track.uploader)
                         .setArtworkUri(android.net.Uri.parse(track.thumbnailUrl))
                         .build()
-                    
                     val mediaItem = MediaItem.Builder()
                         .setMediaId(track.url)
                         .setUri(streamUrl)
                         .setMediaMetadata(metadata)
                         .build()
-                    
                     player?.let { p ->
                         p.setMediaItem(mediaItem)
                         p.prepare()
@@ -348,12 +319,13 @@ class MusicService : MediaSessionService() {
         }
     }
 
-    // Cleanup
     override fun onDestroy() {
         serviceJob.cancel()
+        val prefs = getSharedPreferences("music_prefs", android.content.Context.MODE_PRIVATE)
+        prefs.unregisterOnSharedPreferenceChangeListener(preferenceListener)
+        
         if (wakeLock?.isHeld == true) wakeLock?.release()
         if (wifiLock?.isHeld == true) wifiLock?.release()
-        
         mediaSession?.run {
             player?.release()
             release()
