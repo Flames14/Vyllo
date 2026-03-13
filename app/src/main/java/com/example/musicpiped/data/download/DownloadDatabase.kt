@@ -9,11 +9,12 @@ import androidx.room.TypeConverters
 /**
  * Room database for storing download metadata.
  */
-@Database(entities = [DownloadEntity::class], version = 1, exportSchema = false)
+@Database(entities = [DownloadEntity::class, PlaylistEntity::class, PlaylistSongEntity::class], version = 2, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class DownloadDatabase : RoomDatabase() {
     
     abstract fun downloadDao(): DownloadDao
+    abstract fun playlistDao(): PlaylistDao
     
     companion object {
         @Volatile
@@ -25,7 +26,9 @@ abstract class DownloadDatabase : RoomDatabase() {
                     context.applicationContext,
                     DownloadDatabase::class.java,
                     "downloads_db"
-                ).build().also { INSTANCE = it }
+                )
+                .fallbackToDestructiveMigration()
+                .build().also { INSTANCE = it }
             }
         }
     }
