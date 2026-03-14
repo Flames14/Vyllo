@@ -4,9 +4,7 @@
 
 # 🎵 YMusic - Free Open-Source YouTube Music Client for Android
 
-**A free, open-source YouTube Music client for Android.** No login required • No ads • Background play • Offline download • Lightweight and privacy focused.
-
-Built with modern Jetpack Compose and powered by the robust NewPipe Extractor, YMusic brings the vast world of YouTube Music directly to your fingertips—minus the interruptions.
+Open-source Android YouTube Music client with background play, offline downloads, lyrics, and a modern Material You interface.
 
 <div align="center">
 
@@ -14,10 +12,23 @@ Built with modern Jetpack Compose and powered by the robust NewPipe Extractor, Y
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9+-purple.svg)]()
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-latest-blue.svg)]()
+[![GitHub stars](https://img.shields.io/github/stars/Flames14/YMusic?style=social)](https://github.com/Flames14/YMusic/stargazers)
 
 </div>
 
 ---
+
+## 📥 Download
+
+| Source | Download |
+|--------|----------|
+| **GitHub Releases** | [![Download](https://img.shields.io/badge/Download-latest-blue.svg)](https://github.com/Flames14/YMusic/releases) |
+| **APKPure** | [![APKPure](https://img.shields.io/badge/APKPure-available-orange.svg)](https://apkpure.com/ymusic/com.example.musicpiped) |
+
+**Quick Install:**
+1. Download the latest APK from [GitHub Releases](https://github.com/Flames14/YMusic/releases)
+2. Install on your Android device (Android 7.0+)
+3. Enjoy ad-free YouTube Music! 🎵
 
 ## 🌟 Why YMusic?
 
@@ -67,28 +78,10 @@ In a world full of noise, YMusic focuses on what matters most: **the music**. We
 - ✅ **Quick Skip**: 10-second forward/backward controls.
 - ✅ **Premium UI**: Enhanced visibility for light themes and glassmorphism-inspired elements.
 
-## 🔧 Prerequisites
-
-- Android 7.0 (API level 24) or higher
-- Internet connection for streaming
-- Storage space for downloaded content
-
-## 🚀 Installation
-
-### From APKPure
-1. Download the app from [APKPure](https://apkpure.com/ymusic/com.example.musicpiped)
-2. Install the APK on your Android device
-
-### From GitHub
-1. Download the latest APK from the [GitHub Releases](https://github.com/Flames14/YMusic/releases) page
-2. Install the APK on your Android device
-3. Grant necessary permissions when prompted
-
 ## 🔗 Project Links
 
 - **GitHub Repository**: [https://github.com/Flames14/YMusic](https://github.com/Flames14/YMusic)
 - **APKPure Page**: [https://apkpure.com/ymusic/com.example.musicpiped](https://apkpure.com/ymusic/com.example.musicpiped)
-
 
 ## 🖼️ App Screenshots
 
@@ -101,7 +94,7 @@ In a world full of noise, YMusic focuses on what matters most: **the music**. We
 
 ## 🎬 App Preview
 
-[Watch the Demo Video](https://github.com/Flames14/YMusic/raw/master/demo.mp4)
+[Watch the Demo Video](https://github.com/Flames14/YMusic/raw/main/demo.mp4)
 
 ## 🤝 Contributing
 
