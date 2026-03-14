@@ -2,9 +2,22 @@
   <img src="ic_launcher_foreground.png" width="150" alt="YMusic Icon">
 </p>
 
-# 🎵 YMusic - Your Ultimate YouTube Music Companion
+# 🎵 YMusic - Free Open-Source YouTube Music Client for Android
 
-Elevate your listening experience with **YMusic**, a premium, open-source music streaming application. Built with modern Jetpack Compose and powered by the robust NewPipe Extractor, YMusic brings the vast world of YouTube Music directly to your fingertips—minus the interruptions.
+**A free, open-source YouTube Music client for Android.** No login required • No ads • Background play • Offline download • Lightweight and privacy focused.
+
+Built with modern Jetpack Compose and powered by the robust NewPipe Extractor, YMusic brings the vast world of YouTube Music directly to your fingertips—minus the interruptions.
+
+<div align="center">
+
+[![Platform](https://img.shields.io/badge/Platform-Android-green.svg)]()
+[![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Kotlin](https://img.shields.io/badge/Kotlin-1.9+-purple.svg)]()
+[![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-latest-blue.svg)]()
+
+</div>
+
+---
 
 ## 🌟 Why YMusic?
 
@@ -111,3 +124,9 @@ If you find this app useful, consider starring the repository or contributing to
 ---
 
 **Note**: This app does not host any content. All content is streamed from YouTube Music through the NewPipe Extractor library. The app respects YouTube's terms of service and does not violate any copyright laws.
+
+---
+
+## 🔖 Keywords
+
+YouTube Music, Android Music Player, Open Source Music App, Music Streaming, YouTube Music Downloader, Audio Player, Privacy Music App, Jetpack Compose, Kotlin Android, NewPipe Extractor, Background Play, Offline Music, Free Music App, No Ads Music Player
