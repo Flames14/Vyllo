@@ -70,19 +70,10 @@ Want to compile Vyllo yourself? Here's how:
    ```bash
    ./gradlew assembleRelease
    ```
-   
+
    The APK will be at: `app/build/outputs/apk/release/app-release.apk`
 
-### Signing Configuration (Optional)
-
-For a signed release build, create `keystore.properties` in the root:
-
-```properties
-storeFile=your-keystore.jks
-storePassword=your-store-password
-keyAlias=your-key-alias
-keyPassword=your-key-password
-```
+   *Note: The build will use the default debug signing config. For personal use, this is fine.*
 
 ## 🖼️ Screenshots
 
