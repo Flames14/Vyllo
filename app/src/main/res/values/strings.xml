@@ -1,4 +1,4 @@
 <resources>
-    <!-- Change the app name here -->
-    <string name="app_name">YMusic</string>
+    <!-- App name -->
+    <string name="app_name">Vyllo</string>
 </resources>

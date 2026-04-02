@@ -1,10 +1,6 @@
-<p align="center">
-  <img src="ic_launcher_foreground.png" width="150" alt="YMusic Icon">
-</p>
+# 🎵 Vyllo - YouTube Music Client for Android
 
-# 🎵 YMusic - Free Open-Source YouTube Music Client for Android
-
-Open-source Android YouTube Music client with background play, offline downloads, lyrics, and a modern Material You interface.
+A clean, open-source Android app for streaming YouTube Music with background playback, offline downloads, and a modern Material You interface.
 
 <div align="center">
 
@@ -12,114 +8,123 @@ Open-source Android YouTube Music client with background play, offline downloads
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9+-purple.svg)]()
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-latest-blue.svg)]()
-[![GitHub stars](https://img.shields.io/github/stars/Flames14/YMusic?style=social)](https://github.com/Flames14/YMusic/stargazers)
 
 </div>
 
 ---
 
-## 📥 Download
+## What is Vyllo?
 
-| Source | Download |
-|--------|----------|
-| **GitHub Releases** | [![Download](https://img.shields.io/badge/Download-latest-blue.svg)](https://github.com/Flames14/YMusic/releases) |
-| **APKPure** | [![APKPure](https://img.shields.io/badge/APKPure-available-orange.svg)](https://apkpure.com/ymusic/com.example.musicpiped) |
+Vyllo is a lightweight YouTube Music client built for Android. I made this because I wanted a simple music player that could stream from YouTube Music without ads, work in the background, and look good doing it. No accounts, no subscriptions—just pick a song and play.
 
-**Quick Install:**
-1. Download the latest APK from [GitHub Releases](https://github.com/Flames14/YMusic/releases)
-2. Install on your Android device (Android 7.0+)
-3. Enjoy ad-free YouTube Music! 🎵
+## 📥 Download & Install
 
-## 🌟 Why YMusic?
+Grab the latest APK from the [Releases](https://github.com/Flames14/Vyllo/releases) page.
 
-In a world full of noise, YMusic focuses on what matters most: **the music**. We've crafted an interface that's not just functional, but beautiful, ensuring that your journey through your favorite tracks is as smooth as the audio itself.
+**Installation steps:**
+1. Download the `app-release.apk` file
+2. Enable "Install from Unknown Sources" if prompted
+3. Tap the APK to install
+4. Open Vyllo and start listening
 
-### 🎧 Pure Auditory Bliss
-- **Lossless-Prioritized Streaming**: Experience crystal-clear audio with smart selection (Opus > M4A > MP3).
-- **Uninterrupted Background Play**: Keep the rhythm going even while multitasking or with your screen off.
-- **Micro-Second Buffering**: Our advanced 60-second caching ensures your music never skips a beat.
-- **Visual Harmony**: Real-time audio visualizers that dance to your music's frequency.
+*Requires Android 7.0 (API 24) or higher.*
 
-### 🚀 Performance That Sings
-- **Liquid-Smooth Scrolling**: Fully optimized for 120Hz displays, making browsing your library a joy.
-- **Dynamic Material You**: A UI that adapts its colors to the soul of the album art you're currently playing.
-- **Lightweight & Fast**: Designed to be easy on your battery and memory without sacrificing power.
+## ✨ Features
 
-### 🔍 Discover Your Next Obsession
-- **Intelligence at its Core**: Smart recommendations that learn your taste over time.
-- **Mood-Sync Playlists**: From high-energy "Workout" beats to late-night "Chill" vibes.
-- **Instant Search**: Find any track, album, or artist instantly with live suggestions.
+Here's what Vyllo can do:
 
-### 💾 Your Music, Anywhere
-- **Seamless Downloads**: Take your entire library offline with high-quality background downloads.
-- **Hybrid Playback**: Effortlessly switch between streaming and local files without missing a note.
+| Feature | What it does |
+|---------|--------------|
+| 🎧 **Background Playback** | Keep music playing with the screen off or while using other apps |
+| 📥 **Offline Downloads** | Save songs to your device for offline listening |
+| 🎨 **Material You Design** | Colors that dynamically adapt to your album art |
+| 📝 **Lyrics Integration** | Real-time synced lyrics from LRCLib |
+| ⚡ **120Hz Support** | Smooth scrolling on high refresh rate displays |
+| 🎵 **Audio Visualizer** | Real-time waveform visualization during playback |
+| 🔵 **Floating Player** | Picture-in-picture style bubble player for quick controls |
+| ⏰ **Alarm Feature** | Wake up to your favorite music |
+| 🎲 **Smart Queue** | Shuffle, repeat, and manage your "Up Next" queue |
 
+## 🛠️ How to Build from Source
 
-## 📱 Supported Features
+Want to compile Vyllo yourself? Here's how:
 
-- ✅ YouTube Music search and streaming
-- ✅ Background playback with notification controls
-- ✅ Download songs for offline listening
-- ✅ Floating player (bubble) support (on beta)
-- ✅ Smart recommendations and related songs
-- ✅ Mood-based content categories
-- ✅ High refresh rate display optimization (on beta)
-- ✅ Light/Dark/System theme modes (on beta)
-- ✅ Audio visualizer during playback
-- ✅ Comprehensive playback controls (play/pause/skip)
-- ✅ Progress tracking and resume functionality
-- ✅ Local file playback for downloaded content
-- ✅ **Universal Lyrics Engine**: Intelligent multi-source lyrics fetching with manual search fallback.
-- ✅ **Lyrics Persistence**: Saves and restores preferred lyrics for every song.
-- ✅ **Manual Lyrics Search**: Easily correct wrong lyrics with a permanent manual search option.
-- ✅ **Improved Lyrics Sync**: Relocated sync controls for a distraction-free reading experience.
-- ✅ **Keep Audio Playing**: Option in Settings to continue playback even when using microphone or camera.
-- ✅ **Smart Queue Management**: Functional "Up Next" queue with shuffle/repeat.
-- ✅ **Quick Skip**: 10-second forward/backward controls.
-- ✅ **Premium UI**: Enhanced visibility for light themes and glassmorphism-inspired elements.
+### Prerequisites
+- Android Studio Hedgehog (2023.1.1) or newer
+- JDK 17
+- Android SDK 34
 
-## 🔗 Project Links
+### Steps
 
-- **GitHub Repository**: [https://github.com/Flames14/YMusic](https://github.com/Flames14/YMusic)
-- **APKPure Page**: [https://apkpure.com/ymusic/com.example.musicpiped](https://apkpure.com/ymusic/com.example.musicpiped)
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Flames14/Vyllo.git
+   cd Vyllo
+   ```
 
-## 🖼️ App Screenshots
+2. **Open in Android Studio**
+   - File → Open → Select the project folder
+   - Let Gradle sync complete
+
+3. **Build the APK**
+   ```bash
+   ./gradlew assembleRelease
+   ```
+   
+   The APK will be at: `app/build/outputs/apk/release/app-release.apk`
+
+### Signing Configuration (Optional)
+
+For a signed release build, create `keystore.properties` in the root:
+
+```properties
+storeFile=your-keystore.jks
+storePassword=your-store-password
+keyAlias=your-key-alias
+keyPassword=your-key-password
+```
+
+## 🖼️ Screenshots
 
 <div align="center">
   <img src="screenshot1.jpg" width="23%" alt="Home Screen">
   <img src="screenshot2.jpg" width="23%" alt="Search Screen">
-  <img src="screenshot3.jpg" width="23%" alt="Player In-App">
+  <img src="screenshot3.jpg" width="23%" alt="Player Screen">
   <img src="screenshot4.jpg" width="23%" alt="Settings">
 </div>
 
-## 🎬 App Preview
+## 🏗️ Tech Stack
 
-[Watch the Demo Video](https://github.com/Flames14/YMusic/raw/main/demo.mp4)
+For anyone curious about what's under the hood:
+
+- **Language**: Kotlin
+- **UI**: Jetpack Compose + Material 3
+- **Dependency Injection**: Hilt
+- **Music Playback**: Android Media3 (ExoPlayer successor)
+- **YouTube Extraction**: NewPipe Extractor
+- **Networking**: OkHttp + DNS-over-HTTPS
+- **Local Storage**: Room Database + DataStore
+- **Image Loading**: Coil
+- **Background Work**: WorkManager + Foreground Services
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, open an issue first to discuss what you would like to change.
+Found a bug? Want to add a feature? Contributions are welcome!
 
-https://ko-fi.com/betadeveloper
+- **Bug reports**: Open an issue with steps to reproduce
+- **Feature requests**: Open an issue describing what you'd like to see
+- **Pull requests**: Feel free to fork and submit PRs
+
+For anything major, it's worth opening an issue first to discuss the approach.
 
 ## 📄 License
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+Vyllo is licensed under the **GNU General Public License v3.0** (GPL-3.0). See the [LICENSE](LICENSE) file for the full text.
 
-## 🐛 Issues & Support
+## ⚠️ Disclaimer
 
-If you encounter any issues or have feature requests, please file them in the [Issues](https://github.com/Flames14/YMusic/issues) section.
-
-## ⭐ Support the Project
-
-If you find this app useful, consider starring the repository or contributing to its development!
+This app is for personal use only. It does not host any content—all streams come directly from YouTube Music via the NewPipe Extractor library. Please respect YouTube's Terms of Service and copyright holders' rights.
 
 ---
 
-**Note**: This app does not host any content. All content is streamed from YouTube Music through the NewPipe Extractor library. The app respects YouTube's terms of service and does not violate any copyright laws.
-
----
-
-## 🔖 Keywords
-
-YouTube Music, Android Music Player, Open Source Music App, Music Streaming, YouTube Music Downloader, Audio Player, Privacy Music App, Jetpack Compose, Kotlin Android, NewPipe Extractor, Background Play, Offline Music, Free Music App, No Ads Music Player
+**Built with ❤️ using Kotlin and Jetpack Compose**

@@ -3,7 +3,8 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.google.devtools.ksp") version "1.9.22-1.0.17"
+    id("com.google.devtools.ksp")
+    id("com.google.dagger.hilt.android")
 }
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -13,19 +14,26 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.musicpiped"
+    namespace = "com.vyllo.music"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.musicpiped"
+        applicationId = "com.vyllo.music"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+        
+        // Security: BuildConfig fields for sensitive URLs (not hardcoded in source)
+        buildConfigField("String", "LYRICS_API_BASE", "\"https://lrclib.net/api\"")
+        buildConfigField("String", "NETEASE_SEARCH_API", "\"https://music.163.com/api/search/get\"")
+        buildConfigField("String", "NETEASE_LYRIC_API", "\"https://music.163.com/api/song/lyric\"")
+        buildConfigField("String", "DNS_OVER_HTTPS_URL", "\"https://dns.google/dns-query\"")
     }
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
@@ -111,6 +119,11 @@ dependencies {
 
     // Network
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0")
+
+    // Security - Encrypted Storage
+    implementation("androidx.security:security-crypto-ktx:1.1.0-alpha06")
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
 
     // Media3 (ExoPlayer)
     implementation("androidx.media3:media3-exoplayer:1.3.0")
@@ -118,6 +131,7 @@ dependencies {
     implementation("androidx.media3:media3-common:1.3.0")
     implementation("androidx.media3:media3-database:1.3.0")
     implementation("androidx.media3:media3-datasource-okhttp:1.3.0")
+    implementation("androidx.media3:media3-ui:1.3.0")
 
     // UI (Jetpack Compose)
     implementation(platform("androidx.compose:compose-bom:2024.02.02"))
@@ -157,8 +171,22 @@ dependencies {
     // WorkManager (for reliable background downloads)
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
+    // Hilt for Dependency Injection
+    implementation("com.google.dagger:hilt-android:2.48")
+    ksp("com.google.dagger:hilt-android-compiler:2.48")
+    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+    implementation("androidx.hilt:hilt-work:1.1.0")
+    ksp("androidx.hilt:hilt-compiler:1.1.0")
+
+    // ConstraintLayout for alarm activity
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+
+    // Mockito for unit tests
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }

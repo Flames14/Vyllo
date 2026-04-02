@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(del *)",
+      "Bash(gradlew.bat *)",
+      "Bash(set *)",
+      "Bash(setx *)",
+      "Bash($env:java_home=\"c:\\program files\\java\\jdk-17\")",
+      "Bash(.\\gradlew.bat *)",
+      "Bash(powershell *)",
+      "Bash(\"c:\\users\\user\\appdata\\local\\android\\sdk\\emulator\\emulator.exe\" *)",
+      "Bash(timeout *)",
+      "Bash(\"c:\\users\\user\\appdata\\local\\android\\sdk\\platform-tools\\adb.exe\" *)",
+      "Bash(..\\..\\..\\..\\appdata\\local\\android\\sdk\\platform-tools\\adb.exe *)",
+      "Bash(findstr *)",
+      "Bash(adb *)",
+      "Bash(dir *)",
+      "Bash(start *)",
+      "Bash(copy *)",
+      "Bash(type *)",
+      "Bash(rmdir *)",
+      "Bash(c:\\users\\user\\appdata\\local\\android\\sdk\\emulator\\emulator.exe *)",
+      "Bash(c:\\users\\user\\appdata\\local\\android\\sdk\\platform-tools\\adb.exe *)",
+      "Bash(\"c:\\users\\user\\appdata\\local\\android\\sdk\\platform-tools\\adb\" *)",
+      "Bash(mkdir *)",
+      "Bash(git add *)"
+    ]
+  },
+  "$version": 3
+}

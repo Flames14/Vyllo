@@ -49,6 +49,7 @@ google-services.json
 # Keystore files
 *.jks
 *.keystore
+keystore.properties
 
 # IDE
 .idea/
