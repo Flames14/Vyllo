@@ -46,7 +46,7 @@ coverage/
 # Google Services
 google-services.json
 
-# Keystore files
+# Keystore files - NEVER commit these
 *.jks
 *.keystore
 keystore.properties

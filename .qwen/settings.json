@@ -23,7 +23,10 @@
       "Bash(c:\\users\\user\\appdata\\local\\android\\sdk\\platform-tools\\adb.exe *)",
       "Bash(\"c:\\users\\user\\appdata\\local\\android\\sdk\\platform-tools\\adb\" *)",
       "Bash(mkdir *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git remote *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   },
   "$version": 3
