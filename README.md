@@ -1,6 +1,6 @@
 # 🎵 Vyllo - YouTube Music Client for Android
 
-A clean, open-source Android app for streaming YouTube Music with background playback, offline downloads, and a modern Material You interface.
+A clean, open source Android app for streaming YouTube Music with background playback, offline downloads, and a modern Material You interface.
 
 <div align="center">
 
