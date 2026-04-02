@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/alarm_background_gradient"
+    android:keepScreenOn="true">
+
+    <!-- Alarm Icon -->
+    <ImageView
+        android:id="@+id/alarmIcon"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:src="@drawable/ic_alarm_ring"
+        android:contentDescription="Alarm"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="80dp" />
+
+    <!-- Alarm Time -->
+    <TextView
+        android:id="@+id/alarmTimeText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="7:00 AM"
+        android:textSize="64sp"
+        android:textColor="@android:color/white"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif-light"
+        app:layout_constraintTop_toBottomOf="@id/alarmIcon"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="32dp" />
+
+    <!-- Alarm Label -->
+    <TextView
+        android:id="@+id/alarmLabelText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Time to wake up!"
+        android:textSize="24sp"
+        android:textColor="@android:color/white"
+        android:alpha="0.9"
+        app:layout_constraintTop_toBottomOf="@id/alarmTimeText"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp" />
+
+    <!-- Dismiss Button -->
+    <ImageButton
+        android:id="@+id/dismissButton"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:src="@android:drawable/ic_menu_close_clear_cancel"
+        android:background="@drawable/dismiss_button_bg"
+        android:contentDescription="Dismiss"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginStart="48dp"
+        android:layout_marginBottom="80dp"
+        app:tint="@android:color/white" />
+
+    <!-- Dismiss Label -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Dismiss"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        app:layout_constraintTop_toBottomOf="@id/dismissButton"
+        app:layout_constraintStart_toStartOf="@id/dismissButton"
+        app:layout_constraintEnd_toEndOf="@id/dismissButton"
+        android:layout_marginTop="8dp" />
+
+    <!-- Snooze Button -->
+    <ImageButton
+        android:id="@+id/snoozeButton"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:src="@android:drawable/ic_menu_recent_history"
+        android:background="@drawable/snooze_button_bg"
+        android:contentDescription="Snooze"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginEnd="48dp"
+        android:layout_marginBottom="80dp"
+        app:tint="@android:color/white" />
+
+    <!-- Snooze Label -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Snooze 5m"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        app:layout_constraintTop_toBottomOf="@id/snoozeButton"
+        app:layout_constraintStart_toStartOf="@id/snoozeButton"
+        app:layout_constraintEnd_toEndOf="@id/snoozeButton"
+        android:layout_marginTop="8dp" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Changed parent from ".Light" to just ".NoActionBar" (which defaults to Dark on many systems)
-         OR explicitly use a Dark theme base -->
-    <style name="Theme.MusicPiped" parent="android:Theme.Material.NoActionBar">
+    <!-- Main app theme -->
+    <style name="Theme.Vyllo" parent="android:Theme.Material.NoActionBar">
 
         <!-- 1. Force Window Background to Black -->
         <item name="android:windowBackground">@android:color/black</item>
@@ -13,12 +12,21 @@
         <item name="android:windowLightStatusBar">false</item>
 
         <!-- 3. Android 12+ Splash Screen Specifics -->
-        <!-- This controls the background circle behind the icon -->
-        <item name="android:windowSplashScreenIconBackgroundColor">@android:color/black</item>
-        <!-- This controls the whole screen background -->
+        <item name="android:windowSplashScreenAnimatedIcon">@null</item>
         <item name="android:windowSplashScreenBackground">@android:color/black</item>
 
         <!-- Text Colors -->
         <item name="android:textColor">#FFFFFFFF</item>
+    </style>
+
+    <!-- Splash activity theme - completely disables Android 12+ splash screen -->
+    <style name="Theme.Vyllo.Splash" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:colorBackground">@android:color/black</item>
+        <item name="android:statusBarColor">@android:color/black</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@null</item>
+        <item name="android:windowSplashScreenBackground">@android:color/black</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@android:color/black</item>
+        <item name="android:windowSplashScreenBrandingImage">@null</item>
     </style>
 </resources>

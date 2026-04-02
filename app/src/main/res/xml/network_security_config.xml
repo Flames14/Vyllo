@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network Security Configuration for YMusic
+    - Enforces HTTPS for all connections
+    - Allows cleartext only for localhost (testing)
+    - Configures trusted CAs for NewPipe Extractor
+-->
+<network-security-config>
+    <!-- Base configuration: Enforce HTTPS -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <!-- Trust user-added CAs for debugging -->
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Domain-specific configurations -->
+    
+    <!-- Allow localhost for development/testing -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+
+    <!-- YouTube/Google domains (NewPipe Extractor) -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">youtube.com</domain>
+        <domain includeSubdomains="true">www.youtube.com</domain>
+        <domain includeSubdomains="true">music.youtube.com</domain>
+        <domain includeSubdomains="true">googleapis.com</domain>
+        <domain includeSubdomains="true">googlevideo.com</domain>
+        <domain includeSubdomains="true">ytimg.com</domain>
+    </domain-config>
+
+    <!-- Lyrics API domains -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">lrclib.net</domain>
+        <domain includeSubdomains="true">music.163.com</domain>
+        <domain includeSubdomains="true">suggestqueries.google.com</domain>
+    </domain-config>
+
+    <!-- Debug overrides (only in debug builds) -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

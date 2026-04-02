@@ -16,5 +16,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MusicPiped"
+rootProject.name = "Vyllo"
 include(":app")
