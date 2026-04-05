@@ -1,7 +1,7 @@
 package com.vyllo.music.domain.usecase
 
 import com.vyllo.music.data.IMusicRepository
-import com.vyllo.music.data.LyricsResponse
+import com.vyllo.music.domain.model.LyricsResponse
 import com.vyllo.music.domain.model.MusicItem
 import javax.inject.Inject
 

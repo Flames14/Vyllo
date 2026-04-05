@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!-- Exclude specific shared preferences that contain app keys -->
+    <exclude domain="sharedpref" path="music_prefs.xml" />
+    <exclude domain="database" path="downloads_db" />
+    <exclude domain="database" path="downloads_db-shm" />
+    <exclude domain="database" path="downloads_db-wal" />
+    <exclude domain="file" path="downloads/" />
+    <exclude domain="file" path="secure_cache/" />
 </full-backup-content>

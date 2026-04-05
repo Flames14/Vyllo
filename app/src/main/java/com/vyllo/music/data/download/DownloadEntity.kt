@@ -13,7 +13,7 @@ data class DownloadEntity(
     val title: String,
     val uploader: String,
     val thumbnailUrl: String,
-    val filePath: String,          // Local file path
+    val filePath: String = "",     // Local file path
     val fileSize: Long = 0,        // File size in bytes
     val downloadedAt: Long = System.currentTimeMillis(),
     val status: DownloadStatus = DownloadStatus.PENDING

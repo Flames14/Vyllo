@@ -5,6 +5,7 @@ import com.vyllo.music.data.download.PlaylistDao
 import com.vyllo.music.data.download.PlaylistEntity
 import com.vyllo.music.data.download.PlaylistSongEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -12,7 +13,8 @@ import javax.inject.Singleton
 class PlaylistRepository @Inject constructor(
     private val playlistDao: PlaylistDao
 ) {
-    fun getAllPlaylists(): Flow<List<PlaylistEntity>> = playlistDao.getAllPlaylists()
+    fun getAllPlaylists(): Flow<List<PlaylistEntity>> =
+        playlistDao.getAllPlaylists().distinctUntilChanged()
 
     suspend fun createPlaylist(name: String) {
         playlistDao.insertPlaylist(PlaylistEntity(name = name))
@@ -38,6 +40,6 @@ class PlaylistRepository @Inject constructor(
         playlistDao.removeSongFromPlaylist(playlistId, url)
     }
 
-    fun getSongsInPlaylist(playlistId: Long): Flow<List<PlaylistSongEntity>> = 
-        playlistDao.getSongsByPlaylist(playlistId)
+    fun getSongsInPlaylist(playlistId: Long): Flow<List<PlaylistSongEntity>> =
+        playlistDao.getSongsByPlaylist(playlistId).distinctUntilChanged()
 }

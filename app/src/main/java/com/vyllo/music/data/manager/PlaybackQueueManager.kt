@@ -24,6 +24,9 @@ class PlaybackQueueManager @Inject constructor() {
 
     private val _currentPlayingItem = MutableStateFlow<MusicItem?>(null)
     val currentPlayingItem: StateFlow<MusicItem?> = _currentPlayingItem.asStateFlow()
+
+    private val _queueVersion = MutableStateFlow(0L)
+    val queueVersion: StateFlow<Long> = _queueVersion.asStateFlow()
     
     val currentItem: MusicItem?
         get() = synchronized(lock) {
@@ -37,6 +40,7 @@ class PlaybackQueueManager @Inject constructor() {
     fun addItem(item: MusicItem) {
         synchronized(lock) {
             currentQueue.add(item)
+            notifyQueueStructureChangedLocked()
         }
     }
     
@@ -44,12 +48,14 @@ class PlaybackQueueManager @Inject constructor() {
         synchronized(lock) {
             val safeIndex = index.coerceIn(0, currentQueue.size)
             currentQueue.add(safeIndex, item)
+            notifyQueueStructureChangedLocked()
         }
     }
     
     fun addAll(items: List<MusicItem>) {
         synchronized(lock) {
             currentQueue.addAll(items)
+            notifyQueueStructureChangedLocked()
         }
     }
     
@@ -58,6 +64,9 @@ class PlaybackQueueManager @Inject constructor() {
             val removed = currentQueue.remove(item)
             if (removed && currentIndex >= currentQueue.size) {
                 currentIndex = (currentQueue.size - 1).coerceAtLeast(0)
+            }
+            if (removed) {
+                notifyQueueStructureChangedLocked()
             }
             removed
         }
@@ -72,6 +81,7 @@ class PlaybackQueueManager @Inject constructor() {
                 } else if (index == currentIndex) {
                     currentIndex = (currentQueue.size - 1).coerceAtLeast(-1)
                 }
+                notifyQueueStructureChangedLocked()
                 removed
             } else {
                 null
@@ -83,6 +93,7 @@ class PlaybackQueueManager @Inject constructor() {
         synchronized(lock) {
             currentQueue.clear()
             currentIndex = -1
+            notifyQueueStructureChangedLocked()
         }
     }
     
@@ -124,7 +135,12 @@ class PlaybackQueueManager @Inject constructor() {
     
     fun setCurrentIndexSafe(index: Int) {
         synchronized(lock) {
-            currentIndex = index.coerceIn(-1, currentQueue.size - 1)
+            val safeIndex = index.coerceIn(-1, currentQueue.size - 1)
+            if (currentIndex != safeIndex) {
+                currentIndex = safeIndex
+            } else {
+                _currentPlayingItem.value = currentItem
+            }
         }
     }
     
@@ -151,6 +167,35 @@ class PlaybackQueueManager @Inject constructor() {
             currentQueue.clear()
             currentQueue.addAll(items)
             currentIndex = startIndex.coerceIn(-1, items.size - 1)
+            notifyQueueStructureChangedLocked()
         }
+    }
+
+    fun replaceUpcomingItems(items: List<MusicItem>) {
+        synchronized(lock) {
+            val keepCount = (currentIndex + 1).coerceAtLeast(0)
+            val kept = currentQueue.take(keepCount)
+            currentQueue.clear()
+            currentQueue.addAll(kept)
+            currentQueue.addAll(items)
+            notifyQueueStructureChangedLocked()
+        }
+    }
+
+    fun appendDistinct(items: List<MusicItem>): List<MusicItem> {
+        return synchronized(lock) {
+            val existingUrls = currentQueue.map { it.url }.toMutableSet()
+            val added = items.filter { existingUrls.add(it.url) }
+            if (added.isNotEmpty()) {
+                currentQueue.addAll(added)
+                notifyQueueStructureChangedLocked()
+            }
+            added
+        }
+    }
+
+    private fun notifyQueueStructureChangedLocked() {
+        _currentPlayingItem.value = currentItem
+        _queueVersion.value = _queueVersion.value + 1
     }
 }

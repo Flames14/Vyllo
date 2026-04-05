@@ -5,6 +5,7 @@ import androidx.work.Constraints
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.ExistingWorkPolicy
 import androidx.work.workDataOf
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.data.download.DownloadDao
@@ -12,8 +13,11 @@ import com.vyllo.music.data.download.DownloadEntity
 import com.vyllo.music.data.download.DownloadStatus
 import com.vyllo.music.service.DownloadWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -24,11 +28,34 @@ class DownloadRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val downloadDao: DownloadDao
 ) {
-    fun getAllDownloads(): Flow<List<DownloadEntity>> = downloadDao.getAllDownloads()
+    private val repositoryScope = CoroutineScope(Dispatchers.IO)
+
+    fun getAllDownloads(): Flow<List<DownloadEntity>> =
+        downloadDao.getAllDownloads().distinctUntilChanged()
 
     suspend fun isDownloaded(url: String): Boolean = downloadDao.isDownloaded(url)
 
     fun downloadSong(item: MusicItem) {
+        repositoryScope.launch {
+            val existing = downloadDao.getDownloadByUrl(item.url)
+            if (existing?.status == DownloadStatus.COMPLETED && File(existing.filePath).exists()) {
+                return@launch
+            }
+
+            downloadDao.insertDownload(
+                DownloadEntity(
+                    url = item.url,
+                    title = item.title,
+                    uploader = item.uploader,
+                    thumbnailUrl = item.thumbnailUrl,
+                    filePath = existing?.filePath.orEmpty(),
+                    fileSize = existing?.fileSize ?: 0L,
+                    downloadedAt = existing?.downloadedAt ?: System.currentTimeMillis(),
+                    status = DownloadStatus.PENDING
+                )
+            )
+        }
+
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
@@ -44,11 +71,18 @@ class DownloadRepository @Inject constructor(
             .addTag("download_song")
             .addTag("download_${item.url}")
             .build()
-        WorkManager.getInstance(context).enqueue(workRequest)
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "download_${item.url}",
+            ExistingWorkPolicy.KEEP,
+            workRequest
+        )
     }
 
     fun cancelDownload(url: String) {
-        WorkManager.getInstance(context).cancelAllWorkByTag("download_$url")
+        WorkManager.getInstance(context).cancelUniqueWork("download_$url")
+        repositoryScope.launch {
+            downloadDao.updateStatus(url, DownloadStatus.FAILED)
+        }
     }
 
     suspend fun deleteDownload(url: String) = withContext(Dispatchers.IO) {

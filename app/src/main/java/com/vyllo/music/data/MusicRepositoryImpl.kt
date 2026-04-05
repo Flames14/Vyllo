@@ -1,6 +1,8 @@
 package com.vyllo.music.data
 
+import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.domain.model.LyricsResponse
 import com.vyllo.music.data.download.*
 import com.vyllo.music.data.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PreferenceManager
@@ -9,6 +11,7 @@ import com.vyllo.music.data.network.SuggestionDataSource
 import com.vyllo.music.data.repository.PlaylistRepository
 import com.vyllo.music.data.repository.DownloadRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,7 +24,8 @@ class MusicRepositoryImpl @Inject constructor(
     private val downloadRepository: DownloadRepository,
     private val historyDao: HistoryDao,
     private val preferenceManager: PreferenceManager,
-    private val playbackQueueManager: PlaybackQueueManager
+    private val playbackQueueManager: PlaybackQueueManager,
+    private val lyricsEngine: LyricsEngine
 ) : IMusicRepository {
 
     override suspend fun getSuggestions(query: String): List<String> = suggestionDataSource.getSuggestions(query)
@@ -36,33 +40,29 @@ class MusicRepositoryImpl @Inject constructor(
         youtubeDataSource.getTrendingMusic()
 
     override suspend fun getStreamUrl(url: String, force: Boolean, isVideo: Boolean): String? {
-        // For video mode, always fetch from network since downloads are audio-only
         if (!isVideo) {
             val localUrl = downloadRepository.getLocalStreamUrl(url)
             if (localUrl != null) {
-                android.util.Log.d("MusicRepositoryImpl", "Using local download: $url")
+                SecureLogger.d("MusicRepositoryImpl") { "Using local download: $url" }
                 return localUrl
             }
         } else {
-            android.util.Log.d("MusicRepositoryImpl", "Video mode requested, skipping local check: $url")
+            SecureLogger.d("MusicRepositoryImpl") { "Video mode requested, skipping local check" }
         }
 
         return try {
             val info = youtubeDataSource.getOrFetchStreamInfo(url, force)
             if (isVideo) {
-                // Get the best video stream that has both audio and video (Muxed)
-                // or just pick the best video stream (NewPipe often provides separate streams,
-                // but ExoPlayer handles merging in some cases, however for simplicity we want a playable URL)
                 val videoUrl = info.videoStreams.maxByOrNull { it.bitrate }?.url
-                android.util.Log.d("MusicRepositoryImpl", "Video stream selected: ${videoUrl?.take(50)}...")
+                SecureLogger.d("MusicRepositoryImpl") { "Video stream selected" }
                 videoUrl
             } else {
                 val audioUrl = info.audioStreams.maxByOrNull { it.averageBitrate }?.url
-                android.util.Log.d("MusicRepositoryImpl", "Audio stream selected: ${audioUrl?.take(50)}...")
+                SecureLogger.d("MusicRepositoryImpl") { "Audio stream selected" }
                 audioUrl
             }
         } catch (e: Exception) {
-            android.util.Log.e("MusicRepositoryImpl", "Failed to get stream URL", e)
+            SecureLogger.e("MusicRepositoryImpl", "Failed to get stream URL", e)
             null
         }
     }
@@ -96,8 +96,10 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun isDownloaded(url: String) = downloadRepository.isDownloaded(url)
 
     // History Methods
-    override fun getRecentHistory(limit: Int): Flow<List<MusicItem>> = 
-        historyDao.getRecentHistory(limit).map { entities -> entities.map { it.toMusicItem() } }
+    override fun getRecentHistory(limit: Int): Flow<List<MusicItem>> =
+        historyDao.getRecentHistory(limit)
+            .map { entities -> entities.map { it.toMusicItem() } }
+            .distinctUntilChanged()
 
     override suspend fun recordListen(item: MusicItem) {
         historyDao.insertHistory(item.toHistoryEntity())
@@ -112,8 +114,12 @@ class MusicRepositoryImpl @Inject constructor(
 
     override suspend fun getPatternSuggestions(): List<MusicItem> {
         val allEntries = preferenceManager.preferences.all
-        val topArtists = allEntries.filterKeys { it.startsWith("artist_") }
-            .entries.sortedByDescending { it.value as? Int ?: 0 }.take(5).map { it.key.removePrefix("artist_") }
+        val topArtists = allEntries
+            .filterKeys { it.startsWith("artist_") }
+            .mapNotNull { (key, value) -> (value as? Int)?.let { key to it } }
+            .sortedByDescending { it.second }
+            .take(5)
+            .map { it.first.removePrefix("artist_") }
 
         val allItems = mutableListOf<MusicItem>()
 
@@ -128,7 +134,7 @@ class MusicRepositoryImpl @Inject constructor(
         // 2. Fetch Mixed For You from another random top artist (6 items)
         if (topArtists.size > 1) {
             val otherArtists = topArtists.filter { name -> allItems.none { it.uploader.contains(name, ignoreCase = true) } }
-            val artist2 = if (otherArtists.isNotEmpty()) otherArtists.random() else topArtists.random()
+            val artist2 = if (otherArtists.isNotEmpty()) otherArtists.random() else topArtists.first()
             allItems.addAll(youtubeDataSource.searchMusic("Recommended for $artist2", maintainSession = false).take(6))
         } else {
             allItems.addAll(youtubeDataSource.searchMusic("New suggested music", maintainSession = false).take(6))
@@ -164,6 +170,6 @@ class MusicRepositoryImpl @Inject constructor(
     override fun isLiquidScrollEnabled(): Boolean = preferenceManager.isLiquidScrollEnabled
 
     override suspend fun getLyrics(title: String, artist: String, duration: Long, url: String): LyricsResponse? {
-        return LyricsEngine.findLyricsUniversal(title, artist, duration)
+        return lyricsEngine.findLyricsUniversal(title, artist, duration)
     }
 }

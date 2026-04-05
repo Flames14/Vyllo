@@ -15,7 +15,6 @@
     
     <!-- Alarm permissions -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -23,6 +22,8 @@
     <application
         android:name=".VylloApplication"
         android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Vyllo"

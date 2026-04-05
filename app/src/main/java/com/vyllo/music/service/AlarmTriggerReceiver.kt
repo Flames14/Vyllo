@@ -1,5 +1,7 @@
 package com.vyllo.music.service
 
+import com.vyllo.music.core.security.SecureLogger
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -21,11 +23,11 @@ class AlarmTriggerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val alarmId = intent.getLongExtra("alarm_id", -1L)
         
-        android.util.Log.d("AlarmTriggerReceiver", "=== ALARM TRIGGERED ===")
-        android.util.Log.d("AlarmTriggerReceiver", "Received alarm_id: $alarmId")
+        SecureLogger.d("AlarmTriggerReceiver", "=== ALARM TRIGGERED ===")
+        SecureLogger.d("AlarmTriggerReceiver", "Received alarm_id: $alarmId")
         
         if (alarmId == -1L) {
-            android.util.Log.e("AlarmTriggerReceiver", "No alarm_id provided")
+            SecureLogger.e("AlarmTriggerReceiver", "No alarm_id provided")
             return
         }
         
@@ -36,19 +38,19 @@ class AlarmTriggerReceiver : BroadcastReceiver() {
                 val alarm = db.alarmDao().getAlarmById(alarmId)
                 
                 if (alarm == null) {
-                    android.util.Log.e("AlarmTriggerReceiver", "Alarm not found for ID: $alarmId")
+                    SecureLogger.e("AlarmTriggerReceiver", "Alarm not found for ID: $alarmId")
                     return@launch
                 }
                 
-                android.util.Log.d("AlarmTriggerReceiver", "=== ALARM DETAILS ===")
-                android.util.Log.d("AlarmTriggerReceiver", "ID: ${alarm.id}")
-                android.util.Log.d("AlarmTriggerReceiver", "Label: ${alarm.label}")
-                android.util.Log.d("AlarmTriggerReceiver", "SoundType: ${alarm.soundType}")
-                android.util.Log.d("AlarmTriggerReceiver", "DownloadedSongUrl: ${alarm.downloadedSongUrl}")
-                android.util.Log.d("AlarmTriggerReceiver", "DownloadedSongTitle: ${alarm.downloadedSongTitle}")
-                android.util.Log.d("AlarmTriggerReceiver", "Volume: ${alarm.volume}")
-                android.util.Log.d("AlarmTriggerReceiver", "GradualVolume: ${alarm.gradualVolume}")
-                android.util.Log.d("AlarmTriggerReceiver", "VibrationEnabled: ${alarm.vibrationEnabled}")
+                SecureLogger.d("AlarmTriggerReceiver", "=== ALARM DETAILS ===")
+                SecureLogger.d("AlarmTriggerReceiver", "ID: ${alarm.id}")
+                SecureLogger.d("AlarmTriggerReceiver", "Label: ${alarm.label}")
+                SecureLogger.d("AlarmTriggerReceiver", "SoundType: ${alarm.soundType}")
+                SecureLogger.d("AlarmTriggerReceiver", "DownloadedSongUrl: ${alarm.downloadedSongUrl}")
+                SecureLogger.d("AlarmTriggerReceiver", "DownloadedSongTitle: ${alarm.downloadedSongTitle}")
+                SecureLogger.d("AlarmTriggerReceiver", "Volume: ${alarm.volume}")
+                SecureLogger.d("AlarmTriggerReceiver", "GradualVolume: ${alarm.gradualVolume}")
+                SecureLogger.d("AlarmTriggerReceiver", "VibrationEnabled: ${alarm.vibrationEnabled}")
                 
                 val serviceIntent = Intent(context, AlarmTriggerService::class.java).apply {
                     action = intent.action
@@ -62,12 +64,12 @@ class AlarmTriggerReceiver : BroadcastReceiver() {
                     putExtra("vibration_enabled", alarm.vibrationEnabled)
                 }
                 
-                android.util.Log.d("AlarmTriggerReceiver", 
+                SecureLogger.d("AlarmTriggerReceiver", 
                     "Starting AlarmTriggerService: id=${alarm.id}, soundType=${alarm.soundType}, url=${alarm.downloadedSongUrl}")
                 
                 ContextCompat.startForegroundService(context, serviceIntent)
             } catch (e: Exception) {
-                android.util.Log.e("AlarmTriggerReceiver", "Failed to fetch alarm details", e)
+                SecureLogger.e("AlarmTriggerReceiver", "Failed to fetch alarm details", e)
             }
         }
     }

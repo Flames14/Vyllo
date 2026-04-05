@@ -26,6 +26,7 @@ import com.vyllo.music.ui.components.*
 fun YTMExploreScreen(
     viewModel: HomeViewModel,
     onPlay: (MusicItem) -> Unit,
+    onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit,
     currentPlayingItem: MusicItem?,
     loadingItemUrl: String? = null
@@ -47,7 +48,7 @@ fun YTMExploreScreen(
         // YTM Header with refresh
         item {
             YTMHeader(
-                onSearchClick = { },
+                onSearchClick = onSearchClick,
                 onSettingsClick = onSettingsClick,
                 isRefreshing = uiState.isRefreshing,
                 onRefresh = { viewModel.refreshAllContent() }

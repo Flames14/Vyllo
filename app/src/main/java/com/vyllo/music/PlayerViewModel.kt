@@ -1,70 +1,118 @@
 package com.vyllo.music
 
-import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.domain.model.LyricsResponse
+import com.vyllo.music.domain.model.SyncedLyricLine
+import com.vyllo.music.domain.model.LyricsResult
+import com.vyllo.music.domain.model.LyricsStatus
 import com.vyllo.music.data.*
 import com.vyllo.music.data.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PreferenceManager
-import com.vyllo.music.domain.usecase.GetLyricsUseCase
+import com.vyllo.music.domain.manager.StreamUrlCache
 import com.vyllo.music.domain.usecase.GetStreamUrlUseCase
-import com.vyllo.music.domain.usecase.TranslateLyricsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import javax.inject.Inject
+
+data class PlayerUiState(
+    val currentPlayingItem: MusicItem? = null,
+    val relatedSongs: List<MusicItem> = emptyList(),
+    val autoplayEnabled: Boolean = true,
+    val isLoadingPlayer: Boolean = false,
+    val loadingItemUrl: String? = null,
+    val isVideoMode: Boolean = false,
+    val lyricsResponse: LyricsResponse? = null,
+    val syncedLyricsLines: List<SyncedLyricLine> = emptyList(),
+    val currentLyricIndex: Int = -1,
+    val lyricsLoading: Boolean = false,
+    val lyricsOffsetMs: Long = 0L,
+    val showLyricsSelector: Boolean = false,
+    val lyricsSearchQuery: String = "",
+    val lyricsSearchResults: List<LyricsResult> = emptyList(),
+    val lyricsSearching: Boolean = false,
+    val translatedLyricsLines: List<String?> = emptyList(),
+    val translatedPlainLyrics: String? = null,
+    val isTranslationEnabled: Boolean = false,
+    val isTranslating: Boolean = false,
+    val detectedLyricsLangCode: String? = null,
+)
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val repository: IMusicRepository,
     private val getStreamUrlUseCase: GetStreamUrlUseCase,
-    private val getLyricsUseCase: GetLyricsUseCase,
-    private val translateLyricsUseCase: TranslateLyricsUseCase,
     private val playbackQueueManager: PlaybackQueueManager,
-    private val preferenceManager: PreferenceManager
+    private val preferenceManager: PreferenceManager,
+    private val streamUrlCache: StreamUrlCache,
+    private val lyricsCoordinator: PlayerLyricsCoordinator
 ) : ViewModel() {
 
-    var currentPlayingItem by mutableStateOf<MusicItem?>(null)
-    var relatedSongs by mutableStateOf<List<MusicItem>>(emptyList())
-    var autoplayEnabled by mutableStateOf(true)
-    var isLoadingPlayer by mutableStateOf(false)
-    var loadingItemUrl by mutableStateOf<String?>(null)
-    var isVideoMode by mutableStateOf(false)
-    private var pendingVideoMode by mutableStateOf<Boolean?>(null)
+    private val _uiState = MutableStateFlow(PlayerUiState())
+    val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
-    // --- Lyrics state ---
-    var lyricsResponse by mutableStateOf<LyricsResponse?>(null)
-    var syncedLyricsLines by mutableStateOf<List<SyncedLyricLine>>(emptyList())
-    var currentLyricIndex by mutableIntStateOf(-1)
-    var lyricsLoading by mutableStateOf(false)
-    var lyricsOffsetMs by mutableLongStateOf(0L)
-    var showLyricsSelector by mutableStateOf(false)
-    var lyricsSearchQuery by mutableStateOf("")
-    var lyricsSearchResults by mutableStateOf<List<LyricsResult>>(emptyList())
-    var lyricsSearching by mutableStateOf(false)
-    
-    // --- Translation state ---
-    var translatedLyricsLines by mutableStateOf<List<String?>>(emptyList())
-    var translatedPlainLyrics by mutableStateOf<String?>(null)
-    var isTranslationEnabled by mutableStateOf(false)
-    var isTranslating by mutableStateOf(false)
-    var detectedLyricsLangCode by mutableStateOf<String?>(null)
-
-    private var currentLyricsUrl: String? = null
-    private var lyricsJob: Job? = null
-    private var lyricsSearchJob: Job? = null
-    private var playbackJob: Job? = null
-    private var translationJob: Job? = null
-    private var lastFetchedDuration: Long = 0
+    // Convenience properties for backward compatibility with Compose UI
+    val currentPlayingItem: MusicItem?
+        get() = _uiState.value.currentPlayingItem
+    val relatedSongs: List<MusicItem>
+        get() = _uiState.value.relatedSongs
+    var autoplayEnabled: Boolean
+        get() = _uiState.value.autoplayEnabled
+        set(value) { _uiState.update { it.copy(autoplayEnabled = value) } }
+    val isLoadingPlayer: Boolean
+        get() = _uiState.value.isLoadingPlayer
+    val loadingItemUrl: String?
+        get() = _uiState.value.loadingItemUrl
+    var isVideoMode: Boolean
+        get() = _uiState.value.isVideoMode
+        set(value) { _uiState.update { it.copy(isVideoMode = value) } }
+    val lyricsResponse: LyricsResponse?
+        get() = _uiState.value.lyricsResponse
+    val syncedLyricsLines: List<SyncedLyricLine>
+        get() = _uiState.value.syncedLyricsLines
+    var currentLyricIndex: Int
+        get() = _uiState.value.currentLyricIndex
+        set(value) { _uiState.update { it.copy(currentLyricIndex = value) } }
+    val lyricsLoading: Boolean
+        get() = _uiState.value.lyricsLoading
+    var lyricsOffsetMs: Long
+        get() = _uiState.value.lyricsOffsetMs
+        set(value) { _uiState.update { it.copy(lyricsOffsetMs = value) } }
+    var showLyricsSelector: Boolean
+        get() = _uiState.value.showLyricsSelector
+        set(value) { _uiState.update { it.copy(showLyricsSelector = value) } }
+    var lyricsSearchQuery: String
+        get() = _uiState.value.lyricsSearchQuery
+        set(value) { _uiState.update { it.copy(lyricsSearchQuery = value) } }
+    val lyricsSearchResults: List<LyricsResult>
+        get() = _uiState.value.lyricsSearchResults
+    val lyricsSearching: Boolean
+        get() = _uiState.value.lyricsSearching
+    val translatedLyricsLines: List<String?>
+        get() = _uiState.value.translatedLyricsLines
+    val translatedPlainLyrics: String?
+        get() = _uiState.value.translatedPlainLyrics
+    var isTranslationEnabled: Boolean
+        get() = _uiState.value.isTranslationEnabled
+        set(value) { _uiState.update { it.copy(isTranslationEnabled = value) } }
+    val isTranslating: Boolean
+        get() = _uiState.value.isTranslating
+    val detectedLyricsLangCode: String?
+        get() = _uiState.value.detectedLyricsLangCode
 
     init {
         viewModelScope.launch {
             playbackQueueManager.currentPlayingItem.collectLatest { item ->
-                currentPlayingItem = item
+                _uiState.update { it.copy(currentPlayingItem = item) }
             }
         }
     }
@@ -73,7 +121,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             val related = repository.getRelatedSongs(item.url)
             if (related.isNotEmpty()) {
-                relatedSongs = related
+                _uiState.update { it.copy(relatedSongs = related) }
                 syncQueueWithRelated(related)
             }
         }
@@ -82,167 +130,98 @@ class PlayerViewModel @Inject constructor(
     private fun syncQueueWithRelated(related: List<MusicItem>) {
         val currentIdx = playbackQueueManager.currentIndex
         if (currentIdx >= 0) {
-            val kept = playbackQueueManager.currentQueue.take(currentIdx + 1)
-            playbackQueueManager.currentQueue.clear()
-            playbackQueueManager.currentQueue.addAll(kept)
-            playbackQueueManager.currentQueue.addAll(related)
+            playbackQueueManager.replaceUpcomingItems(related)
         }
     }
-
-    private val streamUrlCache = mutableMapOf<String, String>()
 
     suspend fun resolveStream(item: MusicItem, isVideo: Boolean = false): String? {
-        val cacheKey = "${item.url}_$isVideo"
-        streamUrlCache[cacheKey]?.let { 
-            android.util.Log.d("PlayerViewModel", "Stream URL cache hit: $cacheKey")
-            return it 
+        streamUrlCache.get(item.url, isVideo)?.let {
+            SecureLogger.d("PlayerViewModel") { "Stream URL cache hit: ${item.url}_$isVideo" }
+            return it
         }
 
-        loadingItemUrl = item.url
-        isLoadingPlayer = true
-        android.util.Log.d("PlayerViewModel", "Resolving stream: url=${item.url}, isVideo=$isVideo")
+        _uiState.update { it.copy(loadingItemUrl = item.url, isLoadingPlayer = true) }
+        SecureLogger.d("PlayerViewModel") { "Resolving stream: url=${item.url}, isVideo=$isVideo" }
         val url = getStreamUrlUseCase(item.url, isVideo = isVideo)
-        isLoadingPlayer = false
-        loadingItemUrl = null
+        _uiState.update { it.copy(loadingItemUrl = null, isLoadingPlayer = false) }
 
         if (url != null) {
-            streamUrlCache[cacheKey] = url
-            android.util.Log.d("PlayerViewModel", "Stream URL resolved: ${url.take(50)}...")
+            streamUrlCache.put(item.url, isVideo, url)
+            SecureLogger.d("PlayerViewModel") { "Stream URL resolved" }
         } else {
-            android.util.Log.w("PlayerViewModel", "Failed to resolve stream URL")
+            SecureLogger.w("PlayerViewModel", "Failed to resolve stream URL")
         }
         return url
-    }
-
-    fun resolveStreamWithCallback(item: MusicItem, isVideo: Boolean = false, onResult: (String?) -> Unit) {
-        playbackJob?.cancel()
-        playbackJob = viewModelScope.launch {
-            val url = resolveStream(item, isVideo)
-            if (isActive) onResult(url)
-        }
     }
 
     fun toggleVideoMode(currentPosition: Long, onSwitch: (String?) -> Unit) {
         val item = currentPlayingItem ?: return
         val targetVideoMode = !isVideoMode
-        android.util.Log.d("PlayerViewModel", "toggleVideoMode: current=$isVideoMode, target=$targetVideoMode, position=$currentPosition")
-        
+        SecureLogger.d("PlayerViewModel") { "toggleVideoMode: current=$isVideoMode, target=$targetVideoMode, position=$currentPosition" }
+
         isVideoMode = targetVideoMode
 
-        // Re-resolve the stream with the new mode
-        resolveStreamWithCallback(item, isVideo = isVideoMode) { newUrl ->
-            android.util.Log.d("PlayerViewModel", "toggleVideoMode callback: newUrl=${newUrl?.take(50)}...")
-            onSwitch(newUrl)
-        }
-    }
-
-    fun fetchLyrics(item: MusicItem, durationSecs: Long) {
-        if (currentLyricsUrl == item.url && (lastFetchedDuration > 0 || durationSecs == 0L)) return
-
-        currentLyricsUrl = item.url
-        lastFetchedDuration = durationSecs
-        resetLyricsState()
-        
-        lyricsJob?.cancel()
-        lyricsJob = viewModelScope.launch(Dispatchers.IO) {
-            val result = getLyricsUseCase(item, durationSecs)
-            lyricsResponse = result
-            syncedLyricsLines = result?.syncedLines ?: emptyList()
-            lyricsLoading = false
-
-            val detectedLanguages = result?.languages ?: listOf("english")
-            detectedLyricsLangCode = if (detectedLanguages.any { it != "english" }) {
-                detectedLanguages.firstOrNull { it != "english" } ?: "english"
-            } else {
-                "english"
+        viewModelScope.launch {
+            val newUrl = resolveStream(item, isVideo = isVideoMode)
+            if (isActive) {
+                SecureLogger.d("PlayerViewModel") { "toggleVideoMode callback: newUrl resolved" }
+                onSwitch(newUrl)
             }
         }
     }
 
-    private fun resetLyricsState() {
-        lyricsResponse = null
-        syncedLyricsLines = emptyList()
-        currentLyricIndex = -1
-        lyricsLoading = true
-        showLyricsSelector = false
-        lyricsSearchQuery = ""
-        lyricsSearchResults = emptyList()
-        translatedLyricsLines = emptyList()
-        translatedPlainLyrics = null
-        isTranslationEnabled = false
-        isTranslating = false
-        detectedLyricsLangCode = null
-        translationJob?.cancel()
-        TranslationEngine.resetSession()
+    fun fetchLyrics(item: MusicItem, durationSecs: Long) {
+        lyricsCoordinator.fetchLyrics(
+            scope = viewModelScope,
+            currentState = { _uiState.value },
+            updateState = { _uiState.value = it },
+            item = item,
+            durationSecs = durationSecs,
+            onTranslateCurrentLyrics = ::translateCurrentLyrics
+        )
     }
 
     fun updateLyricsPosition(positionMs: Long) {
         val index = LyricsEngine.getCurrentLyricLine(syncedLyricsLines, positionMs + lyricsOffsetMs)
         if (index != currentLyricIndex) {
-            currentLyricIndex = index
+            _uiState.update { it.copy(currentLyricIndex = index) }
         }
     }
 
     fun adjustLyricsOffset(deltaMs: Long) {
-        lyricsOffsetMs += deltaMs
+        _uiState.update { it.copy(lyricsOffsetMs = it.lyricsOffsetMs + deltaMs) }
     }
 
     fun selectAlternativeLyrics(result: LyricsResult) {
-        val parsedLines = LyricsEngine.parseSyncedLyrics(result.syncedLyrics)
-        syncedLyricsLines = parsedLines
-        currentLyricIndex = -1
-        showLyricsSelector = false
-        lyricsSearchQuery = ""
-        lyricsSearchResults = emptyList()
-
-        currentLyricsUrl?.let { url ->
-            repository.saveLyricsPreference(url, result.id)
-        }
-
-        lyricsResponse = lyricsResponse?.copy(
-            result = result,
-            plainLyrics = result.plainLyrics,
-            syncedLines = parsedLines.takeIf { it.isNotEmpty() },
-            lyricsStatus = LyricsStatus(
-                hasPlain = result.plainLyrics != null,
-                hasSynced = result.syncedLyrics != null,
-                isInstrumental = result.instrumental
-            )
+        lyricsCoordinator.selectAlternativeLyrics(
+            currentState = { _uiState.value },
+            updateState = { _uiState.value = it },
+            result = result
         )
     }
 
     fun searchForLyrics(query: String) {
-        if (query.isBlank()) return
-        lyricsSearching = true
-        lyricsSearchJob?.cancel()
-        lyricsSearchJob = viewModelScope.launch(Dispatchers.IO) {
-            val results = LyricsEngine.searchLyrics(query)
-            lyricsSearchResults = results
-            lyricsSearching = false
-        }
+        lyricsCoordinator.searchForLyrics(
+            scope = viewModelScope,
+            currentState = { _uiState.value },
+            updateState = { _uiState.value = it },
+            query = query
+        )
     }
 
     fun clearLyricsSearchResults() {
-        lyricsSearchQuery = ""
-        lyricsSearchResults = emptyList()
-        lyricsSearching = false
-        lyricsSearchJob?.cancel()
+        lyricsCoordinator.clearLyricsSearchResults(
+            currentState = { _uiState.value },
+            updateState = { _uiState.value = it }
+        )
     }
 
     fun translateCurrentLyrics() {
-        translationJob?.cancel()
-        isTranslating = true
-        translationJob = viewModelScope.launch {
-            if (syncedLyricsLines.isNotEmpty()) {
-                translatedLyricsLines = translateLyricsUseCase.translateLines(syncedLyricsLines)
-            } else {
-                val plain = lyricsResponse?.plainLyrics
-                if (!plain.isNullOrBlank()) {
-                    translatedPlainLyrics = translateLyricsUseCase.translatePlain(plain)
-                }
-            }
-            isTranslating = false
-        }
+        lyricsCoordinator.translateCurrentLyrics(
+            scope = viewModelScope,
+            currentState = { _uiState.value },
+            updateState = { _uiState.value = it }
+        )
     }
 
     fun toggleTranslation(enabled: Boolean) {

@@ -1,5 +1,7 @@
 package com.vyllo.music.service
 
+import com.vyllo.music.core.security.SecureLogger
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -37,6 +39,7 @@ class DownloadWorker @AssistedInject constructor(
 
     private val channelId = "download_channel"
     private val notificationId = params.id.hashCode()
+    private var workingFile: File? = null
 
     override suspend fun doWork(): Result {
         val url = inputData.getString("url") ?: return Result.failure()
@@ -58,6 +61,8 @@ class DownloadWorker @AssistedInject constructor(
         setForeground(createForegroundInfo(title, 0))
 
         try {
+            downloadDao.updateStatus(url, DownloadStatus.DOWNLOADING)
+
             // 1. Resolve stream URL with retry
             var streamUrl = repository.getStreamUrl(url, force = false)
             if (streamUrl == null) {
@@ -73,6 +78,8 @@ class DownloadWorker @AssistedInject constructor(
             val safeTitle = title.replace(Regex("[^a-zA-Z0-9._-]"), "_").take(100)
             val extension = getExtensionFromUrl(streamUrl)
             val localFile = File(downloadsDir, "${safeTitle}-${System.currentTimeMillis()}.$extension")
+            val tempFile = File(downloadsDir, "${localFile.name}.part")
+            workingFile = tempFile
 
             // 3. Start download with optimized settings
             val request = Request.Builder()
@@ -85,44 +92,52 @@ class DownloadWorker @AssistedInject constructor(
                 .build()
 
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                val response = client.newCall(request).execute()
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful || response.body == null) {
+                        SecureLogger.e("DownloadWorker", "Download failed: ${response.code} ${response.message}")
+                        throw Exception("Failed to download: ${response.code}")
+                    }
 
-                if (!response.isSuccessful || response.body == null) {
-                    android.util.Log.e("DownloadWorker", "Download failed: ${response.code} ${response.message}")
-                    throw Exception("Failed to download: ${response.code}")
-                }
+                    val body = response.body ?: throw Exception("Download body missing")
+                    val totalBytes = body.contentLength()
+                    body.byteStream().use { inputStream ->
+                        FileOutputStream(tempFile).use { outputStream ->
+                            val buffer = ByteArray(32 * 1024)
+                            var bytesRead: Int
+                            var totalRead: Long = 0
+                            var lastProgressUpdate = 0L
+                            val progressUpdateInterval = 100L
 
-                val body = response.body!!
-                val totalBytes = body.contentLength()
-                val inputStream = body.byteStream()
-                val outputStream = FileOutputStream(localFile)
+                            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                if (isStopped) {
+                                    throw Exception("Download cancelled")
+                                }
 
-                val buffer = ByteArray(32 * 1024)
-                var bytesRead: Int
-                var totalRead: Long = 0
-                var lastProgressUpdate = 0L
-                val progressUpdateInterval = 100L
+                                outputStream.write(buffer, 0, bytesRead)
+                                totalRead += bytesRead
 
-                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                    outputStream.write(buffer, 0, bytesRead)
-                    totalRead += bytesRead
+                                val currentTime = System.currentTimeMillis()
+                                if (totalBytes > 0 && currentTime - lastProgressUpdate >= progressUpdateInterval) {
+                                    val progress = (totalRead * 100 / totalBytes).toInt()
+                                    setProgress(workDataOf("progress" to progress))
+                                    notificationManager.notify(notificationId, createNotification(title, progress))
+                                    lastProgressUpdate = currentTime
+                                }
+                            }
 
-                    val currentTime = System.currentTimeMillis()
-                    if (totalBytes > 0 && currentTime - lastProgressUpdate >= progressUpdateInterval) {
-                        val progress = (totalRead * 100 / totalBytes).toInt()
-                        setProgress(workDataOf("progress" to progress))
-                        notificationManager.notify(notificationId, createNotification(title, progress))
-                        lastProgressUpdate = currentTime
+                            outputStream.flush()
+                        }
                     }
                 }
 
-                outputStream.flush()
-                outputStream.close()
-                inputStream.close()
-
-                if (!localFile.exists() || localFile.length() == 0L) {
+                if (!tempFile.exists() || tempFile.length() == 0L) {
                     throw Exception("Downloaded file is empty or missing")
                 }
+
+                if (!tempFile.renameTo(localFile)) {
+                    throw Exception("Failed to finalize downloaded file")
+                }
+                workingFile = localFile
 
                 // 4. Save metadata to database
                 val entity = DownloadEntity(
@@ -136,7 +151,7 @@ class DownloadWorker @AssistedInject constructor(
                 )
                 downloadDao.insertDownload(entity)
 
-                android.util.Log.d("DownloadWorker", "Download complete: ${localFile.name} (${localFile.length() / 1024}KB)")
+                SecureLogger.d("DownloadWorker", "Download complete: ${localFile.name} (${localFile.length() / 1024}KB)")
             }
 
             val successNotification = NotificationCompat.Builder(applicationContext, channelId)
@@ -150,10 +165,11 @@ class DownloadWorker @AssistedInject constructor(
             return Result.success()
 
         } catch (e: Exception) {
-            android.util.Log.e("DownloadWorker", "Download failed for $title: ${e.message}", e)
+            SecureLogger.e("DownloadWorker", "Download failed for $title: ${e.message}", e)
             try {
                 downloadDao.updateStatus(url, DownloadStatus.FAILED)
             } catch (_: Exception) {}
+            workingFile?.takeIf { it.exists() }?.delete()
             return Result.failure()
         }
     }

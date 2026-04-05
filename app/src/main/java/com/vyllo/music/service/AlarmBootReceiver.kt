@@ -1,5 +1,7 @@
 package com.vyllo.music.service
 
+import com.vyllo.music.core.security.SecureLogger
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -45,10 +47,10 @@ class AlarmBootReceiver : BroadcastReceiver() {
                 }
                 
                 if (enabledAlarms.isNotEmpty()) {
-                    android.util.Log.d(TAG, "Re-scheduled ${enabledAlarms.size} alarms after reboot")
+                    SecureLogger.d(TAG, "Re-scheduled ${enabledAlarms.size} alarms after reboot")
                 }
             } catch (e: Exception) {
-                android.util.Log.e(TAG, "Failed to re-schedule alarms after reboot", e)
+                SecureLogger.e(TAG, "Failed to re-schedule alarms after reboot", e)
             }
         }
     }

@@ -41,11 +41,11 @@ val LocalLibraryViewModel = staticCompositionLocalOf<LibraryViewModel> {
 }
 
 /**
- * Main UI entry point for the app. 
+ * Main UI entry point for the app.
  * Extracted from MainActivity because that file was getting way too big.
  */
 @Composable
-fun VylloApp(
+fun VylloNavigation(
     playbackManager: PlaybackManager, 
     homeViewModel: HomeViewModel,
     searchViewModel: SearchViewModel,
@@ -61,6 +61,9 @@ fun VylloApp(
     var showSearchScreen by remember { mutableStateOf(false) }
     var showAlarmScreen by remember { mutableStateOf(false) }
     val scrollState = rememberLazyListState()
+
+    // Collect player UI state so Compose recomposes when player state changes
+    val playerUiState by playerViewModel.uiState.collectAsState()
     
     val appContext = LocalContext.current
     
@@ -144,7 +147,7 @@ fun VylloApp(
                                 homeViewModel.selectedNavTab = it
                                 showSearchScreen = false
                             },
-                            hasActivePlayer = playerViewModel.currentPlayingItem != null
+                            hasActivePlayer = playerUiState.currentPlayingItem != null
                         )
                     }
                 }
@@ -166,7 +169,7 @@ fun VylloApp(
                                 homeViewModel.addToRecentlyPlayed(item)
                                 onPlay(item)
                             },
-                            currentPlayingItem = playerViewModel.currentPlayingItem,
+                            currentPlayingItem = playerUiState.currentPlayingItem,
                             scrollState = scrollState
                         )
                     } else {
@@ -179,8 +182,8 @@ fun VylloApp(
                                 },
                                 onSearchClick = { showSearchScreen = true },
                                 onSettingsClick = { settingsViewModel.showSettings = true },
-                                currentPlayingItem = playerViewModel.currentPlayingItem,
-                                loadingItemUrl = playerViewModel.loadingItemUrl
+                                currentPlayingItem = playerUiState.currentPlayingItem,
+                                loadingItemUrl = playerUiState.loadingItemUrl
                             )
                             1 -> YTMExploreScreen(
                                 viewModel = homeViewModel,
@@ -188,9 +191,10 @@ fun VylloApp(
                                     homeViewModel.addToRecentlyPlayed(item)
                                     onPlay(item)
                                 },
+                                onSearchClick = { showSearchScreen = true },
                                 onSettingsClick = { settingsViewModel.showSettings = true },
-                                currentPlayingItem = playerViewModel.currentPlayingItem,
-                                loadingItemUrl = playerViewModel.loadingItemUrl
+                                currentPlayingItem = playerUiState.currentPlayingItem,
+                                loadingItemUrl = playerUiState.loadingItemUrl
                             )
                             2 -> {
                                 // Library/Playlist/Alarm navigation
@@ -207,8 +211,8 @@ fun VylloApp(
                                             homeViewModel.addToRecentlyPlayed(item)
                                             onPlay(item)
                                         },
-                                        currentPlayingItem = playerViewModel.currentPlayingItem,
-                                        loadingItemUrl = playerViewModel.loadingItemUrl
+                                        currentPlayingItem = playerUiState.currentPlayingItem,
+                                        loadingItemUrl = playerUiState.loadingItemUrl
                                     )
                                 } else {
                                     YTMLibraryScreen(
@@ -217,9 +221,10 @@ fun VylloApp(
                                             homeViewModel.addToRecentlyPlayed(item)
                                             onPlay(item)
                                         },
+                                        onSearchClick = { showSearchScreen = true },
                                         onSettingsClick = { settingsViewModel.showSettings = true },
-                                        currentPlayingItem = playerViewModel.currentPlayingItem,
-                                        loadingItemUrl = playerViewModel.loadingItemUrl,
+                                        currentPlayingItem = playerUiState.currentPlayingItem,
+                                        loadingItemUrl = playerUiState.loadingItemUrl,
                                         onNavigateToAlarms = { showAlarmScreen = true }
                                     )
                                 }
@@ -252,7 +257,7 @@ fun VylloApp(
                     }
 
                     // Player Component
-                    if (playerViewModel.currentPlayingItem != null) {
+                    if (playerUiState.currentPlayingItem != null) {
                         if(isPlayerExpanded) {
                              // Dim background when player is full screen
                              Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.8f)).clickable(enabled=false){})
@@ -260,15 +265,15 @@ fun VylloApp(
 
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
                             PremiumPlayerContainer(
-                                musicItem = playerViewModel.currentPlayingItem,
+                                musicItem = playerUiState.currentPlayingItem,
                                 isPlaying = isPlaying,
-                                isLoading = playerViewModel.isLoadingPlayer,
+                                isLoading = playerUiState.isLoadingPlayer,
                                 controller = controller,
-                                relatedSongs = playerViewModel.relatedSongs,
-                                isAutoplayEnabled = playerViewModel.autoplayEnabled,
+                                relatedSongs = playerUiState.relatedSongs,
+                                isAutoplayEnabled = playerUiState.autoplayEnabled,
                                 onTogglePlay = { if (isPlaying) controller?.pause() else controller?.play() },
-                                onNext = { onNext(playerViewModel.currentPlayingItem) },
-                                onPrev = { onPrev(playerViewModel.currentPlayingItem) },
+                                onNext = { onNext(playerUiState.currentPlayingItem) },
+                                onPrev = { onPrev(playerUiState.currentPlayingItem) },
                                 onExpand = { isPlayerExpanded = true },
                                 onCollapse = { isPlayerExpanded = false },
                                 isExpanded = isPlayerExpanded,

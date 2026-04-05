@@ -26,8 +26,11 @@ object SecurityMonitor {
      * Detects if device is rooted using multiple checks
      */
     fun isDeviceRooted(): Boolean {
+        return checkForRootFiles() || hasRootManagementApps()
+    }
+
+    private fun checkForRootFiles(): Boolean {
         return try {
-            // Check for common root files
             val rootFiles = listOf(
                 "/system/app/Superuser.apk",
                 "/system/bin/su",
@@ -37,42 +40,43 @@ object SecurityMonitor {
                 "/data/local/bin/su",
                 "/system/bin/.ext/.su",
                 "/system/usr/we-need-root/su",
-                "/system/app/Kinguser.apk",
-                "/data/property/persist.sys.usb.config"
+                "/system/app/Kinguser.apk"
             )
-            val hasRootFiles = rootFiles.any { File(it).exists() }
-
-            // Check for root management apps
-            val rootPackages = listOf(
-                "com.noshufou.android.su",
-                "com.noshufou.android.su.elite",
-                "eu.chainfire.supersu",
-                "com.koushikdutta.superuser",
-                "com.thirdparty.superuser",
-                "com.yellowes.su",
-                "com.koushikdutta.rommanager",
-                "com.koushikdutta.rommanager.license",
-                "com.dimonvideo.luckypatcher",
-                "com.chelpus.lackypatch",
-                "com.ramdroid.appquarantine",
-                "com.ramdroid.appquarantinepro",
-                "com.topjohnwu.magisk"
-            )
-
-            hasRootFiles || hasRootManagementApps(rootPackages)
+            rootFiles.any { File(it).exists() }
         } catch (e: Exception) {
-            Log.d(TAG, "Root check failed: ${e.message}")
+            Log.d(TAG, "Root file check failed: ${e.message}")
             false
         }
     }
 
-    private fun hasRootManagementApps(packages: List<String>): Boolean {
+    private fun hasRootManagementApps(rootPackages: List<String> = listOf(
+        "com.noshufou.android.su",
+        "com.noshufou.android.su.elite",
+        "eu.chainfire.supersu",
+        "com.koushikdutta.superuser",
+        "com.thirdparty.superuser",
+        "com.yellowes.su",
+        "com.koushikdutta.rommanager",
+        "com.koushikdutta.rommanager.license",
+        "com.dimonvideo.luckypatcher",
+        "com.chelpus.lackypatch",
+        "com.ramdroid.appquarantine",
+        "com.ramdroid.appquarantinepro",
+        "com.topjohnwu.magisk"
+    )): Boolean {
         return try {
-            val packageManager = android.content.Context::class.java
-            // We need a context to check packages, so this is a simplified check
-            // Full implementation would require Context parameter
-            false
+            // Use reflection to get the current application instance
+            val activityThreadClass = Class.forName("android.app.ActivityThread")
+            val currentApplicationMethod = activityThreadClass.getMethod("currentApplication")
+            val context = currentApplicationMethod.invoke(null) as? android.content.Context
+                ?: return false
+            val pm = context.packageManager
+            @Suppress("DEPRECATION")
+            val packages = pm.getInstalledPackages(0)
+            val installedPackageNames = packages.map { it.packageName }.toSet()
+            rootPackages.any { it in installedPackageNames }
         } catch (e: Exception) {
+            Log.d(TAG, "Root app check failed: ${e.message}")
             false
         }
     }

@@ -121,13 +121,19 @@ fun YTMSongRow(
 }
 
 @Composable
-fun PremiumSongRow(item: MusicItem, isPlaying: Boolean, index: Int, onClick: () -> Unit, isLoading: Boolean = false) {
+fun PremiumSongRow(item: MusicItem, isPlaying: Boolean, index: Int, onClick: () -> Unit, isLoading: Boolean = false, isSelected: Boolean = false) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .bounceClick { if (!isLoading) onClick() }
-            .background(if (isPlaying) Color.White.copy(0.05f) else Color.Transparent)
+            .background(
+                when {
+                    isPlaying -> Color.White.copy(0.05f)
+                    isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                    else -> Color.Transparent
+                }
+            )
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -137,7 +143,8 @@ fun PremiumSongRow(item: MusicItem, isPlaying: Boolean, index: Int, onClick: () 
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(item.thumbnailUrl)
-                    .crossfade(false)
+                    .size(128, 128)
+                    .crossfade(true)
                     .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
@@ -146,7 +153,7 @@ fun PremiumSongRow(item: MusicItem, isPlaying: Boolean, index: Int, onClick: () 
                     .clip(RoundedCornerShape(16.dp))
                     .alpha(if (isLoading) 0.5f else 1f)
             )
-            
+
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(32.dp).align(Alignment.Center),
@@ -156,6 +163,10 @@ fun PremiumSongRow(item: MusicItem, isPlaying: Boolean, index: Int, onClick: () 
             } else if (isPlaying) {
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.5f)), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.GraphicEq, null, tint = PremiumAccent(), modifier = Modifier.size(24.dp))
+                }
+            } else if (isSelected) {
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.3f)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                 }
             }
         }

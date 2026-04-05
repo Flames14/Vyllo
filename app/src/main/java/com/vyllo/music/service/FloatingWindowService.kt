@@ -44,6 +44,7 @@ import coil.compose.AsyncImage
 import com.google.common.util.concurrent.ListenableFuture
 import com.vyllo.music.MainActivity
 import com.vyllo.music.data.manager.PreferenceManager
+import com.vyllo.music.core.security.SecureLogger
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -55,7 +56,7 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
 
     private lateinit var windowManager: WindowManager
     private lateinit var params: WindowManager.LayoutParams
-    private lateinit var composeView: ComposeView
+    private var composeView: ComposeView? = null
     
     companion object {
         private const val CHANNEL_ID = "floating_bubble_channel"
@@ -118,7 +119,7 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
             setViewTreeLifecycleOwner(this@FloatingWindowService)
             setViewTreeViewModelStoreOwner(this@FloatingWindowService)
             setViewTreeSavedStateRegistryOwner(this@FloatingWindowService)
-            
+
             setContent {
                 FloatingBubbleContent(
                     mediaController = mediaController,
@@ -126,7 +127,7 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
                         try {
                             params.x += dx.toInt()
                             params.y += dy.toInt()
-                            windowManager.updateViewLayout(this, params)
+                            windowManager.updateViewLayout(this@apply, params)
                         } catch(e: Exception) {
                             // View might be detached
                         }
@@ -146,20 +147,22 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
                 )
             }
         }
-        
+
         // Show immediately - don't wait for media connection
         try {
-            windowManager.addView(composeView, params)
-        } catch(e: Exception) { e.printStackTrace() }
+            composeView?.let { windowManager.addView(it, params) }
+        } catch(e: Exception) {
+            SecureLogger.e("FloatingWindowService", "Failed to add view", e)
+        }
 
         // Connect to MediaSession
         val sessionToken = SessionToken(this, ComponentName(this, MusicService::class.java))
         controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
         controllerFuture?.addListener({
-            try { 
+            try {
                 mediaController = controllerFuture?.get()
-            } catch (e: Exception) { 
-                e.printStackTrace() 
+            } catch (e: Exception) {
+                SecureLogger.e("FloatingWindowService", "Failed to connect media controller", e)
             }
         }, androidx.core.content.ContextCompat.getMainExecutor(this))
     }
@@ -179,11 +182,14 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
     override fun onDestroy() {
         super.onDestroy()
         controllerFuture?.let { MediaController.releaseFuture(it) }
-        try {
-            windowManager.removeView(composeView)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        composeView?.let { view ->
+            try {
+                windowManager.removeView(view)
+            } catch (e: Exception) {
+                SecureLogger.e("FloatingWindowService", "Failed to remove view", e)
+            }
         }
+        composeView = null
     }
 }
 

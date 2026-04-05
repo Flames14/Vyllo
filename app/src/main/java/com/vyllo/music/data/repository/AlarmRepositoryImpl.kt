@@ -5,6 +5,7 @@ import com.vyllo.music.data.alarm.AlarmEntity
 import com.vyllo.music.domain.model.AlarmModel
 import com.vyllo.music.domain.repository.AlarmRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,9 +19,9 @@ class AlarmRepositoryImpl @Inject constructor(
 ) : AlarmRepository {
 
     override fun getAllAlarms(): Flow<List<AlarmModel>> {
-        return alarmDao.getAllAlarms().map { entities ->
-            entities.map { it.toAlarmModel() }
-        }
+        return alarmDao.getAllAlarms()
+            .map { entities -> entities.map { it.toAlarmModel() } }
+            .distinctUntilChanged()
     }
 
     override suspend fun getAllAlarmsList(): List<AlarmModel> {
@@ -28,9 +29,9 @@ class AlarmRepositoryImpl @Inject constructor(
     }
 
     override fun getEnabledAlarms(): Flow<List<AlarmModel>> {
-        return alarmDao.getEnabledAlarms().map { entities ->
-            entities.map { it.toAlarmModel() }
-        }
+        return alarmDao.getEnabledAlarms()
+            .map { entities -> entities.map { it.toAlarmModel() } }
+            .distinctUntilChanged()
     }
 
     override suspend fun getEnabledAlarmsList(): List<AlarmModel> {

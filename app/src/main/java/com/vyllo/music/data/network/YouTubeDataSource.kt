@@ -1,6 +1,7 @@
 package com.vyllo.music.data.network
 
 import android.content.Context
+import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.MusicItemType
 import com.vyllo.music.network.OkHttpDownloader
@@ -26,22 +27,31 @@ class YouTubeDataSource @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private var isInitialized = false
-    
-    // Search session state - needed for pagination
+
     private var currentSearchExtractor: org.schabi.newpipe.extractor.ListExtractor<*>? = null
     private var nextSearchPage: Page? = null
-    
+
     private var currentListExtractor: org.schabi.newpipe.extractor.ListExtractor<*>? = null
     private var nextListPage: Page? = null
 
-    // Cache the last fetched stream info to avoid redundant network hits
-    private var currentStreamUrl: String? = null
-    private var currentStreamInfo: StreamInfo? = null
-
-    // Single thread dispatcher for NewPipe extractors because they aren't always thread-safe
     private val extractorDispatcher = Executors.newFixedThreadPool(1) { r ->
         Thread(r).apply { priority = Thread.NORM_PRIORITY }
     }.asCoroutineDispatcher()
+
+    private data class CachedStreamInfo(
+        val info: StreamInfo,
+        val fetchedAt: Long = System.currentTimeMillis()
+    )
+
+    private val streamInfoCache = object : LinkedHashMap<String, CachedStreamInfo>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CachedStreamInfo>?): Boolean {
+            return size > 50
+        }
+    }
+
+    companion object {
+        private const val CACHE_TTL_MS = 10 * 60 * 1000L
+    }
 
     init {
         initNewPipe()
@@ -71,7 +81,7 @@ class YouTubeDataSource @Inject constructor(
             }
             return@withContext mapItems(searchExtractor.initialPage.items)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SecureLogger.e("YouTubeDataSource", "Search failed for query: $query", e)
             return@withContext emptyList()
         }
     }
@@ -86,7 +96,7 @@ class YouTubeDataSource @Inject constructor(
             nextSearchPage = nextPage.nextPage
             return@withContext mapItems(nextPage.items)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SecureLogger.e("YouTubeDataSource", "Load more results failed", e)
             return@withContext emptyList()
         }
     }
@@ -96,13 +106,13 @@ class YouTubeDataSource @Inject constructor(
             val service = ServiceList.YouTube
             val extractor = service.getSearchExtractor(query, listOf("videos"), "")
             extractor.fetchPage()
-            
+
             currentListExtractor = extractor
             nextListPage = extractor.initialPage.nextPage
-            
+
             return@withContext mapItems(extractor.initialPage.items)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SecureLogger.e("YouTubeDataSource", "Fetch items with pagination failed", e)
             return@withContext emptyList()
         }
     }
@@ -117,7 +127,7 @@ class YouTubeDataSource @Inject constructor(
             nextListPage = nextPage.nextPage
             return@withContext mapItems(nextPage.items)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SecureLogger.e("YouTubeDataSource", "Load more items failed", e)
             return@withContext emptyList()
         }
     }
@@ -136,7 +146,7 @@ class YouTubeDataSource @Inject constructor(
             }
             return@withContext emptyList()
         } catch (e: Exception) {
-            android.util.Log.e("YouTubeDataSource", "Trending fetch failed", e)
+            SecureLogger.e("YouTubeDataSource", "Trending fetch failed", e)
             return@withContext emptyList()
         }
     }
@@ -159,11 +169,13 @@ class YouTubeDataSource @Inject constructor(
     }
 
     suspend fun getOrFetchStreamInfo(url: String, force: Boolean): StreamInfo = withContext(extractorDispatcher) {
-        if (!force && url == currentStreamUrl && currentStreamInfo != null) {
-            return@withContext currentStreamInfo!!
+        if (!force) {
+            val cached = streamInfoCache[url]
+            if (cached != null && (System.currentTimeMillis() - cached.fetchedAt) < CACHE_TTL_MS) {
+                return@withContext cached.info
+            }
         }
 
-        // Retry logic for flaky connections
         var attempt = 0
         var lastException: Exception? = null
         while (attempt < 3) {
@@ -171,15 +183,17 @@ class YouTubeDataSource @Inject constructor(
                 val extractor = ServiceList.YouTube.getStreamExtractor(url)
                 runInterruptible { extractor.fetchPage() }
                 val info = StreamInfo.getInfo(extractor)
-                synchronized(this) {
-                    currentStreamUrl = url
-                    currentStreamInfo = info
-                }
+                streamInfoCache[url] = CachedStreamInfo(info)
                 return@withContext info
             } catch (e: Exception) {
                 lastException = e
                 attempt++
-                if (attempt < 3) delay(400L * attempt)
+                if (attempt < 3) {
+                    // Exponential backoff with jitter to avoid thundering herd
+                    val baseDelay = 400L * attempt
+                    val jitter = (Math.random() * 200L).toLong()
+                    delay(baseDelay + jitter)
+                }
             }
         }
         throw lastException ?: Exception("Fetch failed after 3 attempts")

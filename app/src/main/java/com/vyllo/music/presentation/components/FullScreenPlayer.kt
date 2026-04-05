@@ -16,16 +16,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.session.MediaController
 import coil.compose.AsyncImage
 import com.vyllo.music.PlayerViewModel
-import com.vyllo.music.LibraryViewModel
 import com.vyllo.music.LocalLibraryViewModel
+import com.vyllo.music.R
+import com.vyllo.music.core.security.SecureLogger
+import com.vyllo.music.data.LyricsEngine
 import com.vyllo.music.domain.model.MusicItem
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -49,25 +53,43 @@ fun PremiumFullScreenPlayer(
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
     var selectedTab by remember { mutableIntStateOf(0) }
+    var recentlySelectedSongUrl by remember { mutableStateOf<String?>(null) }
 
     var shuffleModeEnabled by remember { mutableStateOf(controller?.shuffleModeEnabled ?: false) }
     var repeatMode by remember { mutableIntStateOf(controller?.repeatMode ?: androidx.media3.common.Player.REPEAT_MODE_OFF) }
 
-    LaunchedEffect(controller, isPlaying) {
-        while (isPlaying) {
-            if (controller?.playbackState == androidx.media3.common.Player.STATE_READY) {
+    // Collect player UI state so Compose recomposes when lyrics/translation state changes
+    val playerUiState by viewModel.uiState.collectAsState()
+    LaunchedEffect(controller) {
+        var lastLineIndex = -1
+        while (isActive) {
+            if (controller?.isPlaying == true && controller.playbackState == androidx.media3.common.Player.STATE_READY) {
                 currentPosition = controller.currentPosition
-                duration = controller.duration
-                if (duration < 0) duration = 0L
-                viewModel.updateLyricsPosition(currentPosition)
+                duration = controller.duration.coerceAtLeast(0L)
+                val newLineIndex = LyricsEngine.getCurrentLyricLine(
+                    playerUiState.syncedLyricsLines, currentPosition + playerUiState.lyricsOffsetMs
+                )
+                if (newLineIndex != lastLineIndex) {
+                    viewModel.currentLyricIndex = newLineIndex
+                    lastLineIndex = newLineIndex
+                }
             }
-            delay(100)
+            delay(250)
         }
     }
 
-    LaunchedEffect(item.url, duration) {
+    LaunchedEffect(item.url) {
         if (item.url.isBlank()) return@LaunchedEffect
-        val durationSecs = if (duration > 0) duration / 1000L else 0L
+        // Wait for duration to become available (polling loop updates it every 250ms)
+        var attempts = 0
+        var dur = 0L
+        while (attempts < 20 && dur <= 0) {
+            delay(250)
+            dur = duration
+            attempts++
+        }
+        val durationSecs = if (dur > 0) dur / 1000L else 0L
+        SecureLogger.d("FullScreenPlayer") { "Fetching lyrics: url=${item.url}, duration=${durationSecs}s, attempts=$attempts" }
         viewModel.fetchLyrics(item, durationSecs)
     }
 
@@ -75,6 +97,7 @@ fun PremiumFullScreenPlayer(
         selectedTab = 0
         currentPosition = 0L
         duration = 0L
+        recentlySelectedSongUrl = null
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -115,12 +138,12 @@ fun PremiumFullScreenPlayer(
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    "PLAYING FROM", 
+                                    stringResource(R.string.player_playing_from),
                                     style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.sp),
                                     color = MaterialTheme.colorScheme.onBackground.copy(0.5f)
                                 )
                                 Text(
-                                    "Search Results", 
+                                    stringResource(R.string.player_search_results),
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
@@ -140,7 +163,7 @@ fun PremiumFullScreenPlayer(
                                 .padding(4.dp),
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            listOf("Player", "Lyrics").forEachIndexed { idx, label ->
+                            listOf(R.string.player_tab_player, R.string.player_tab_lyrics).forEachIndexed { idx, labelRes ->
                                 val active = selectedTab == idx
                                 Box(
                                     modifier = Modifier
@@ -152,7 +175,7 @@ fun PremiumFullScreenPlayer(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = label,
+                                        text = stringResource(labelRes),
                                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (active) FontWeight.Bold else FontWeight.Normal),
                                         color = if (active) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                                     )
@@ -176,12 +199,9 @@ fun PremiumFullScreenPlayer(
                                         controller = controller,
                                         modifier = Modifier.fillMaxSize()
                                     )
-                                    android.util.Log.d("FullScreenPlayer", "VideoSurface displayed for: ${item.title}")
-                                } else {
-                                    android.util.Log.d("FullScreenPlayer", "Album art displayed for: ${item.title}")
                                 }
 
-                                // Album Art Layer
+                                // Album Art Layer (always rendered, visibility controlled by animation)
                                 androidx.compose.animation.AnimatedVisibility(
                                     visible = !viewModel.isVideoMode,
                                     enter = androidx.compose.animation.fadeIn(),
@@ -275,7 +295,7 @@ fun PremiumFullScreenPlayer(
                                     }
                                 }
                             }
-                            
+
                             Spacer(modifier = Modifier.weight(1f))
                             
                             Column {
@@ -362,12 +382,12 @@ fun PremiumFullScreenPlayer(
                                 }) {
                                     Icon(Icons.Rounded.Shuffle, null, tint = if (shuffleModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(0.5f))
                                 }
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(12.dp).clickable { 
-                                    coroutineScope.launch { listState.animateScrollToItem(3) } 
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(12.dp).clickable {
+                                    coroutineScope.launch { listState.animateScrollToItem(3) }
                                 }) {
                                     Icon(Icons.Rounded.QueueMusic, null, tint = MaterialTheme.colorScheme.onBackground.copy(0.5f))
                                     Spacer(Modifier.width(8.dp))
-                                    Text("UP NEXT", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onBackground.copy(0.5f))
+                                    Text(stringResource(R.string.player_up_next), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onBackground.copy(0.5f))
                                 }
                                 IconButton(onClick = {
                                     repeatMode = when (repeatMode) {
@@ -383,7 +403,7 @@ fun PremiumFullScreenPlayer(
                             }
                         } else {
                             // The LyricsTabContent has its own height now
-                            LyricsTabContent(viewModel, controller, { currentPosition = it })
+                            LyricsTabContent(playerUiState, viewModel, controller, { currentPosition = it })
                         }
                     }
                 }
@@ -395,23 +415,28 @@ fun PremiumFullScreenPlayer(
                 if (relatedSongs.isNotEmpty()) {
                     item {
                         Text(
-                            "Related Songs",
+                            stringResource(R.string.player_related_songs),
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                             color = Color.White,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 16.dp)
                         )
                     }
-                    
+
                     items(
                         items = relatedSongs,
                         key = { it.url }
                     ) { song ->
+                        val isSelected = recentlySelectedSongUrl == song.url
                         Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
                             PremiumSongRow(
                                 item = song,
                                 isPlaying = false,
                                 index = 0,
-                                onClick = { onPlayRelated(song) }
+                                onClick = {
+                                    recentlySelectedSongUrl = song.url
+                                    onPlayRelated(song)
+                                },
+                                isSelected = isSelected
                             )
                         }
                     }

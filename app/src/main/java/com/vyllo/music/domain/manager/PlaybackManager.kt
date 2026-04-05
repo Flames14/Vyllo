@@ -9,6 +9,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
+import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.data.manager.PlaybackQueueManager
 import com.vyllo.music.service.MusicService
@@ -112,10 +113,10 @@ class PlaybackManager @Inject constructor(
             controller.prepare()
             controller.play()
 
-            android.util.Log.d("PlaybackManager", "playMusic: url=${item.url}, isVideo=$isVideo, streamUrl=${streamUrl.take(50)}...")
+            SecureLogger.d("PlaybackManager") { "playMusic: url=${item.url}, isVideo=$isVideo" }
             Result.success(Unit)
         } catch (e: Exception) {
-            android.util.Log.e("PlaybackManager", "playMusic failed", e)
+            SecureLogger.e("PlaybackManager", "playMusic failed", e)
             Result.failure(e)
         }
     }

@@ -12,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.vyllo.music.core.security.SecureLogger
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -38,11 +39,11 @@ class SplashActivity : ComponentActivity() {
         try {
             val videoUri = Uri.parse("android.resource://${packageName}/${R.raw.splash_video}")
             videoView.setVideoURI(videoUri)
-            
+
             videoView.setOnPreparedListener { mediaPlayer ->
                 mediaPlayer.isLooping = false
                 mediaPlayer.start()
-                
+
                 // Navigate to MainActivity when video ends
                 mediaPlayer.setOnCompletionListener {
                     navigateToMain()
@@ -59,7 +60,7 @@ class SplashActivity : ComponentActivity() {
             handler.postDelayed({ navigateToMain() }, splashTimeOut)
 
         } catch (e: Exception) {
-            e.printStackTrace()
+            SecureLogger.e("SplashActivity", "Video setup failed", e)
             // If video setup fails, navigate to main after a short delay
             handler.postDelayed({ navigateToMain() }, 500)
         }
@@ -88,7 +89,7 @@ class SplashActivity : ComponentActivity() {
         try {
             videoView.stopPlayback()
         } catch (e: Exception) {
-            e.printStackTrace()
+            SecureLogger.e("SplashActivity", "Video cleanup failed", e)
         }
     }
 }

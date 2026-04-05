@@ -26,8 +26,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import com.vyllo.music.R
 
 @Composable
 fun VideoHintBar(
@@ -64,7 +67,7 @@ fun VideoHintBar(
             Icon(Icons.Rounded.SmartDisplay, null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(8.dp))
             Text(
-                "Click here to play video",
+                stringResource(R.string.player_video_hint),
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                 color = Color.White
             )
@@ -104,8 +107,8 @@ fun AutoplayRow(isChecked: Boolean, onToggle: (Boolean) -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column {
-            Text("Autoplay", style = MaterialTheme.typography.titleMedium, color = Color.White)
-            Text("Keep playing similar songs", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(0.5f))
+            Text(stringResource(R.string.player_autoplay), style = MaterialTheme.typography.titleMedium, color = Color.White)
+            Text(stringResource(R.string.player_autoplay_description), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(0.5f))
         }
         Switch(checked = isChecked, onCheckedChange = onToggle)
     }

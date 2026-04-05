@@ -3,6 +3,7 @@ package com.vyllo.music
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.data.IMusicRepository
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.data.manager.PlaybackQueueManager
@@ -11,6 +12,7 @@ import com.vyllo.music.domain.usecase.RecordListenUseCase
 import com.vyllo.music.domain.usecase.LoadMoreRecommendationsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,6 +56,10 @@ class HomeViewModel @Inject constructor(
     private val recordListenUseCase: RecordListenUseCase,
     private val playbackQueueManager: PlaybackQueueManager
 ) : ViewModel() {
+
+    companion object {
+        private const val MAX_RECOMMENDED_ITEMS = 200
+    }
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -160,7 +166,7 @@ class HomeViewModel @Inject constructor(
                 val items = repository.searchMusic(query, maintainSession = false)
                 _uiState.update { it.copy(exploreTrendingItems = items) }
             } catch (e: Exception) {
-                e.printStackTrace()
+                SecureLogger.e("HomeViewModel", "Explore category search failed", e)
             } finally {
                 _uiState.update { it.copy(isLoadingExplore = false) }
             }
@@ -169,24 +175,29 @@ class HomeViewModel @Inject constructor(
 
     fun loadExploreContent() {
         if (_uiState.value.exploreTrendingItems.isNotEmpty() && _uiState.value.selectedExploreCategory == null) return
-        
+
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingExplore = true) }
             try {
                 val items = repository.getTrendingMusic()
                 _uiState.update { it.copy(exploreTrendingItems = items) }
             } catch (e: Exception) {
-                e.printStackTrace()
+                SecureLogger.e("HomeViewModel", "Load explore content failed", e)
             } finally {
                 _uiState.update { it.copy(isLoadingExplore = false) }
             }
         }
     }
 
+    private var chipSelectionJob: Job? = null
+
     fun onChipSelected(chip: String) {
+        // Cancel any previous chip selection request to avoid race conditions
+        chipSelectionJob?.cancel()
+
         _uiState.update { it.copy(selectedChip = chip) }
         if (chip != "All") {
-            viewModelScope.launch {
+            chipSelectionJob = viewModelScope.launch {
                 _uiState.update { it.copy(isLoading = true) }
                 val query = when (chip) {
                     "Relax" -> "relaxing chill music"
@@ -196,7 +207,7 @@ class HomeViewModel @Inject constructor(
                     "Commute" -> "driving road trip music"
                     else -> "trending music"
                 }
-                val results = repository.searchMusic(query) 
+                val results = repository.searchMusic(query)
                 _uiState.update {
                     it.copy(
                         quickPicksRows = results.take(8).chunked(2),
@@ -219,18 +230,30 @@ class HomeViewModel @Inject constructor(
 
     fun loadMoreRecommendations() {
         if (_uiState.value.isLoadingMoreRecommendations) return
+        if (_uiState.value.quickPicksItems.size >= MAX_RECOMMENDED_ITEMS) {
+            SecureLogger.d("HomeViewModel", "Reached max recommended items, stopping load")
+            return
+        }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingMoreRecommendations = true) }
             try {
                 val moreItems = loadMoreRecommendationsUseCase()
                 if (moreItems.isNotEmpty()) {
+                    val currentSize = _uiState.value.quickPicksItems.size
+                    val remainingSlots = MAX_RECOMMENDED_ITEMS - currentSize
+                    val itemsToAdd = moreItems.take(remainingSlots)
+
                     _uiState.update { state ->
-                        state.copy(quickPicksItems = state.quickPicksItems + moreItems)
+                        state.copy(quickPicksItems = state.quickPicksItems + itemsToAdd)
+                    }
+
+                    if (remainingSlots <= 0) {
+                        SecureLogger.d("HomeViewModel", "Max recommended items reached")
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                SecureLogger.e("HomeViewModel", "Load more recommendations failed", e)
             } finally {
                 _uiState.update { it.copy(isLoadingMoreRecommendations = false) }
             }
@@ -271,7 +294,7 @@ class HomeViewModel @Inject constructor(
                 loadMoodContent()
             } catch (e: Exception) {
                 _uiState.update { it.copy(isRefreshing = false) }
-                e.printStackTrace()
+                SecureLogger.e("HomeViewModel", "Refresh all content failed", e)
             }
         }
     }
