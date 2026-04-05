@@ -15,8 +15,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
-import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
+import javax.inject.Named
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -38,6 +38,13 @@ object AppModule {
     @Singleton
     fun provideOkHttpClient(securityConfig: SecurityConfig): OkHttpClient {
         return securityConfig.createSecureHttpClient()
+    }
+
+    @Provides
+    @Singleton
+    @Named("lyrics")
+    fun provideLyricsOkHttpClient(securityConfig: SecurityConfig): OkHttpClient {
+        return securityConfig.createFlexibleSecureHttpClient()
     }
 
     @Provides

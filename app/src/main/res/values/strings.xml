@@ -1,4 +1,161 @@
 <resources>
     <!-- App name -->
     <string name="app_name">Vyllo</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_explore">Explore</string>
+    <string name="nav_library">Library</string>
+
+    <!-- Home screen sections -->
+    <string name="home_title_recommended">Recommended For You</string>
+    <string name="home_title_trending">Trending Now</string>
+    <string name="section_listen_again">Listen again</string>
+    <string name="section_quick_picks">Quick picks</string>
+    <string name="section_mixed_for_you">Mixed for you</string>
+    <string name="section_new_releases">New releases</string>
+    <string name="section_chill_vibes">Chill vibes</string>
+    <string name="section_workout">Workout</string>
+    <string name="section_focus">Focus</string>
+
+    <!-- Explore categories -->
+    <string name="explore_category_new_releases">New releases</string>
+    <string name="explore_category_charts">Charts</string>
+    <string name="explore_category_moods">Moods &amp; genres</string>
+    <string name="explore_category_party">Party</string>
+    <string name="explore_category_romance">Romance</string>
+    <string name="explore_category_sleep">Sleep</string>
+    <string name="explore_category_workout">Workout</string>
+
+    <!-- Filter chips -->
+    <string name="chip_all">All</string>
+    <string name="chip_relax">Relax</string>
+    <string name="chip_energize">Energize</string>
+    <string name="chip_commute">Commute</string>
+
+    <!-- Search -->
+    <string name="search_hint">Search music</string>
+    <string name="search_history">Search history</string>
+    <string name="search_no_results">No results found</string>
+    <string name="search_suggestions">Suggestions</string>
+
+    <!-- Library -->
+    <string name="library_title">Library</string>
+    <string name="library_playlists">Playlists</string>
+    <string name="library_downloads">Downloads</string>
+    <string name="library_create_playlist">Create playlist</string>
+    <string name="library_playlist_name_hint">Playlist name</string>
+    <string name="library_create">Create</string>
+    <string name="library_cancel">Cancel</string>
+    <string name="library_delete_playlist_title">Delete playlist?</string>
+    <string name="library_delete_playlist_message">This action cannot be undone.</string>
+    <string name="library_delete">Delete</string>
+    <string name="library_add_to_playlist">Add to playlist</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_floating_player">Floating player</string>
+    <string name="settings_background_playback">Background playback</string>
+    <string name="settings_keep_audio_playing">Keep audio playing</string>
+    <string name="settings_theme_mode">Theme</string>
+    <string name="settings_liquid_scroll">Liquid scrolling</string>
+
+    <!-- Player -->
+    <string name="player_stream_error">Stream error - please retry</string>
+    <string name="player_playback_failed">Playback failed: %s</string>
+    <string name="player_playback_error">Playback error: %s</string>
+    <string name="player_autoplay">Autoplay</string>
+    <string name="player_related_songs">Related songs</string>
+    <string name="player_lyrics">Lyrics</string>
+
+    <!-- Downloads -->
+    <string name="download_title">Downloading Music</string>
+    <string name="download_complete">Download Complete</string>
+    <string name="download_failed">Download failed</string>
+    <string name="download_channel_name">Downloads</string>
+    <string name="download_channel_description">Music download progress</string>
+
+    <!-- Alarms -->
+    <string name="alarm_title">Alarms</string>
+    <string name="alarm_add">Add alarm</string>
+    <string name="alarm_label_hint">Alarm label (optional)</string>
+    <string name="alarm_save">Save</string>
+    <string name="alarm_dismiss">Dismiss</string>
+    <string name="alarm_snooze">Snooze 5 min</string>
+    <string name="alarm_sound_default">Default</string>
+    <string name="alarm_sound_downloaded">Downloaded song</string>
+    <string name="alarm_pick_sound">Pick sound</string>
+    <string name="alarm_time">Alarm time</string>
+    <string name="alarm_repeat">Repeat</string>
+    <string name="alarm_volume">Volume</string>
+    <string name="alarm_vibration">Vibration</string>
+    <string name="alarm_delete_title">Delete alarm?</string>
+    <string name="alarm_delete_message">This alarm will be permanently removed.</string>
+    <string name="alarm_cannot_nooze">Cannot snooze: alarm not found</string>
+
+    <!-- Permissions -->
+    <string name="permission_overlay_required">Grant Overlay permission for Floating Player</string>
+    <string name="permission_notification_denied">Notification permission denied</string>
+
+    <!-- Errors -->
+    <string name="error_unknown">Unknown error</string>
+    <string name="error_no_internet">No internet connection</string>
+    <string name="error_stream_unavailable">Stream unavailable</string>
+    <string name="error_check_connection">Check your connection</string>
+    <string name="error_no_results">No results found</string>
+
+    <!-- Common -->
+    <string name="common_loading">Loading…</string>
+    <string name="common_retry">Retry</string>
+    <string name="common_close">Close</string>
+    <string name="common_save">Save</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_unknown">Unknown</string>
+    <string name="common_artist">Artist</string>
+    <string name="common_song">Song</string>
+
+    <!-- Player full screen -->
+    <string name="player_playing_from">PLAYING FROM</string>
+    <string name="player_search_results">Search Results</string>
+    <string name="player_tab_player">Player</string>
+    <string name="player_tab_lyrics">Lyrics</string>
+    <string name="player_up_next">UP NEXT</string>
+    <string name="player_toggle_video_mode">Toggle Video Mode</string>
+    <string name="player_add_to_playlist">Add to Playlist</string>
+    <string name="player_lyrics_sync">Lyrics Sync</string>
+    <string name="player_lyrics_reset">Reset</string>
+    <string name="player_lyrics_search">Search lyrics...</string>
+    <string name="player_lyrics_choose">Choose Lyrics</string>
+    <string name="player_lyrics_auto_matched">Auto-matched</string>
+    <string name="player_lyrics_search_results">Search results</string>
+    <string name="player_lyrics_synced">Synced</string>
+    <string name="player_lyrics_plain">Plain</string>
+    <string name="player_lyrics_not_found">Lyrics not found</string>
+    <string name="player_lyrics_search_button">Search for lyrics</string>
+    <string name="player_lyrics_wrong_lyrics">Wrong lyrics?</string>
+    <string name="player_autoplay_description">Keep playing similar songs</string>
+    <string name="player_video_hint">Click here to play video</string>
+    <string name="player_refreshing">Refreshing...</string>
+    <string name="player_fetching_content">Fetching latest content</string>
+
+    <!-- Alarm screen -->
+    <string name="alarm_screen_title">Alarms</string>
+    <string name="alarm_back">Back</string>
+    <string name="alarm_add_alarm">Add Alarm</string>
+    <string name="alarm_ringing">Alarm is ringing!</string>
+    <string name="alarm_tap_to_stop">Tap to stop the sound</string>
+    <string name="alarm_stop">STOP</string>
+    <string name="alarm_no_alarms">No alarms yet</string>
+    <string name="alarm_wake_songs">Wake up to your favorite songs</string>
+
+    <!-- Voice search -->
+    <string name="voice_search_prompt">Say a song name or artist…</string>
+    <string name="voice_search_permission">Microphone permission is needed for voice search</string>
+    <string name="voice_search_not_available">Speech recognition not available on this device</string>
+
+    <!-- Floating player -->
+    <string name="floating_player_title">Floating Player Active</string>
+    <string name="floating_player_text">Tap the bubble to return to app</string>
+    <string name="floating_player_music_bubble">Music Bubble</string>
 </resources>

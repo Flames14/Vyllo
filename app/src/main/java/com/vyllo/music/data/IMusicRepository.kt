@@ -1,6 +1,7 @@
 package com.vyllo.music.data
 
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.domain.model.LyricsResponse
 import com.vyllo.music.data.download.DownloadEntity
 import com.vyllo.music.data.download.PlaylistEntity
 import com.vyllo.music.data.download.PlaylistSongEntity

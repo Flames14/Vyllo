@@ -30,6 +30,10 @@ class SearchViewModel @Inject constructor(
     private val searchMusicUseCase: SearchMusicUseCase
 ) : ViewModel() {
 
+    companion object {
+        private const val MAX_SEARCH_RESULTS = 200
+    }
+
     var searchQuery by mutableStateOf("")
 
     var searchResults by mutableStateOf<List<MusicItem>>(emptyList())
@@ -111,7 +115,8 @@ class SearchViewModel @Inject constructor(
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             repository.saveSearchQuery(sanitizedQuery)
-            searchResults = searchMusicUseCase(sanitizedQuery)
+            val results = searchMusicUseCase(sanitizedQuery)
+            searchResults = results.take(MAX_SEARCH_RESULTS)
             isLoading = false
             loadSearchHistory()
         }
@@ -124,12 +129,19 @@ class SearchViewModel @Inject constructor(
 
     fun loadNextPage() {
         if (isLoadingMore || !isSearching) return
+        if (searchResults.size >= MAX_SEARCH_RESULTS) {
+            SecureLogger.d(TAG, "Reached max search results ($MAX_SEARCH_RESULTS), stopping load")
+            isLoadingMore = false
+            return
+        }
         isLoadingMore = true
         viewModelScope.launch {
             try {
                 val nextItems = repository.loadMoreResults()
                 if (nextItems.isNotEmpty()) {
-                    searchResults = searchResults + nextItems
+                    val remainingSlots = MAX_SEARCH_RESULTS - searchResults.size
+                    val itemsToAdd = nextItems.take(remainingSlots)
+                    searchResults = searchResults + itemsToAdd
                 }
             } catch (e: Exception) {
                 SecureLogger.e(TAG, "Load more failed: ${e.message}")

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.content.ContextCompat
+import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.service.FloatingWindowService
@@ -43,7 +44,7 @@ class FloatingPlayerManager @Inject constructor(
             }
             return true
         } catch (e: Exception) {
-            e.printStackTrace()
+            SecureLogger.e("FloatingPlayerManager", "Failed to start floating player", e)
             return false
         }
     }
@@ -53,7 +54,7 @@ class FloatingPlayerManager @Inject constructor(
             val intent = Intent(context, FloatingWindowService::class.java)
             context.stopService(intent)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SecureLogger.e("FloatingPlayerManager", "Failed to stop floating player", e)
         }
     }
 

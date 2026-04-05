@@ -1,7 +1,6 @@
 package com.vyllo.music.core.security
 
 import android.content.Context
-import okhttp3.CertificatePinner
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.dnsoverhttps.DnsOverHttps
@@ -14,7 +13,6 @@ import javax.inject.Singleton
  * Senior-Level Security Configuration for Network Layer
  * 
  * Provides:
- * - Certificate Pinning: Prevents MITM attacks
  * - Encrypted DNS (DoH): Prevents DNS spoofing and ISP surveillance
  * - Security Headers: Adds protective HTTP headers
  * - Connection Security: Enforces TLS 1.2+
@@ -24,9 +22,6 @@ class SecurityConfig @Inject constructor() {
 
     /**
      * Creates a hardened OkHttpClient with security best practices
-     * 
-     * Note: Certificate pinning is disabled by default as it requires valid pins
-     * from actual servers. Enable it in production with real pins.
      */
     fun createSecureHttpClient(): OkHttpClient {
         return OkHttpClient.Builder()
@@ -34,37 +29,28 @@ class SecurityConfig @Inject constructor() {
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
-            
-            // Certificate Pinning - DISABLED for development
-            // Enable in production with real pins from your servers
-            // .certificatePinner(
-            //     CertificatePinner.Builder()
-            //         .add("lrclib.net", "sha256/REAL_PIN_HERE=")
-            //         .build()
-            // )
-            
+
             // Encrypted DNS - Prevents DNS spoofing and eavesdropping
             .dns(createDnsOverHttps())
-            
+
             // Connection Security - Only allow modern TLS
             .connectionSpecs(
                 listOf(
                     okhttp3.ConnectionSpec.MODERN_TLS,
-                    okhttp3.ConnectionSpec.COMPATIBLE_TLS,
-                    okhttp3.ConnectionSpec.CLEARTEXT // Only for localhost debugging
+                    okhttp3.ConnectionSpec.COMPATIBLE_TLS
                 )
             )
-            
-            // Security: Don't follow redirects automatically (prevent open redirect attacks)
-            .followRedirects(false)
-            .followSslRedirects(false)
-            
+
+            // Follow HTTPS redirects
+            .followRedirects(true)
+            .followSslRedirects(true)
+
             // Add security interceptor for headers
             .addInterceptor(SecurityHeaderInterceptor())
-            
+
             // Retry configuration with backoff
             .retryOnConnectionFailure(true)
-            
+
             .build()
     }
 
@@ -100,25 +86,25 @@ class SecurityConfig @Inject constructor() {
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
-            
-            // Encrypted DNS only (no pinning for flexibility)
+
+            // Encrypted DNS only
             .dns(createDnsOverHttps())
-            
+
             // Modern TLS only
             .connectionSpecs(
                 listOf(
-                    okhttp3.ConnectionSpec.MODERN_TLS,
-                    okhttp3.ConnectionSpec.CLEARTEXT
+                    okhttp3.ConnectionSpec.MODERN_TLS
                 )
             )
-            
-            .followRedirects(false)
-            .followSslRedirects(false)
-            
+
+            // Follow HTTPS redirects
+            .followRedirects(true)
+            .followSslRedirects(true)
+
             .addInterceptor(SecurityHeaderInterceptor())
-            
+
             .retryOnConnectionFailure(true)
-            
+
             .build()
     }
 }

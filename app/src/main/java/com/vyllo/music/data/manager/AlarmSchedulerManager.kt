@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.AlarmModel
 import com.vyllo.music.domain.model.DayOfWeek
 import com.vyllo.music.service.AlarmTriggerService
@@ -25,13 +26,20 @@ class AlarmSchedulerManager @Inject constructor(
      * Schedule an alarm with proper handling for different Android versions.
      */
     fun schedule(alarm: AlarmModel) {
-        val triggerTime = calculateNextTriggerTime(alarm)
+        scheduleAt(alarm, calculateNextTriggerTime(alarm))
+    }
 
-        android.util.Log.d("AlarmScheduler", "=== SCHEDULING ALARM ===")
-        android.util.Log.d("AlarmScheduler", "ID=${alarm.id} for ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(triggerTime))}")
-        android.util.Log.d("AlarmScheduler", "soundType=${alarm.soundType}")
-        android.util.Log.d("AlarmScheduler", "downloadedSongUrl=${alarm.downloadedSongUrl}")
-        android.util.Log.d("AlarmScheduler", "downloadedSongTitle=${alarm.downloadedSongTitle}")
+    /**
+     * Schedule an alarm for an exact wall-clock timestamp.
+     * Used for snooze flows where the original hour/minute should not be reinterpreted.
+     */
+    fun scheduleAt(alarm: AlarmModel, triggerTime: Long) {
+
+        SecureLogger.d("AlarmScheduler", "=== SCHEDULING ALARM ===")
+        SecureLogger.d("AlarmScheduler", "ID=${alarm.id} for ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(triggerTime))}")
+        SecureLogger.d("AlarmScheduler", "soundType=${alarm.soundType}")
+        SecureLogger.d("AlarmScheduler", "downloadedSongUrl=${alarm.downloadedSongUrl}")
+        SecureLogger.d("AlarmScheduler", "downloadedSongTitle=${alarm.downloadedSongTitle}")
 
         val intent = Intent(context, com.vyllo.music.service.AlarmTriggerReceiver::class.java).apply {
             putExtra("alarm_id", alarm.id)
@@ -44,18 +52,13 @@ class AlarmSchedulerManager @Inject constructor(
             putExtra("vibration_enabled", alarm.vibrationEnabled)
         }
         
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            alarm.id.toInt(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val pendingIntent = createPendingIntent(alarm.id, intent)
         
         // Cancel existing alarm first to avoid duplicates
         alarmManager.cancel(pendingIntent)
         
         if (!alarm.isEnabled) {
-            android.util.Log.d("AlarmScheduler", "Alarm is disabled, not scheduling")
+            SecureLogger.d("AlarmScheduler", "Alarm is disabled, not scheduling")
             return
         }
         
@@ -88,7 +91,7 @@ class AlarmSchedulerManager @Inject constructor(
             }
         }
         
-        android.util.Log.d("AlarmScheduler", "Alarm scheduled successfully")
+        SecureLogger.d("AlarmScheduler", "Alarm scheduled successfully")
     }
 
     /**
@@ -98,7 +101,7 @@ class AlarmSchedulerManager @Inject constructor(
     private fun setAlarmClock(triggerTime: Long, pendingIntent: PendingIntent) {
         val alarmInfo = AlarmManager.AlarmClockInfo(triggerTime, pendingIntent)
         alarmManager.setAlarmClock(alarmInfo, pendingIntent)
-        android.util.Log.d("AlarmScheduler", "setAlarmClock called for ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(triggerTime))}")
+        SecureLogger.d("AlarmScheduler", "setAlarmClock called for ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(triggerTime))}")
     }
 
     /**
@@ -108,13 +111,8 @@ class AlarmSchedulerManager @Inject constructor(
         val intent = Intent(context, com.vyllo.music.service.AlarmTriggerReceiver::class.java).apply {
             putExtra("alarm_id", alarm.id)
         }
-        
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            alarm.id.toInt(),
-            intent,
-            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-        )
+
+        val pendingIntent = findPendingIntent(alarm.id, intent)
         
         pendingIntent?.let {
             alarmManager.cancel(it)
@@ -140,7 +138,7 @@ class AlarmSchedulerManager @Inject constructor(
             if (alarmTime.timeInMillis <= now.timeInMillis) {
                 alarmTime.add(Calendar.DAY_OF_YEAR, 1)
             }
-            android.util.Log.d("AlarmScheduler", "One-time alarm scheduled for: ${alarmTime.time}")
+            SecureLogger.d("AlarmScheduler", "One-time alarm scheduled for: ${alarmTime.time}")
             return alarmTime.timeInMillis
         }
 
@@ -152,7 +150,7 @@ class AlarmSchedulerManager @Inject constructor(
         if (alarm.shouldTriggerOnDay(currentDayOfWeek)) {
             if (alarmTime.timeInMillis > now.timeInMillis) {
                 // Today, hasn't passed yet
-                android.util.Log.d("AlarmScheduler", "Alarm scheduled for today: ${alarmTime.time}")
+                SecureLogger.d("AlarmScheduler", "Alarm scheduled for today: ${alarmTime.time}")
                 return alarmTime.timeInMillis
             }
         }
@@ -169,14 +167,14 @@ class AlarmSchedulerManager @Inject constructor(
             
             val nextDayOfWeek = DayOfWeek.values()[(currentDay + i) % 7]
             if (alarm.shouldTriggerOnDay(nextDayOfWeek)) {
-                android.util.Log.d("AlarmScheduler", "Alarm scheduled for day $i: ${nextDay.time}")
+                SecureLogger.d("AlarmScheduler", "Alarm scheduled for day $i: ${nextDay.time}")
                 return nextDay.timeInMillis
             }
         }
 
         // Fallback: tomorrow at the same time
         alarmTime.add(Calendar.DAY_OF_YEAR, 1)
-        android.util.Log.d("AlarmScheduler", "Fallback alarm scheduled for: ${alarmTime.time}")
+        SecureLogger.d("AlarmScheduler", "Fallback alarm scheduled for: ${alarmTime.time}")
         return alarmTime.timeInMillis
     }
 
@@ -210,5 +208,23 @@ class AlarmSchedulerManager @Inject constructor(
         } else {
             true
         }
+    }
+
+    private fun createPendingIntent(alarmId: Long, intent: Intent): PendingIntent {
+        return PendingIntent.getBroadcast(
+            context,
+            alarmId.toInt(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun findPendingIntent(alarmId: Long, intent: Intent): PendingIntent? {
+        return PendingIntent.getBroadcast(
+            context,
+            alarmId.toInt(),
+            intent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 }

@@ -37,7 +37,7 @@ class SearchController(
 
         suggestionJob?.cancel()
         suggestionJob = scope.launch {
-            delay(300)
+            delay(400)
             suggestions = repository.getSuggestions(newQuery)
         }
     }

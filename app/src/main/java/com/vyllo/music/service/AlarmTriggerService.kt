@@ -1,5 +1,7 @@
 package com.vyllo.music.service
 
+import com.vyllo.music.core.security.SecureLogger
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -28,7 +30,10 @@ import com.vyllo.music.MainActivity
 import com.vyllo.music.R
 import com.vyllo.music.data.download.DownloadDao
 import com.vyllo.music.data.download.DownloadDatabase
+import com.vyllo.music.data.manager.AlarmSchedulerManager
+import com.vyllo.music.domain.model.AlarmModel
 import com.vyllo.music.domain.model.SoundType
+import com.vyllo.music.domain.repository.AlarmRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,8 +41,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.Calendar
 import javax.inject.Inject
-import kotlin.system.exitProcess
 
 /**
  * Foreground service that plays alarm sound when triggered by AlarmManager.
@@ -53,6 +58,12 @@ class AlarmTriggerService : Service() {
 
     @Inject
     lateinit var downloadDao: DownloadDao
+
+    @Inject
+    lateinit var alarmSchedulerManager: AlarmSchedulerManager
+
+    @Inject
+    lateinit var alarmRepository: AlarmRepository
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     
@@ -105,7 +116,7 @@ class AlarmTriggerService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent == null) {
-            android.util.Log.e(TAG, "onStartCommand: null intent")
+            SecureLogger.e(TAG, "onStartCommand: null intent")
             stopSelf()
             return START_NOT_STICKY
         }
@@ -128,10 +139,10 @@ class AlarmTriggerService : Service() {
         gradualVolume = intent.getBooleanExtra(EXTRA_GRADUAL_VOLUME, true)
         vibrationEnabled = intent.getBooleanExtra(EXTRA_VIBRATION_ENABLED, true)
 
-        android.util.Log.d(TAG, "=== ALARM SERVICE STARTED ===")
-        android.util.Log.d(TAG, "alarmId=$alarmId, label=$alarmLabel")
-        android.util.Log.d(TAG, "soundType=$soundType, songUrl=$songUrl")
-        android.util.Log.d(TAG, "volume=$volume, gradualVolume=$gradualVolume, vibrationEnabled=$vibrationEnabled")
+        SecureLogger.d(TAG, "=== ALARM SERVICE STARTED ===")
+        SecureLogger.d(TAG, "alarmId=$alarmId, label=$alarmLabel")
+        SecureLogger.d(TAG, "soundType=$soundType, songUrl=$songUrl")
+        SecureLogger.d(TAG, "volume=$volume, gradualVolume=$gradualVolume, vibrationEnabled=$vibrationEnabled")
 
         // Acquire wake locks
         acquireWakeLock()
@@ -268,7 +279,7 @@ class AlarmTriggerService : Service() {
                 val download = songUrl?.let { downloadDao.getDownloadByUrl(it) }
                 val filePath = download?.filePath
 
-                android.util.Log.d(TAG, "playDownloadedSong: url=$songUrl, filePath=$filePath")
+                SecureLogger.d(TAG, "playDownloadedSong: url=$songUrl, filePath=$filePath")
 
                 if (filePath != null && File(filePath).exists()) {
                     player = ExoPlayer.Builder(this@AlarmTriggerService)
@@ -291,7 +302,7 @@ class AlarmTriggerService : Service() {
 
                             addListener(object : Player.Listener {
                                 override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                                    android.util.Log.e(TAG, "ExoPlayer error playing $filePath: ${error.message}", error)
+                                    SecureLogger.e(TAG, "ExoPlayer error playing $filePath: ${error.message}", error)
                                     // Only play default sound if ExoPlayer fails completely
                                     player?.release()
                                     player = null
@@ -300,16 +311,16 @@ class AlarmTriggerService : Service() {
                             })
                         }
                     
-                    android.util.Log.d(TAG, "ExoPlayer prepared and playing downloaded song")
+                    SecureLogger.d(TAG, "ExoPlayer prepared and playing downloaded song")
                 } else {
-                    android.util.Log.w(TAG, "File not found or null, falling back to default")
+                    SecureLogger.w(TAG, "File not found or null, falling back to default")
                     // Release any partial ExoPlayer before fallback
                     player?.release()
                     player = null
                     playDefaultSound()
                 }
             } catch (e: Exception) {
-                android.util.Log.e(TAG, "Failed to play downloaded song", e)
+                SecureLogger.e(TAG, "Failed to play downloaded song", e)
                 // Release any partial ExoPlayer before fallback
                 player?.release()
                 player = null
@@ -345,7 +356,7 @@ class AlarmTriggerService : Service() {
                     this.setVolume(1.0f, 1.0f)
                 }
             } catch (e2: Exception) {
-                android.util.Log.e(TAG, "Failed to play default sound", e2)
+                SecureLogger.e(TAG, "Failed to play default sound", e2)
             }
         }
     }
@@ -446,17 +457,34 @@ class AlarmTriggerService : Service() {
     }
 
     /**
-     * Handle snooze action.
+     * Handle snooze action — reschedules the alarm for 5 minutes from now.
      */
     private fun snoozeAlarm() {
         stopAlarm()
-        
-        // Schedule snooze for 5 minutes from now
+
         serviceScope.launch {
-            delay(5000) // Small delay to ensure cleanup
-            // Note: In a full implementation, we'd reschedule the alarm here
-            // For now, just notify the user
-            stopSelf()
+            try {
+                val alarm = alarmId.takeIf { it > 0 }?.let { id ->
+                    alarmRepository.getAlarmById(id)
+                }
+
+                if (alarm != null) {
+                    val snoozedAlarm = alarm.copy(
+                        isEnabled = true
+                    )
+                    val snoozeAt = Calendar.getInstance().apply {
+                        add(Calendar.MINUTE, 5)
+                    }.timeInMillis
+                    alarmSchedulerManager.scheduleAt(snoozedAlarm, snoozeAt)
+                    SecureLogger.d(TAG, "Alarm snoozed for 5 minutes: ${java.util.Date(snoozeAt)}")
+                } else {
+                    SecureLogger.w(TAG, "Cannot snooze: alarm model not found (id=$alarmId)")
+                }
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Failed to snooze alarm", e)
+            } finally {
+                stopSelf()
+            }
         }
     }
 

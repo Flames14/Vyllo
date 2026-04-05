@@ -19,11 +19,15 @@ import coil.compose.LocalImageLoader
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import androidx.compose.ui.platform.LocalContext
+import com.vyllo.music.VylloNavigation
 import com.vyllo.music.domain.manager.PlaybackManager
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.domain.model.PlayResult
+import com.vyllo.music.domain.usecase.PlayMusicUseCase
 import com.vyllo.music.service.MusicService
 import com.vyllo.music.data.manager.PreferenceManager
-import com.vyllo.music.ui.theme.ThemeManager
+import com.vyllo.music.presentation.theme.ThemeManager
+import com.vyllo.music.core.security.SecureLogger
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -41,20 +45,22 @@ class MainActivity : ComponentActivity() {
     private val libraryViewModel: LibraryViewModel by viewModels()
     private val playerViewModel: PlayerViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
-
     @Inject
     lateinit var playbackManager: PlaybackManager
-    
+
     @Inject
     lateinit var preferenceManager: PreferenceManager
+
+    @Inject
+    lateinit var playMusicUseCase: PlayMusicUseCase
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            android.util.Log.d("MainActivity", "Notification permission granted")
+            SecureLogger.d("MainActivity", "Notification permission granted")
         } else {
-            android.util.Log.w("MainActivity", "Notification permission denied")
+            SecureLogger.w("MainActivity", "Notification permission denied")
         }
     }
 
@@ -78,19 +84,21 @@ class MainActivity : ComponentActivity() {
         setContent {
             val context = LocalContext.current
             
-            // Custom Coil image loader for better performance with RGB_565
+            // Custom Coil image loader for better performance
+            // Note: allowHardware(true) is used for large images (album art) for better performance.
+            // bitmapConfig is not set because hardware bitmaps use their own internal format,
+            // making RGB_565 redundant and ignored.
             val imageLoader = remember {
                 ImageLoader.Builder(context)
-                    .memoryCache { MemoryCache.Builder(context).maxSizePercent(0.30).build() }
+                    .memoryCache { MemoryCache.Builder(context).maxSizePercent(0.25).build() }
                     .diskCache {
                         DiskCache.Builder()
                             .directory(context.cacheDir.resolve("image_cache"))
-                            .maxSizeBytes(250L * 1024 * 1024)
+                            .maxSizeBytes(100L * 1024 * 1024)
                             .build()
                     }
-                    .crossfade(false)
+                    .crossfade(true)
                     .allowHardware(true)
-                    .bitmapConfig(android.graphics.Bitmap.Config.RGB_565)
                     .build()
             }
 
@@ -102,7 +110,7 @@ class MainActivity : ComponentActivity() {
                     val systemUiController = WindowCompat.getInsetsController(window, window.decorView)
                     systemUiController.isAppearanceLightStatusBars = !isDark
 
-                    VylloApp(
+                    VylloNavigation(
                         playbackManager = playbackManager, 
                         homeViewModel = homeViewModel,
                         searchViewModel = searchViewModel,
@@ -149,16 +157,19 @@ class MainActivity : ComponentActivity() {
 
     private fun playMusic(item: MusicItem) {
         val isVideo = playerViewModel.isVideoMode
-        android.util.Log.d("MainActivity", "playMusic: ${item.title}, isVideo=$isVideo")
-        
-        playerViewModel.resolveStreamWithCallback(item, isVideo = isVideo) { streamUrl ->
-            if (streamUrl != null) {
-                lifecycleScope.launch {
-                    playbackManager.playMusic(item, streamUrl, isVideo = isVideo)
-                    playerViewModel.loadRelatedSongs(item)
+        lifecycleScope.launch {
+            val result = playMusicUseCase.execute(item, isVideo = isVideo)
+            when (result) {
+                is PlayResult.Success -> playerViewModel.loadRelatedSongs(item)
+                is PlayResult.Failure -> {
+                    if (!isFinishing && !isDestroyed) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            result.message,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
-            } else {
-                Toast.makeText(this, "Stream error - please retry", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -168,7 +179,7 @@ class MainActivity : ComponentActivity() {
         val list = if (searchViewModel.searchResults.isNotEmpty()) searchViewModel.searchResults 
                   else homeViewModel.uiState.value.trendingNowItems
         
-        val index = list.indexOfFirst { it.title == currentItem.title }
+        val index = list.indexOfFirst { it.url == currentItem.url }
         if (index != -1 && index < list.size - 1) {
             playMusic(list[index + 1])
         } else {
@@ -181,13 +192,15 @@ class MainActivity : ComponentActivity() {
         val list = if (searchViewModel.searchResults.isNotEmpty()) searchViewModel.searchResults 
                   else homeViewModel.uiState.value.trendingNowItems
                   
-        val index = list.indexOfFirst { it.title == currentItem.title }
+        val index = list.indexOfFirst { it.url == currentItem.url }
         if (index > 0) playMusic(list[index - 1])
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        playbackManager.release()
+        // Do NOT release playbackManager here — it would kill playback
+        // when the activity is destroyed (e.g., config change).
+        // The MusicService manages playback lifecycle independently.
     }
 
     override fun onStop() {

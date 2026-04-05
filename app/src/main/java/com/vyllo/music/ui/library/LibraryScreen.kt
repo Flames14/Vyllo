@@ -34,6 +34,7 @@ import com.vyllo.music.ui.alarm.AlarmScreen
 fun YTMLibraryScreen(
     viewModel: LibraryViewModel,
     onPlay: (MusicItem) -> Unit,
+    onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit,
     currentPlayingItem: MusicItem?,
     loadingItemUrl: String? = null,
@@ -59,7 +60,7 @@ fun YTMLibraryScreen(
     ) {
         item {
             YTMHeader(
-                onSearchClick = {}, // Search not needed here
+                onSearchClick = onSearchClick,
                 onSettingsClick = onSettingsClick
             )
         }

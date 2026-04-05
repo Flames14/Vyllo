@@ -7,10 +7,20 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
-val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystorePropertiesFile = rootProject.file("keystore.local.properties")
+val fallbackKeystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+} else if (fallbackKeystorePropertiesFile.exists()) {
+    fallbackKeystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+
+fun resolveSigningProperty(name: String): String? {
+    val envName = "VYLLO_${name.uppercase()}"
+    return System.getenv(envName)
+        ?.takeIf { it.isNotBlank() }
+        ?: keystoreProperties.getProperty(name)?.takeIf { it.isNotBlank() && !it.startsWith("CHANGE_ME") }
 }
 
 android {
@@ -23,6 +33,7 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // Security: BuildConfig fields for sensitive URLs (not hardcoded in source)
         buildConfigField("String", "LYRICS_API_BASE", "\"https://lrclib.net/api\"")
@@ -66,11 +77,11 @@ android {
             // Uses default debug keystore
         }
         create("release") {
-            val storeFilePath = keystoreProperties.getProperty("storeFile")
+            val storeFilePath = resolveSigningProperty("storeFile")
             storeFile = storeFilePath?.let { file("../$it") }
-            storePassword = keystoreProperties.getProperty("storePassword")
-            keyAlias = keystoreProperties.getProperty("keyAlias")
-            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storePassword = resolveSigningProperty("storePassword")
+            keyAlias = resolveSigningProperty("keyAlias")
+            keyPassword = resolveSigningProperty("keyPassword")
         }
     }
     
@@ -86,8 +97,17 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Sign with actual release key
-            signingConfig = signingConfigs.getByName("release")
+            // Use release signing config if keystore.properties exists, otherwise fall back to debug
+            signingConfig = if (resolveSigningProperty("storeFile") != null &&
+                resolveSigningProperty("storePassword") != null &&
+                resolveSigningProperty("keyAlias") != null &&
+                resolveSigningProperty("keyPassword") != null
+            ) {
+                signingConfigs.getByName("release")
+            } else {
+                // Fallback: debug signing for development builds only
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
@@ -183,8 +203,11 @@ dependencies {
 
     // Testing
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.02"))
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     // Mockito for unit tests
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")

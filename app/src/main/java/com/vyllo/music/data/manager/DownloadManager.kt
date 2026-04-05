@@ -19,16 +19,17 @@ class DownloadManager @Inject constructor(
     private var observeJob: Job? = null
 
     fun startObserving(scope: CoroutineScope) {
-        if (observeJob != null) return
-        
-        observeJob = scope.launch(Dispatchers.Main) {
+        if (observeJob?.isActive == true) return
+
+        observeJob?.cancel() // Clean up dead job if present
+        observeJob = scope.launch(Dispatchers.Default) {
             WorkManager.getInstance(context)
                 .getWorkInfosByTagFlow("download_song")
                 .collectLatest { workInfos ->
                     workInfos.forEach { workInfo ->
                         val url = workInfo.tags.find { it.startsWith("download_") && it != "download_song" }
                             ?.removePrefix("download_")
-                        
+
                         if (url != null) {
                             if (workInfo.state.isFinished) {
                                 downloadProgress.remove(url)
@@ -42,6 +43,7 @@ class DownloadManager @Inject constructor(
                     }
                 }
         }
+        observeJob?.invokeOnCompletion { observeJob = null }
     }
 
     fun stopObserving() {

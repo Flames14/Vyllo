@@ -46,6 +46,8 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
+import com.vyllo.music.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -61,9 +63,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
-import com.vyllo.music.data.SyncedLyricLine
-import com.vyllo.music.data.LyricsResponse
-import com.vyllo.music.data.LyricsResult
+import com.vyllo.music.domain.model.SyncedLyricLine
+import com.vyllo.music.domain.model.LyricsResponse
+import com.vyllo.music.domain.model.LyricsResult
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -89,7 +91,6 @@ import com.vyllo.music.data.download.PlaylistEntity
 import com.vyllo.music.data.download.PlaylistSongEntity
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -168,30 +169,26 @@ fun YTMHomeScreen(
         }
     }
     
-    // Aggressive image pre-cache
+    // Pre-cache only what's visible on the first screen
     val imageLoader = coil.Coil.imageLoader(context)
     LaunchedEffect(
-        uiState.listenAgainItems, 
-        uiState.chillItems, 
-        uiState.mixedForYouItems, 
-        uiState.newReleasesItems, 
-        uiState.trendingNowItems,
-        uiState.quickPicksItems
+        uiState.listenAgainItems,
+        uiState.trendingNowItems
     ) {
-        val smallItems = uiState.listenAgainItems + uiState.chillItems + uiState.workoutItems + 
-                         uiState.focusItems + uiState.newReleasesItems + uiState.trendingNowItems
-        val largeItems = uiState.mixedForYouItems
-        val recommendedItemsList = uiState.quickPicksItems
-        val quickPicksItems = uiState.quickPicksRows.flatten()
-        
-        (smallItems + quickPicksItems).forEach { item ->
-            imageLoader.enqueue(ImageRequest.Builder(context).data(item.thumbnailUrl).size(300, 300).build())
-        }
-        largeItems.forEach { item ->
-            imageLoader.enqueue(ImageRequest.Builder(context).data(item.thumbnailUrl).size(560, 320).build())
-        }
-        recommendedItemsList.forEach { item ->
-            imageLoader.enqueue(ImageRequest.Builder(context).data(item.thumbnailUrl).size(150, 150).build())
+        val visibleUrls = (uiState.listenAgainItems.take(6) + uiState.trendingNowItems.take(6))
+            .map { it.thumbnailUrl }
+            .filter { it.isNotBlank() }
+            .distinct()
+
+        visibleUrls.forEach { url ->
+            imageLoader.enqueue(
+                ImageRequest.Builder(context)
+                    .data(url)
+                    .size(300, 300)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .build()
+            )
         }
     }
 
@@ -234,7 +231,7 @@ fun YTMHomeScreen(
         // Listen Again Section
         if (uiState.listenAgainItems.isNotEmpty()) {
             item(key = "listen_again_header") {
-                YTMSectionHeader(title = "Listen again")
+                YTMSectionHeader(title = stringResource(R.string.section_listen_again))
             }
             item(key = "listen_again_row") {
                 OptimizedHorizontalSection(
@@ -252,7 +249,7 @@ fun YTMHomeScreen(
         if (uiState.quickPicksRows.isNotEmpty()) {
             item(key = "quick_picks_header") {
                 Spacer(modifier = Modifier.height(24.dp))
-                YTMSectionHeader(title = "Quick picks")
+                YTMSectionHeader(title = stringResource(R.string.section_quick_picks))
             }
             YTMGridSection(
                 rows = uiState.quickPicksRows.take(3),
@@ -268,7 +265,7 @@ fun YTMHomeScreen(
         if (uiState.chillItems.isNotEmpty()) {
             item(key = "chill_header") {
                 Spacer(modifier = Modifier.height(24.dp))
-                YTMSectionHeader(title = "Chill vibes")
+                YTMSectionHeader(title = stringResource(R.string.section_chill_vibes))
             }
             item(key = "chill_row") {
                 OptimizedHorizontalSection(
@@ -286,7 +283,7 @@ fun YTMHomeScreen(
         if (uiState.mixedForYouItems.isNotEmpty()) {
             item(key = "mixed_header") {
                 Spacer(modifier = Modifier.height(24.dp))
-                YTMSectionHeader(title = "Mixed for you")
+                YTMSectionHeader(title = stringResource(R.string.section_mixed_for_you))
             }
             item(key = "mixed_row") {
                 OptimizedHorizontalSection(
@@ -304,7 +301,7 @@ fun YTMHomeScreen(
         if (uiState.workoutItems.isNotEmpty()) {
             item(key = "workout_header") {
                 Spacer(modifier = Modifier.height(24.dp))
-                YTMSectionHeader(title = "Workout")
+                YTMSectionHeader(title = stringResource(R.string.section_workout))
             }
             item(key = "workout_row") {
                 OptimizedHorizontalSection(
@@ -322,7 +319,7 @@ fun YTMHomeScreen(
         if (uiState.focusItems.isNotEmpty()) {
             item(key = "focus_header") {
                 Spacer(modifier = Modifier.height(24.dp))
-                YTMSectionHeader(title = "Focus")
+                YTMSectionHeader(title = stringResource(R.string.section_focus))
             }
             item(key = "focus_row") {
                 OptimizedHorizontalSection(
@@ -356,7 +353,7 @@ fun YTMHomeScreen(
         if (uiState.newReleasesItems.isNotEmpty()) {
             item(key = "new_releases_header") {
                 Spacer(modifier = Modifier.height(24.dp))
-                YTMSectionHeader(title = "New releases")
+                YTMSectionHeader(title = stringResource(R.string.section_new_releases))
             }
             item(key = "new_releases_row") {
                 OptimizedHorizontalSection(

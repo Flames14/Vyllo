@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.os.Handler
 import android.os.Looper
+import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.data.alarm.AlarmDao
 import com.vyllo.music.data.download.DownloadDao
 import com.vyllo.music.data.manager.AlarmSchedulerManager
@@ -137,7 +138,7 @@ class AlarmViewModel @Inject constructor(
                     downloadedSongs = downloads
                 }
             } catch (e: Exception) {
-                android.util.Log.e("AlarmVM", "Failed to observe downloads", e)
+                SecureLogger.e("AlarmVM", "Failed to observe downloads", e)
             }
         }
     }
@@ -155,7 +156,7 @@ class AlarmViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 showError = "Failed to load alarms: ${e.message}"
-                android.util.Log.e("AlarmVM", "Failed to load alarms", e)
+                SecureLogger.e("AlarmVM", "Failed to load alarms", e)
                 isLoading = false
             }
         }
@@ -221,12 +222,12 @@ class AlarmViewModel @Inject constructor(
                     val newId = createAlarmUseCase(alarm)
                     val newAlarm = alarm.copy(id = newId)
                     alarmScheduler.schedule(newAlarm)
-                    android.util.Log.d("AlarmVM", "Created and scheduled alarm ID=$newId for ${selectedHour}:${selectedMinute}")
+                    SecureLogger.d("AlarmVM", "Created and scheduled alarm ID=$newId for ${selectedHour}:${selectedMinute}")
                 } else {
                     // Update existing alarm
                     updateAlarmUseCase(alarm)
                     alarmScheduler.schedule(alarm)
-                    android.util.Log.d("AlarmVM", "Updated and scheduled alarm ID=${alarm.id} for ${selectedHour}:${selectedMinute}")
+                    SecureLogger.d("AlarmVM", "Updated and scheduled alarm ID=${alarm.id} for ${selectedHour}:${selectedMinute}")
                 }
 
                 // Update notification
@@ -234,7 +235,7 @@ class AlarmViewModel @Inject constructor(
                 loadAlarms()
             } catch (e: Exception) {
                 showError = "Failed to save alarm: ${e.message}"
-                android.util.Log.e("AlarmVM", "Failed to save alarm", e)
+                SecureLogger.e("AlarmVM", "Failed to save alarm", e)
             }
         }
     }
@@ -265,14 +266,14 @@ class AlarmViewModel @Inject constructor(
                 val updatedAlarm = alarm.copy(isEnabled = newEnabledState)
                 if (newEnabledState) {
                     alarmScheduler.schedule(updatedAlarm)
-                    android.util.Log.d("AlarmVM", "Enabled alarm ID=${alarm.id}")
+                    SecureLogger.d("AlarmVM", "Enabled alarm ID=${alarm.id}")
                 } else {
                     alarmScheduler.cancel(updatedAlarm)
-                    android.util.Log.d("AlarmVM", "Disabled alarm ID=${alarm.id}")
+                    SecureLogger.d("AlarmVM", "Disabled alarm ID=${alarm.id}")
                 }
             } catch (e: Exception) {
                 showError = "Failed to toggle alarm: ${e.message}"
-                android.util.Log.e("AlarmVM", "Failed to toggle alarm", e)
+                SecureLogger.e("AlarmVM", "Failed to toggle alarm", e)
             }
         }
     }

@@ -1,5 +1,7 @@
 package com.vyllo.music.data
 
+import com.vyllo.music.core.security.SecureLogger
+import com.vyllo.music.domain.model.SyncedLyricLine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -32,8 +34,12 @@ object TranslationEngine {
     private var jwtToken: String? = null
     private var tokenExpiryMs: Long = 0
 
-    // In-memory translation cache
-    private val translationCache = mutableMapOf<String, String>()
+    // In-memory LRU translation cache (max 200 entries)
+    private val translationCache = object : java.util.LinkedHashMap<String, String>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean {
+            return size > 200
+        }
+    }
 
     // Detected source language for current session
     private var detectedSourceLang: String? = null
@@ -64,7 +70,17 @@ object TranslationEngine {
         try {
             val request = Request.Builder()
                 .url("https://edge.microsoft.com/translate/auth")
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36")
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0")
+                .header("Accept", "*/*")
+                .header("Accept-Language", "en-US,en;q=0.9")
+                .header("sec-ch-ua", "\"Microsoft Edge\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"")
+                .header("sec-ch-ua-mobile", "?0")
+                .header("sec-ch-ua-platform", "\"Windows\"")
+                .header("Sec-Fetch-Dest", "empty")
+                .header("Sec-Fetch-Mode", "cors")
+                .header("Sec-Fetch-Site", "same-origin")
+                .header("Origin", "https://edge.microsoft.com")
+                .header("Referer", "https://edge.microsoft.com/translate/")
                 .build()
 
             val response = client.newCall(request).execute()
@@ -79,15 +95,15 @@ object TranslationEngine {
                         
                         jwtToken = token
                         tokenExpiryMs = exp * 1000L
-                        android.util.Log.d("TranslationEngine", "Fetched new Edge JWT auth token")
+                        SecureLogger.d("TranslationEngine", "Fetched new Edge JWT auth token")
                         return@withContext jwtToken
                     } catch (e: Exception) {
-                        android.util.Log.e("TranslationEngine", "JWT parse error", e)
+                        SecureLogger.e("TranslationEngine", "JWT parse error", e)
                     }
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.w("TranslationEngine", "Failed to fetch auth token: ${e.message}")
+            SecureLogger.w("TranslationEngine", "Failed to fetch auth token: ${e.message}")
         }
         return@withContext null
     }
@@ -116,7 +132,7 @@ object TranslationEngine {
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.w("TranslationEngine", "Transliterate error: ${e.message}")
+            SecureLogger.w("TranslationEngine", "Transliterate error: ${e.message}")
         }
         return null
     }
@@ -152,10 +168,10 @@ object TranslationEngine {
                     }
                 }
             } else {
-                android.util.Log.w("TranslationEngine", "Translate failed: ${response.code} ${response.body?.string()}")
+                SecureLogger.w("TranslationEngine", "Translate failed: ${response.code}")
             }
         } catch (e: Exception) {
-            android.util.Log.w("TranslationEngine", "Translate error: ${e.message}")
+            SecureLogger.w("TranslationEngine", "Translate error: ${e.message}")
         }
         return null
     }
@@ -216,12 +232,12 @@ object TranslationEngine {
                 val overlap = calculateWordOverlap(sampleText, autoResult)
                 if (overlap < 0.4) {
                     detectedSourceLang = "auto"
-                    android.util.Log.d("TranslationEngine", "Locked 'auto' (overlap: $overlap)")
+                    SecureLogger.d("TranslationEngine") { "Locked 'auto' (overlap: $overlap)" }
                     return@withContext
                 }
             }
 
-            android.util.Log.d("TranslationEngine", "Probing ${TRANSLIT_LANGS.size} languages for Romanized text...")
+            SecureLogger.d("TranslationEngine") { "Probing ${TRANSLIT_LANGS.size} languages for Romanized text..." }
 
             val probeJobs = TRANSLIT_LANGS.keys.map { lang ->
                 async {
@@ -235,11 +251,8 @@ object TranslationEngine {
 
             var bestLang = "auto"
             var lowestOverlap = 1.0
-            
+
             for ((lang, translated, overlap) in results) {
-                if (translated != null) {
-                    android.util.Log.d("TranslationEngine", "Probe [$lang] overlap: $overlap ->\n$translated")
-                }
                 if (overlap < lowestOverlap) {
                     lowestOverlap = overlap
                     bestLang = lang
@@ -247,7 +260,7 @@ object TranslationEngine {
             }
 
             detectedSourceLang = bestLang
-            android.util.Log.d("TranslationEngine", "LOCKED source language: [$bestLang] with overlap $lowestOverlap")
+            SecureLogger.d("TranslationEngine") { "LOCKED source language: [$bestLang] with overlap $lowestOverlap" }
         }
     }
 

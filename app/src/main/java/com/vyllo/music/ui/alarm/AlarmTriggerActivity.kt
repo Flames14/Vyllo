@@ -24,6 +24,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.vyllo.music.R
+import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.data.download.DownloadDao
 import com.vyllo.music.data.download.DownloadDatabase
 import dagger.hilt.android.AndroidEntryPoint
@@ -66,7 +67,7 @@ class AlarmTriggerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        android.util.Log.d("AlarmActivity", "onCreate called")
+        SecureLogger.d("AlarmTriggerActivity", "onCreate called")
 
         // Initialize vibrator
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
@@ -79,7 +80,7 @@ class AlarmTriggerActivity : ComponentActivity() {
         alarmLabel = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: ""
         alarmTime = intent.getStringExtra(EXTRA_ALARM_TIME) ?: ""
 
-        android.util.Log.d("AlarmActivity", "Alarm data: id=$alarmId, time=$alarmTime")
+        SecureLogger.d("AlarmTriggerActivity", "Alarm data: id=$alarmId, time=$alarmTime")
 
         // Show UI
         setContentView(R.layout.activity_alarm_trigger)
