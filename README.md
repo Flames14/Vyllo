@@ -36,6 +36,7 @@ Here's what Vyllo can do:
 | Feature | What it does |
 |---------|--------------|
 | 🎧 **Background Playback** | Keep music playing with the screen off or while using other apps |
+| 🎬 **Video Playback** | Watch music videos and visual content directly in the app |
 | 📥 **Offline Downloads** | Save songs to your device for offline listening |
 | 🎨 **Material You Design** | Colors that dynamically adapt to your album art |
 | 📝 **Lyrics Integration** | Real-time synced lyrics from LRCLib |
