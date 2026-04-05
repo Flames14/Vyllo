@@ -79,7 +79,7 @@ Want to compile Vyllo yourself? Here's how:
 ## 🖼️ Screenshot
 
 <div align="center">
-  <img src="screenshot1.png" width="60%" alt="Vyllo App">
+  <img src="screenshot1.png" width="100%" alt="Vyllo App">
 </div>
 
 ## 🏗️ Tech Stack
