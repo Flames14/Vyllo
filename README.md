@@ -79,7 +79,7 @@ Want to compile Vyllo yourself? Here's how:
 ## 🖼️ Screenshots
 
 <div align="center">
-  <img src="screenshot1.jpg" width="23%" alt="Home Screen">
+  <img src="screenshot1.png" width="23%" alt="Home Screen">
   <img src="screenshot2.jpg" width="23%" alt="Search Screen">
   <img src="screenshot3.jpg" width="23%" alt="Player Screen">
   <img src="screenshot4.jpg" width="23%" alt="Settings">
