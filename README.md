@@ -76,13 +76,10 @@ Want to compile Vyllo yourself? Here's how:
 
    *Note: The build will use the default debug signing config. For personal use, this is fine.*
 
-## 🖼️ Screenshots
+## 🖼️ Screenshot
 
 <div align="center">
-  <img src="screenshot1.png" width="23%" alt="Home Screen">
-  <img src="screenshot2.jpg" width="23%" alt="Search Screen">
-  <img src="screenshot3.jpg" width="23%" alt="Player Screen">
-  <img src="screenshot4.jpg" width="23%" alt="Settings">
+  <img src="screenshot1.png" width="60%" alt="Vyllo App">
 </div>
 
 ## 🏗️ Tech Stack
