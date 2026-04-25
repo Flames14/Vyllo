@@ -9,6 +9,7 @@ import com.vyllo.music.domain.model.LyricsResponse
 import com.vyllo.music.domain.model.SyncedLyricLine
 import com.vyllo.music.domain.model.LyricsResult
 import com.vyllo.music.domain.model.LyricsStatus
+import com.vyllo.music.domain.model.EqualizerSettings
 import com.vyllo.music.data.*
 import com.vyllo.music.data.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PreferenceManager
@@ -45,6 +46,7 @@ data class PlayerUiState(
     val isTranslationEnabled: Boolean = false,
     val isTranslating: Boolean = false,
     val detectedLyricsLangCode: String? = null,
+    val equalizerSettings: EqualizerSettings = EqualizerSettings(),
 )
 
 @HiltViewModel
@@ -108,13 +110,20 @@ class PlayerViewModel @Inject constructor(
         get() = _uiState.value.isTranslating
     val detectedLyricsLangCode: String?
         get() = _uiState.value.detectedLyricsLangCode
+    val equalizerSettings: EqualizerSettings
+        get() = _uiState.value.equalizerSettings
 
     init {
+        _uiState.update { it.copy(equalizerSettings = preferenceManager.loadEqualizerSettings()) }
         viewModelScope.launch {
             playbackQueueManager.currentPlayingItem.collectLatest { item ->
                 _uiState.update { it.copy(currentPlayingItem = item) }
             }
         }
+    }
+
+    fun setPlaybackLoading(isLoading: Boolean, itemUrl: String? = null) {
+        _uiState.update { it.copy(isLoadingPlayer = isLoading, loadingItemUrl = itemUrl) }
     }
 
     fun loadRelatedSongs(item: MusicItem) {
@@ -234,5 +243,48 @@ class PlayerViewModel @Inject constructor(
     fun getNextAutoplayItem(): MusicItem? {
         if (!autoplayEnabled) return null
         return relatedSongs.firstOrNull()
+    }
+
+    fun setEqualizerEnabled(enabled: Boolean) {
+        updateEqualizerSettings(equalizerSettings.copy(enabled = enabled))
+    }
+
+    fun updateBassBoost(strength: Int) {
+        updateEqualizerSettings(
+            equalizerSettings.copy(
+                bassBoostStrength = strength.coerceIn(EqualizerSettings.STRENGTH_MIN, EqualizerSettings.STRENGTH_MAX)
+            )
+        )
+    }
+
+    fun updateVirtualizer(strength: Int) {
+        updateEqualizerSettings(
+            equalizerSettings.copy(
+                virtualizerStrength = strength.coerceIn(EqualizerSettings.STRENGTH_MIN, EqualizerSettings.STRENGTH_MAX)
+            )
+        )
+    }
+
+    fun updateEqualizerBand(index: Int, level: Int) {
+        if (index !in equalizerSettings.bands.indices) return
+
+        val updatedBands = equalizerSettings.bands.mapIndexed { bandIndex, band ->
+            if (bandIndex == index) {
+                band.copy(level = level.coerceIn(EqualizerSettings.BAND_LEVEL_MIN, EqualizerSettings.BAND_LEVEL_MAX))
+            } else {
+                band
+            }
+        }
+        updateEqualizerSettings(equalizerSettings.copy(bands = updatedBands))
+    }
+
+    fun resetEqualizer() {
+        updateEqualizerSettings(EqualizerSettings())
+    }
+
+    private fun updateEqualizerSettings(settings: EqualizerSettings) {
+        val sanitized = settings.sanitized()
+        _uiState.update { it.copy(equalizerSettings = sanitized) }
+        preferenceManager.saveEqualizerSettings(sanitized)
     }
 }

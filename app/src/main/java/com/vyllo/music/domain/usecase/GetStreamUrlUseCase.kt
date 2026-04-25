@@ -19,21 +19,13 @@ class GetStreamUrlUseCase @Inject constructor(
             SecureLogger.d("GetStreamUrlUseCase") { "Video mode requested, skipping local check" }
         }
 
-        var streamUrl = repository.getStreamUrl(url, isVideo = isVideo)
+        // We rely on the repository's internal retry mechanism and cache for performance
+        val streamUrl = repository.getStreamUrl(url, isVideo = isVideo)
 
         if (streamUrl != null) {
             SecureLogger.d("GetStreamUrlUseCase") { "Stream URL resolved" }
-            return streamUrl
-        }
-
-        SecureLogger.d("GetStreamUrlUseCase", "First attempt failed, retrying with force=true")
-        delay(300)
-        streamUrl = repository.getStreamUrl(url, force = true, isVideo = isVideo)
-
-        if (streamUrl != null) {
-            SecureLogger.d("GetStreamUrlUseCase") { "Stream URL resolved (retry)" }
         } else {
-            SecureLogger.w("GetStreamUrlUseCase", "Failed to resolve stream URL after retry")
+            SecureLogger.w("GetStreamUrlUseCase", "Failed to resolve stream URL")
         }
 
         return streamUrl

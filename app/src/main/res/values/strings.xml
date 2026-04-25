@@ -158,4 +158,15 @@
     <string name="floating_player_title">Floating Player Active</string>
     <string name="floating_player_text">Tap the bubble to return to app</string>
     <string name="floating_player_music_bubble">Music Bubble</string>
+    <string name="equalizer_title">Equalizer</string>
+    <string name="equalizer_subtitle">Adjust bass, space, and tone for the current playback session</string>
+    <string name="equalizer_bass_boost">Bass boost</string>
+    <string name="equalizer_virtualizer">Virtualizer</string>
+    <string name="equalizer_reset">Reset</string>
+    <string name="equalizer_hint">Changes are saved automatically and applied while audio is playing.</string>
+    <string name="share_music">Share</string>
+    <string name="share_music_subject">Listen to %1$s</string>
+    <string name="share_music_message">Listen to %1$s on YouTube: %2$s</string>
+    <string name="share_music_chooser">Share music</string>
+    <string name="share_music_error">Unable to create a public YouTube link for this track</string>
 </resources>

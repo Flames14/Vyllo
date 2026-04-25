@@ -34,7 +34,7 @@ class YouTubeDataSource @Inject constructor(
     private var currentListExtractor: org.schabi.newpipe.extractor.ListExtractor<*>? = null
     private var nextListPage: Page? = null
 
-    private val extractorDispatcher = Executors.newFixedThreadPool(1) { r ->
+    private val extractorDispatcher = Executors.newFixedThreadPool(3) { r ->
         Thread(r).apply { priority = Thread.NORM_PRIORITY }
     }.asCoroutineDispatcher()
 
@@ -190,8 +190,8 @@ class YouTubeDataSource @Inject constructor(
                 attempt++
                 if (attempt < 3) {
                     // Exponential backoff with jitter to avoid thundering herd
-                    val baseDelay = 400L * attempt
-                    val jitter = (Math.random() * 200L).toLong()
+                    val baseDelay = 200L * attempt
+                    val jitter = (Math.random() * 100L).toLong()
                     delay(baseDelay + jitter)
                 }
             }

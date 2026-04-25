@@ -20,6 +20,7 @@ import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -27,6 +28,7 @@ import com.vyllo.music.R
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.data.download.DownloadDao
 import com.vyllo.music.data.download.DownloadDatabase
+import com.vyllo.music.service.AlarmTriggerService
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +41,10 @@ import kotlin.system.exitProcess
 /**
  * Full-screen activity that appears when alarm triggers.
  * Shows alarm info and allows user to dismiss or snooze.
+ *
+ * CRITICAL: This activity also handles the case where it's launched via
+ * full-screen notification but the AlarmTriggerService was killed by the system.
+ * In that case, it restarts the service using the intent extras.
  */
 @AndroidEntryPoint
 class AlarmTriggerActivity : ComponentActivity() {
@@ -48,13 +54,14 @@ class AlarmTriggerActivity : ComponentActivity() {
 
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
-    private var wakeLock: PowerManager.WakeLock? = null
+    private var cpuWakeLock: PowerManager.WakeLock? = null
     
     private var alarmId: Long = 0
     private var alarmLabel: String = ""
     private var alarmTime: String = ""
 
     companion object {
+        private const val TAG = "AlarmTriggerActivity"
         const val EXTRA_ALARM_ID = "alarm_id"
         const val EXTRA_ALARM_LABEL = "alarm_label"
         const val EXTRA_ALARM_TIME = "alarm_time"
@@ -67,7 +74,7 @@ class AlarmTriggerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        SecureLogger.d("AlarmTriggerActivity", "onCreate called")
+        SecureLogger.d(TAG, "onCreate called")
 
         // Initialize vibrator
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
@@ -80,7 +87,7 @@ class AlarmTriggerActivity : ComponentActivity() {
         alarmLabel = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: ""
         alarmTime = intent.getStringExtra(EXTRA_ALARM_TIME) ?: ""
 
-        SecureLogger.d("AlarmTriggerActivity", "Alarm data: id=$alarmId, time=$alarmTime")
+        SecureLogger.d(TAG, "Alarm data: id=$alarmId, time=$alarmTime")
 
         // Show UI
         setContentView(R.layout.activity_alarm_trigger)
@@ -90,6 +97,38 @@ class AlarmTriggerActivity : ComponentActivity() {
 
         // Acquire wake lock
         acquireWakeLock()
+
+        // CRITICAL: If the service is not running (e.g., system killed it after clearing recents),
+        // restart it so the alarm sound actually plays.
+        ensureServiceRunning()
+    }
+
+    /**
+     * Ensure AlarmTriggerService is running. If the app was killed from recents,
+     * the service may have been destroyed. The full-screen notification intent
+     * still launches this activity, but without the service there's no sound.
+     */
+    private fun ensureServiceRunning() {
+        if (!AlarmTriggerService.isRunning) {
+            SecureLogger.w(TAG, "AlarmTriggerService is NOT running — restarting it")
+            try {
+                val serviceIntent = Intent(this, AlarmTriggerService::class.java).apply {
+                    putExtra("alarm_id", alarmId)
+                    putExtra("alarm_label", alarmLabel)
+                    putExtra("sound_type", intent.getStringExtra(EXTRA_SOUND_TYPE) ?: "DEFAULT")
+                    putExtra("song_url", intent.getStringExtra(EXTRA_SONG_URL))
+                    putExtra("volume", intent.getIntExtra(EXTRA_VOLUME, 80))
+                    putExtra("gradual_volume", true)
+                    putExtra("vibration_enabled", intent.getBooleanExtra(EXTRA_VIBRATION, true))
+                }
+                ContextCompat.startForegroundService(this, serviceIntent)
+                SecureLogger.d(TAG, "AlarmTriggerService restarted from activity")
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Failed to restart AlarmTriggerService", e)
+            }
+        } else {
+            SecureLogger.d(TAG, "AlarmTriggerService is already running")
+        }
     }
 
     /**
@@ -111,6 +150,9 @@ class AlarmTriggerActivity : ComponentActivity() {
             )
         }
         
+        // Keep the screen on while this activity is visible
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         // Make status bar transparent
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
@@ -144,15 +186,14 @@ class AlarmTriggerActivity : ComponentActivity() {
     }
 
     /**
-     * Acquire wake lock to keep screen on.
+     * Acquire wake lock to keep CPU alive.
+     * Uses PARTIAL_WAKE_LOCK (reliable) — screen is kept on via window flags.
      */
     private fun acquireWakeLock() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(
-            PowerManager.FULL_WAKE_LOCK or
-            PowerManager.ACQUIRE_CAUSES_WAKEUP or
-            PowerManager.ON_AFTER_RELEASE,
-            "Vyllo::AlarmActivityWakeLock"
+        cpuWakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "Vyllo::AlarmActivityCpuWakeLock"
         ).apply {
             acquire(15 * 60 * 1000L) // 15 minutes max
         }
@@ -162,10 +203,14 @@ class AlarmTriggerActivity : ComponentActivity() {
      * Dismiss alarm and close activity.
      */
     private fun dismissAlarm() {
-        val intent = Intent(this, com.vyllo.music.service.AlarmTriggerService::class.java).apply {
-            action = com.vyllo.music.service.AlarmTriggerService.ACTION_DISMISS
+        val intent = Intent(this, AlarmTriggerService::class.java).apply {
+            action = AlarmTriggerService.ACTION_DISMISS
         }
-        startService(intent)
+        try {
+            startService(intent)
+        } catch (e: Exception) {
+            SecureLogger.e(TAG, "Failed to send dismiss to service", e)
+        }
         finish()
         overridePendingTransition(0, 0)
     }
@@ -174,10 +219,14 @@ class AlarmTriggerActivity : ComponentActivity() {
      * Snooze alarm for 5 minutes.
      */
     private fun snoozeAlarm() {
-        val intent = Intent(this, com.vyllo.music.service.AlarmTriggerService::class.java).apply {
-            action = com.vyllo.music.service.AlarmTriggerService.ACTION_SNOOZE
+        val intent = Intent(this, AlarmTriggerService::class.java).apply {
+            action = AlarmTriggerService.ACTION_SNOOZE
         }
-        startService(intent)
+        try {
+            startService(intent)
+        } catch (e: Exception) {
+            SecureLogger.e(TAG, "Failed to send snooze to service", e)
+        }
         finish()
         overridePendingTransition(0, 0)
     }
@@ -192,20 +241,24 @@ class AlarmTriggerActivity : ComponentActivity() {
 
         // Stop media player if playing
         mediaPlayer?.let {
-            if (it.isPlaying) {
-                it.stop()
+            try {
+                if (it.isPlaying) {
+                    it.stop()
+                }
+                it.release()
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Error stopping media player", e)
             }
-            it.release()
         }
         mediaPlayer = null
 
         // Release wake lock
-        wakeLock?.let {
+        cpuWakeLock?.let {
             if (it.isHeld) {
                 it.release()
             }
         }
-        wakeLock = null
+        cpuWakeLock = null
     }
 
     override fun onBackPressed() {

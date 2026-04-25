@@ -1,5 +1,8 @@
 package com.vyllo.music.presentation.components
 
+import android.content.Intent
+import android.widget.Toast
+
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,16 +14,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.session.MediaController
+import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.vyllo.music.PlayerViewModel
 import com.vyllo.music.LocalLibraryViewModel
@@ -30,6 +36,7 @@ import com.vyllo.music.data.LyricsEngine
 import com.vyllo.music.domain.model.MusicItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -54,16 +61,95 @@ fun PremiumFullScreenPlayer(
     var duration by remember { mutableLongStateOf(0L) }
     var selectedTab by remember { mutableIntStateOf(0) }
     var recentlySelectedSongUrl by remember { mutableStateOf<String?>(null) }
+    var showEqualizerSheet by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
 
     var shuffleModeEnabled by remember { mutableStateOf(controller?.shuffleModeEnabled ?: false) }
     var repeatMode by remember { mutableIntStateOf(controller?.repeatMode ?: androidx.media3.common.Player.REPEAT_MODE_OFF) }
 
+    // Observe shuffle/repeat mode changes from MediaController
+    DisposableEffect(controller) {
+        controller?.let { mediaController ->
+            shuffleModeEnabled = mediaController.shuffleModeEnabled
+            repeatMode = mediaController.repeatMode
+
+            val listener = object : androidx.media3.common.Player.Listener {
+                override fun onShuffleModeEnabledChanged(enabled: Boolean) {
+                    shuffleModeEnabled = enabled
+                }
+
+                override fun onRepeatModeChanged(mode: Int) {
+                    repeatMode = mode
+                }
+            }
+
+            mediaController.addListener(listener)
+
+            onDispose {
+                mediaController.removeListener(listener)
+            }
+        } ?: onDispose { }
+    }
+
     // Collect player UI state so Compose recomposes when lyrics/translation state changes
     val playerUiState by viewModel.uiState.collectAsState()
-    LaunchedEffect(controller) {
-        var lastLineIndex = -1
+
+    // Event-driven position updates — only polls while actively playing
+    var lastLineIndex by remember { mutableIntStateOf(-1) }
+    var pollingActive by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Register Player.Listener via DisposableEffect for proper lifecycle management
+    DisposableEffect(controller) {
+        controller ?: return@DisposableEffect onDispose {}
+
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onIsPlayingChanged(playing: Boolean) {
+                pollingActive = playing
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == androidx.media3.common.Player.STATE_READY) {
+                    pollingActive = controller.isPlaying
+                    duration = controller.duration.coerceAtLeast(0L)
+                } else {
+                    pollingActive = false
+                }
+            }
+
+            override fun onPositionDiscontinuity(
+                oldPosition: androidx.media3.common.Player.PositionInfo,
+                newPosition: androidx.media3.common.Player.PositionInfo,
+                reason: Int
+            ) {
+                currentPosition = newPosition.positionMs
+                duration = controller.duration.coerceAtLeast(0L)
+                if (controller.isPlaying) {
+                    val newLineIndex = LyricsEngine.getCurrentLyricLine(
+                        playerUiState.syncedLyricsLines, currentPosition + playerUiState.lyricsOffsetMs
+                    )
+                    if (newLineIndex != lastLineIndex) {
+                        viewModel.currentLyricIndex = newLineIndex
+                        lastLineIndex = newLineIndex
+                    }
+                }
+            }
+        }
+
+        controller.addListener(listener)
+        pollingActive = controller.isPlaying
+
+        onDispose {
+            controller.removeListener(listener)
+            pollingActive = false
+        }
+    }
+
+    // Lightweight polling only for smooth lyrics sync while playing
+    LaunchedEffect(controller, playerUiState.syncedLyricsLines.hashCode()) {
+        controller ?: return@LaunchedEffect
         while (isActive) {
-            if (controller?.isPlaying == true && controller.playbackState == androidx.media3.common.Player.STATE_READY) {
+            if (pollingActive && controller.playbackState == androidx.media3.common.Player.STATE_READY) {
                 currentPosition = controller.currentPosition
                 duration = controller.duration.coerceAtLeast(0L)
                 val newLineIndex = LyricsEngine.getCurrentLyricLine(
@@ -74,7 +160,7 @@ fun PremiumFullScreenPlayer(
                     lastLineIndex = newLineIndex
                 }
             }
-            delay(250)
+            delay(500)
         }
     }
 
@@ -101,6 +187,18 @@ fun PremiumFullScreenPlayer(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        if (showEqualizerSheet) {
+            EqualizerBottomSheet(
+                settings = playerUiState.equalizerSettings,
+                onDismiss = { showEqualizerSheet = false },
+                onEnabledChange = viewModel::setEqualizerEnabled,
+                onBassBoostChange = viewModel::updateBassBoost,
+                onVirtualizerChange = viewModel::updateVirtualizer,
+                onBandLevelChange = viewModel::updateEqualizerBand,
+                onReset = viewModel::resetEqualizer
+            )
+        }
+
         ImmersiveBackground(imageUrl = item.thumbnailUrl) {
             val listState = rememberLazyListState()
             val coroutineScope = rememberCoroutineScope()
@@ -225,9 +323,19 @@ fun PremiumFullScreenPlayer(
                                         .clickable {
                                             viewModel.toggleVideoMode(currentPosition) { newUrl ->
                                                 if (newUrl != null) {
-                                                    controller?.setMediaItem(androidx.media3.common.MediaItem.fromUri(newUrl))
+                                                    val mediaItem = androidx.media3.common.MediaItem.Builder()
+                                                        .setUri(newUrl)
+                                                        .setMediaId(item.url)
+                                                        .setMediaMetadata(
+                                                            androidx.media3.common.MediaMetadata.Builder()
+                                                                .setTitle(item.title)
+                                                                .setArtist(item.uploader)
+                                                                .setArtworkUri(android.net.Uri.parse(item.thumbnailUrl))
+                                                                .build()
+                                                        )
+                                                        .build()
+                                                    controller?.setMediaItem(mediaItem, currentPosition)
                                                     controller?.prepare()
-                                                    controller?.seekTo(currentPosition)
                                                     controller?.play()
                                                 }
                                             }
@@ -256,9 +364,19 @@ fun PremiumFullScreenPlayer(
                                         onClick = {
                                             viewModel.toggleVideoMode(currentPosition) { newUrl ->
                                                 if (newUrl != null) {
-                                                    controller?.setMediaItem(androidx.media3.common.MediaItem.fromUri(newUrl))
+                                                    val mediaItem = androidx.media3.common.MediaItem.Builder()
+                                                        .setUri(newUrl)
+                                                        .setMediaId(item.url)
+                                                        .setMediaMetadata(
+                                                            androidx.media3.common.MediaMetadata.Builder()
+                                                                .setTitle(item.title)
+                                                                .setArtist(item.uploader)
+                                                                .setArtworkUri(android.net.Uri.parse(item.thumbnailUrl))
+                                                                .build()
+                                                        )
+                                                        .build()
+                                                    controller?.setMediaItem(mediaItem, currentPosition)
                                                     controller?.prepare()
-                                                    controller?.seekTo(currentPosition)
                                                     controller?.play()
                                                 }
                                             }
@@ -290,6 +408,55 @@ fun PremiumFullScreenPlayer(
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     DownloadButton(item)
+                                    IconButton(onClick = { showEqualizerSheet = true }) {
+                                        Icon(
+                                            Icons.Rounded.GraphicEq,
+                                            contentDescription = stringResource(R.string.equalizer_title),
+                                            tint = if (playerUiState.equalizerSettings.enabled) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.onBackground.copy(0.7f)
+                                            },
+                                            modifier = Modifier.size(28.dp)
+                                        )
+                                    }
+                                    IconButton(onClick = {
+                                        val shareUrl = item.getUniversalShareUrl()
+                                        if (shareUrl == null) {
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(R.string.share_music_error),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        } else {
+                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(
+                                                    Intent.EXTRA_SUBJECT,
+                                                    context.getString(R.string.share_music_subject, item.title)
+                                                )
+                                                putExtra(
+                                                    Intent.EXTRA_TEXT,
+                                                    context.getString(R.string.share_music_message, item.title, shareUrl)
+                                                )
+                                            }
+                                            ContextCompat.startActivity(
+                                                context,
+                                                Intent.createChooser(
+                                                    shareIntent,
+                                                    context.getString(R.string.share_music_chooser)
+                                                ),
+                                                null
+                                            )
+                                        }
+                                    }) {
+                                        Icon(
+                                            Icons.Rounded.Share,
+                                            contentDescription = stringResource(R.string.share_music),
+                                            tint = MaterialTheme.colorScheme.onBackground.copy(0.7f),
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                    }
                                     IconButton(onClick = { libraryViewModel.showPlaylistAddDialog(item) }) {
                                         Icon(Icons.Rounded.PlaylistAdd, "Add to Playlist", tint = MaterialTheme.colorScheme.onBackground.copy(0.7f), modifier = Modifier.size(28.dp))
                                     }

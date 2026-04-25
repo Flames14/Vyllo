@@ -30,6 +30,8 @@ import com.vyllo.music.ui.search.*
 import com.vyllo.music.ui.alarm.AlarmScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vyllo.music.ui.alarm.AlarmViewModel
+import com.vyllo.music.recognition.ui.RecognitionScreen
+import com.vyllo.music.recognition.presentation.RecognitionViewModel
 
 private const val TAG = "VylloApp"
 
@@ -60,7 +62,10 @@ fun VylloNavigation(
     var isPlaying by remember { mutableStateOf(false) }
     var showSearchScreen by remember { mutableStateOf(false) }
     var showAlarmScreen by remember { mutableStateOf(false) }
+    var showRecognitionScreen by remember { mutableStateOf(false) }
+    
     val scrollState = rememberLazyListState()
+    val recognitionViewModel: RecognitionViewModel = hiltViewModel()
 
     // Collect player UI state so Compose recomposes when player state changes
     val playerUiState by playerViewModel.uiState.collectAsState()
@@ -109,10 +114,15 @@ fun VylloNavigation(
     val context = LocalContext.current
     val controller = playbackManager.getController()
 
-    // Sync playing state with Media3 controller
+    // Sync playing state with the controller immediately and on future updates.
     DisposableEffect(controller) {
+        isPlaying = controller?.isPlaying == true
+
         val listener = object : androidx.media3.common.Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                isPlaying = controller?.isPlaying == true
+            }
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 // Just toast the error for now, maybe add a proper UI alert later?
                 Toast.makeText(context, "Playback error: ${error.message}", Toast.LENGTH_LONG).show()
@@ -122,11 +132,16 @@ fun VylloNavigation(
         onDispose { controller?.removeListener(listener) }
     }
 
+    LaunchedEffect(controller, playerUiState.currentPlayingItem?.url) {
+        isPlaying = controller?.isPlaying == true
+    }
+
     // Handle back button behavior
-    BackHandler(enabled = isPlayerExpanded || showSearchScreen || showAlarmScreen) {
+    BackHandler(enabled = isPlayerExpanded || showSearchScreen || showAlarmScreen || showRecognitionScreen) {
         when {
             isPlayerExpanded -> isPlayerExpanded = false
             showAlarmScreen -> showAlarmScreen = false
+            showRecognitionScreen -> showRecognitionScreen = false
             showSearchScreen -> {
                 showSearchScreen = false
                 searchViewModel.onQueryChanged("")
@@ -146,6 +161,7 @@ fun VylloNavigation(
                             onTabSelected = { 
                                 homeViewModel.selectedNavTab = it
                                 showSearchScreen = false
+                                showRecognitionScreen = false
                             },
                             hasActivePlayer = playerUiState.currentPlayingItem != null
                         )
@@ -172,6 +188,16 @@ fun VylloNavigation(
                             currentPlayingItem = playerUiState.currentPlayingItem,
                             scrollState = scrollState
                         )
+                    } else if (showRecognitionScreen) {
+                         RecognitionScreen(
+                            viewModel = recognitionViewModel,
+                            onBack = { showRecognitionScreen = false },
+                            onTrackFound = { item ->
+                                showRecognitionScreen = false
+                                homeViewModel.addToRecentlyPlayed(item)
+                                onPlay(item)
+                            }
+                        )
                     } else {
                         when (homeViewModel.selectedNavTab) {
                             0 -> YTMHomeScreen(
@@ -182,6 +208,7 @@ fun VylloNavigation(
                                 },
                                 onSearchClick = { showSearchScreen = true },
                                 onSettingsClick = { settingsViewModel.showSettings = true },
+                                onRecognizeClick = { showRecognitionScreen = true },
                                 currentPlayingItem = playerUiState.currentPlayingItem,
                                 loadingItemUrl = playerUiState.loadingItemUrl
                             )
@@ -193,6 +220,7 @@ fun VylloNavigation(
                                 },
                                 onSearchClick = { showSearchScreen = true },
                                 onSettingsClick = { settingsViewModel.showSettings = true },
+                                onRecognizeClick = { showRecognitionScreen = true },
                                 currentPlayingItem = playerUiState.currentPlayingItem,
                                 loadingItemUrl = playerUiState.loadingItemUrl
                             )
@@ -223,6 +251,7 @@ fun VylloNavigation(
                                         },
                                         onSearchClick = { showSearchScreen = true },
                                         onSettingsClick = { settingsViewModel.showSettings = true },
+                                        onRecognizeClick = { showRecognitionScreen = true },
                                         currentPlayingItem = playerUiState.currentPlayingItem,
                                         loadingItemUrl = playerUiState.loadingItemUrl,
                                         onNavigateToAlarms = { showAlarmScreen = true }

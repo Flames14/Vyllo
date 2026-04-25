@@ -2,6 +2,7 @@ package com.vyllo.music.service
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.media.AudioManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.datasource.cache.CacheDataSource
@@ -15,6 +16,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import com.vyllo.music.MainActivity
 import com.vyllo.music.data.manager.PlaybackQueueManager
+import com.vyllo.music.data.manager.PlaybackAudioEffectsManager
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.data.manager.WakeLockManager
 import com.vyllo.music.domain.model.MusicItem
@@ -50,6 +52,9 @@ class MusicService : MediaSessionService() {
     @Inject
     lateinit var playbackQueueOrchestrator: PlaybackQueueOrchestrator
 
+    @Inject
+    lateinit var playbackAudioEffectsManager: PlaybackAudioEffectsManager
+
     private var mediaSession: MediaSession? = null
     private var player: ExoPlayer? = null
 
@@ -72,6 +77,7 @@ class MusicService : MediaSessionService() {
                 !enabled // false means keep playing when mic/camera is used
             )
         }
+        playbackAudioEffectsManager.onPreferenceChanged(key)
     }
 
     companion object {
@@ -105,7 +111,7 @@ class MusicService : MediaSessionService() {
 
         // Configure LoadControl
         val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(30000, 60000, 2500, 5000)
+            .setBufferDurationsMs(30000, 60000, 1500, 5000)
             .build()
         
         val keepAudioPlaying = preferenceManager.isKeepAudioPlayingEnabled
@@ -138,7 +144,13 @@ class MusicService : MediaSessionService() {
                     Player.STATE_ENDED -> {
                         SecureLogger.d("MusicService", "Playback STATE_ENDED reached")
                         playbackErrorHandler.resetOnSuccess()
-                        playbackQueueOrchestrator.playNextTrack(serviceScope, player)
+                        wakeLockManager.release()
+                        // ExoPlayer handles REPEAT_MODE_ONE and REPEAT_MODE_ALL natively,
+                        // so we only manually advance when repeat is OFF
+                        val currentRepeatMode = player?.repeatMode ?: Player.REPEAT_MODE_OFF
+                        if (currentRepeatMode == Player.REPEAT_MODE_OFF) {
+                            playbackQueueOrchestrator.playNextTrack(serviceScope, player)
+                        }
                     }
                     Player.STATE_IDLE -> {
                         SecureLogger.d("MusicService", "Playback STATE_IDLE")
@@ -154,10 +166,16 @@ class MusicService : MediaSessionService() {
                 SecureLogger.d("MusicService", "MediaItem transition: reason=$reason, mediaId=${mediaItem?.mediaId}")
                 player?.let { playbackQueueOrchestrator.enqueueNextTrackIfNeeded(serviceScope, it, mediaItem) }
             }
+
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                if (audioSessionId == AudioManager.ERROR) return
+                playbackAudioEffectsManager.attachToAudioSession(audioSessionId)
+            }
         })
         
         // Force 1.0x playback speed to prevent "super fast" playback bugs on some devices/emulators
         player?.playbackParameters = androidx.media3.common.PlaybackParameters(1.0f)
+        player?.audioSessionId?.let { playbackAudioEffectsManager.attachToAudioSession(it) }
 
         serviceScope.launch {
             playbackQueueManager.queueVersion.collectLatest {
@@ -202,6 +220,7 @@ class MusicService : MediaSessionService() {
         SecureLogger.d("MusicService", "Service onDestroy called")
         serviceJob.cancel()
         playbackErrorHandler.release()
+        playbackAudioEffectsManager.release()
         preferenceManager.preferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
         wakeLockManager.release()
         

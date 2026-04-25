@@ -32,7 +32,12 @@ class DownloadManager @Inject constructor(
 
                         if (url != null) {
                             if (workInfo.state.isFinished) {
-                                downloadProgress.remove(url)
+                                // Delay removing progress to allow Room database to emit the completed download
+                                // This prevents the download button from flashing back to download icon
+                                launch {
+                                    kotlinx.coroutines.delay(500)
+                                    downloadProgress.remove(url)
+                                }
                             } else {
                                 val progress = workInfo.progress.getInt("progress", 0)
                                 if (progress > 0) {

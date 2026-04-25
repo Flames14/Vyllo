@@ -50,6 +50,7 @@ google-services.json
 *.jks
 *.keystore
 keystore.properties
+keystore.local.properties
 
 # IDE
 .idea/

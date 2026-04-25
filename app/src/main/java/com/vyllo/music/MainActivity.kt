@@ -25,6 +25,7 @@ import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.PlayResult
 import com.vyllo.music.domain.usecase.PlayMusicUseCase
 import com.vyllo.music.service.MusicService
+import com.vyllo.music.data.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.presentation.theme.ThemeManager
 import com.vyllo.music.core.security.SecureLogger
@@ -39,7 +40,7 @@ import androidx.core.content.ContextCompat
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    
+
     private val homeViewModel: HomeViewModel by viewModels()
     private val searchViewModel: SearchViewModel by viewModels()
     private val libraryViewModel: LibraryViewModel by viewModels()
@@ -53,6 +54,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var playMusicUseCase: PlayMusicUseCase
+
+    @Inject
+    lateinit var playbackQueueManager: PlaybackQueueManager
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -157,8 +161,11 @@ class MainActivity : ComponentActivity() {
 
     private fun playMusic(item: MusicItem) {
         val isVideo = playerViewModel.isVideoMode
+        // Set loading state immediately so the player UI shows the spinner while resolving URL
+        playerViewModel.setPlaybackLoading(true, item.url)
         lifecycleScope.launch {
             val result = playMusicUseCase.execute(item, isVideo = isVideo)
+            playerViewModel.setPlaybackLoading(false)
             when (result) {
                 is PlayResult.Success -> playerViewModel.loadRelatedSongs(item)
                 is PlayResult.Failure -> {
@@ -175,32 +182,42 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun playNext(currentItem: MusicItem?) {
-        if (currentItem == null) return
-        val list = if (searchViewModel.searchResults.isNotEmpty()) searchViewModel.searchResults 
-                  else homeViewModel.uiState.value.trendingNowItems
-        
-        val index = list.indexOfFirst { it.url == currentItem.url }
-        if (index != -1 && index < list.size - 1) {
-            playMusic(list[index + 1])
+        val controller = playbackManager.getController()
+        if (controller != null && controller.hasNextMediaItem()) {
+            playbackManager.skipToNext()
         } else {
-            playerViewModel.getNextAutoplayItem()?.let { playMusic(it) }
+            val queueSnapshot = playbackQueueManager.getQueueSnapshot()
+            val currentIdx = playbackQueueManager.currentIndex
+            if (currentIdx >= 0 && currentIdx < queueSnapshot.size - 1) {
+                // If it's in the manager but not ExoPlayer, force play it
+                playMusic(queueSnapshot[currentIdx + 1])
+            } else {
+                playerViewModel.getNextAutoplayItem()?.let { playMusic(it) }
+            }
         }
     }
 
     private fun playPrevious(currentItem: MusicItem?) {
-        if (currentItem == null) return
-        val list = if (searchViewModel.searchResults.isNotEmpty()) searchViewModel.searchResults 
-                  else homeViewModel.uiState.value.trendingNowItems
-                  
-        val index = list.indexOfFirst { it.url == currentItem.url }
-        if (index > 0) playMusic(list[index - 1])
+        val controller = playbackManager.getController()
+        if (controller != null && controller.hasPreviousMediaItem()) {
+            playbackManager.skipToPrevious()
+        } else {
+            val queueSnapshot = playbackQueueManager.getQueueSnapshot()
+            val currentIdx = playbackQueueManager.currentIndex
+            if (currentIdx > 0) {
+                playMusic(queueSnapshot[currentIdx - 1])
+            }
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        // Do NOT release playbackManager here — it would kill playback
-        // when the activity is destroyed (e.g., config change).
-        // The MusicService manages playback lifecycle independently.
+        // Release the MediaController connection when the Activity is permanently destroyed.
+        // Only do this if playback is not active — if music is playing, the MusicService
+        // keeps running independently and will clean up on its own.
+        if (!playbackManager.isPlaying() && isFinishing) {
+            playbackManager.release()
+        }
     }
 
     override fun onStop() {

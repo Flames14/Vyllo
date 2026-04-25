@@ -45,7 +45,7 @@ class PlaybackQueueOrchestrator @Inject constructor(
                 }
 
                 val nextTrack = queue[prefetchIndex]
-                val alreadyQueued = (currentPlaylistIndex + 1 until player.mediaItemCount).any { idx ->
+                val alreadyQueued = (0 until player.mediaItemCount).any { idx ->
                     player.getMediaItemAt(idx).mediaId == nextTrack.url
                 }
                 if (alreadyQueued) continue

@@ -26,7 +26,16 @@
       "Bash(git add *)",
       "Bash(git remote *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git tag *)",
+      "Bash(select-string *)",
+      "Bash(select-object *)",
+      "Bash(systeminfo)",
+      "Bash(\"%localappdata%\\android\\sdk\\emulator\\emulator.exe\" *)",
+      "Bash(git rm *)",
+      "Bash(gradlew *)",
+      "Bash(tasklist *)",
+      "Bash(wmic *)"
     ]
   },
   "$version": 3

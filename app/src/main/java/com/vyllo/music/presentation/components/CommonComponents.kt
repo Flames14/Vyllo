@@ -55,7 +55,8 @@ fun YTMHeader(
     onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit,
     isRefreshing: Boolean = false,
-    onRefresh: () -> Unit = {}
+    onRefresh: () -> Unit = {},
+    onRecognizeClick: () -> Unit = {}
 ) {
     // Animation for refresh icon rotation (continuous spin when refreshing)
     val refreshRotation by animateFloatAsState(
@@ -133,6 +134,15 @@ fun YTMHeader(
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
                 Icon(Icons.Rounded.Search, "Search", tint = MaterialTheme.colorScheme.onBackground)
+            }
+            // Music Recognition Button
+            IconButton(
+                onClick = onRecognizeClick,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Icon(Icons.Rounded.GraphicEq, "Recognize", tint = MaterialTheme.colorScheme.onBackground)
             }
             // Settings Button
             IconButton(
