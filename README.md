@@ -45,6 +45,7 @@ Here's what Vyllo can do:
 | 🔵 **Floating Player** | Picture-in-picture style bubble player for quick controls |
 | ⏰ **Alarm Feature** | Wake up to your favorite music |
 | 🎲 **Smart Queue** | Shuffle, repeat, and manage your "Up Next" queue |
+| 🎤 **Song Detection** | Identify songs playing around you with one tap |
 
 ## 🛠️ How to Build from Source
 
@@ -79,7 +80,7 @@ Want to compile Vyllo yourself? Here's how:
 ## 🖼️ Screenshot
 
 <div align="center">
-  <img src="screenshot1.png" width="100%" alt="Vyllo App">
+  <img src="poster.png" width="100%" alt="Vyllo App">
 </div>
 
 ## 🏗️ Tech Stack
