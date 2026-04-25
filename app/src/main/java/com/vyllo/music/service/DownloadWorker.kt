@@ -5,7 +5,9 @@ import com.vyllo.music.core.security.SecureLogger
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.net.wifi.WifiManager
 import android.os.Build
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
@@ -37,9 +39,28 @@ class DownloadWorker @AssistedInject constructor(
     private val notificationManager =
         appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+    // PARTIAL_WAKE_LOCK keeps the CPU awake even when screen is off
+    private val wakeLock = (appContext.getSystemService(Context.POWER_SERVICE) as PowerManager)
+        .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Vyllo:DownloadWorker")
+
+    // WiFi lock keeps the WiFi radio alive when screen is off
+    private val wifiLock = (appContext.getSystemService(Context.WIFI_SERVICE) as WifiManager)
+        .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Vyllo:DownloadWifiLock")
+
     private val channelId = "download_channel"
     private val notificationId = params.id.hashCode()
     private var workingFile: File? = null
+
+    // Dedicated OkHttpClient for downloads with generous timeouts
+    // The injected client may have short timeouts suitable for API calls but not large downloads
+    private val downloadClient: OkHttpClient by lazy {
+        client.newBuilder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.MINUTES)
+            .writeTimeout(5, TimeUnit.MINUTES)
+            .retryOnConnectionFailure(true)
+            .build()
+    }
 
     override suspend fun doWork(): Result {
         val url = inputData.getString("url") ?: return Result.failure()
@@ -59,6 +80,16 @@ class DownloadWorker @AssistedInject constructor(
 
         // Set foreground info to keep the worker running
         setForeground(createForegroundInfo(title, 0))
+
+        // Acquire CPU wake lock to prevent CPU from sleeping when screen is off
+        if (!wakeLock.isHeld) {
+            wakeLock.acquire(30 * 60 * 1000L) // 30 minute timeout as safety net
+        }
+
+        // Acquire WiFi lock to keep radio alive during download
+        if (!wifiLock.isHeld) {
+            wifiLock.acquire()
+        }
 
         try {
             downloadDao.updateStatus(url, DownloadStatus.DOWNLOADING)
@@ -92,7 +123,7 @@ class DownloadWorker @AssistedInject constructor(
                 .build()
 
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                client.newCall(request).execute().use { response ->
+                downloadClient.newCall(request).execute().use { response ->
                     if (!response.isSuccessful || response.body == null) {
                         SecureLogger.e("DownloadWorker", "Download failed: ${response.code} ${response.message}")
                         throw Exception("Failed to download: ${response.code}")
@@ -102,7 +133,7 @@ class DownloadWorker @AssistedInject constructor(
                     val totalBytes = body.contentLength()
                     body.byteStream().use { inputStream ->
                         FileOutputStream(tempFile).use { outputStream ->
-                            val buffer = ByteArray(32 * 1024)
+                            val buffer = ByteArray(64 * 1024) // 64KB buffer (improved throughput)
                             var bytesRead: Int
                             var totalRead: Long = 0
                             var lastProgressUpdate = 0L
@@ -171,6 +202,15 @@ class DownloadWorker @AssistedInject constructor(
             } catch (_: Exception) {}
             workingFile?.takeIf { it.exists() }?.delete()
             return Result.failure()
+        } finally {
+            // Always release the wake lock when done
+            if (wakeLock.isHeld) {
+                wakeLock.release()
+            }
+            // Always release WiFi lock when done
+            if (wifiLock.isHeld) {
+                wifiLock.release()
+            }
         }
     }
 
@@ -195,6 +235,13 @@ class DownloadWorker @AssistedInject constructor(
         return userAgents.random()
     }
 
+    /**
+     * Create foreground info for WorkManager.
+     *
+     * CRITICAL: Do NOT use FOREGROUND_SERVICE_IMMEDIATE (0x40000000) here.
+     * That flag is only valid in Service.startForeground(), not in WorkManager's ForegroundInfo.
+     * Using it here causes an immediate crash when the download button is pressed.
+     */
     private fun createForegroundInfo(title: String, progress: Int): ForegroundInfo {
         val notification = createNotification(title, progress)
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

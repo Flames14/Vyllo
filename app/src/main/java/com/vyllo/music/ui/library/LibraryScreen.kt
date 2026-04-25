@@ -37,6 +37,7 @@ fun YTMLibraryScreen(
     onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit,
     currentPlayingItem: MusicItem?,
+    onRecognizeClick: () -> Unit,
     loadingItemUrl: String? = null,
     onNavigateToAlarms: () -> Unit = {}
 ) {
@@ -61,7 +62,8 @@ fun YTMLibraryScreen(
         item {
             YTMHeader(
                 onSearchClick = onSearchClick,
-                onSettingsClick = onSettingsClick
+                onSettingsClick = onSettingsClick,
+                onRecognizeClick = onRecognizeClick
             )
         }
 

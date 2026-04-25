@@ -1,12 +1,14 @@
 package com.vyllo.music.data.repository
 
 import android.content.Context
+import android.os.Build
 import androidx.work.Constraints
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.ExistingWorkPolicy
 import androidx.work.workDataOf
+import androidx.work.OutOfQuotaPolicy
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.data.download.DownloadDao
 import com.vyllo.music.data.download.DownloadEntity
@@ -60,7 +62,7 @@ class DownloadRepository @Inject constructor(
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val workRequest = OneTimeWorkRequestBuilder<DownloadWorker>()
+        val workRequestBuilder = OneTimeWorkRequestBuilder<DownloadWorker>()
             .setConstraints(constraints)
             .setInputData(workDataOf(
                 "url" to item.url,
@@ -70,7 +72,14 @@ class DownloadRepository @Inject constructor(
             ))
             .addTag("download_song")
             .addTag("download_${item.url}")
-            .build()
+
+        // CRITICAL: setExpedited() ensures the work survives screen-off on Android 12+
+        // Without this, WorkManager defers work when the device enters Doze mode
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            workRequestBuilder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+        }
+
+        val workRequest = workRequestBuilder.build()
         WorkManager.getInstance(context).enqueueUniqueWork(
             "download_${item.url}",
             ExistingWorkPolicy.KEEP,

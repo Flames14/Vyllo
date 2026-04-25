@@ -48,10 +48,14 @@ import javax.inject.Inject
  * Foreground service that plays alarm sound when triggered by AlarmManager.
  * 
  * This service:
- * 1. Acquires wake locks to ensure device is awake
- * 2. Plays the alarm sound (default or downloaded song)
+ * 1. Acquires wake locks to ensure device stays awake
+ * 2. Plays the alarm sound (default or downloaded song) via STREAM_ALARM
  * 3. Shows a full-screen notification to wake the device
  * 4. Handles dismiss and snooze actions
+ * 5. Auto-dismisses after 10 minutes as a safety net
+ *
+ * CRITICAL: This service must call startForeground() synchronously in onStartCommand()
+ * and release the receiver's wake lock after doing so. See AlarmTriggerReceiver.
  */
 @AndroidEntryPoint
 class AlarmTriggerService : Service() {
@@ -69,8 +73,10 @@ class AlarmTriggerService : Service() {
     
     private var player: ExoPlayer? = null
     private var mediaPlayer: MediaPlayer? = null // For default sounds
-    private var wakeLock: PowerManager.WakeLock? = null
+    private var cpuWakeLock: PowerManager.WakeLock? = null
+    private var screenWakeLock: PowerManager.WakeLock? = null
     private var vibrator: Vibrator? = null
+    private val handler = Handler(Looper.getMainLooper())
     
     private var alarmId: Long = 0
     private var alarmLabel: String = ""
@@ -83,10 +89,16 @@ class AlarmTriggerService : Service() {
     private var isGradualVolumeComplete = false
     private var currentVolume = 0
 
+    // Auto-dismiss runnable — safety net to stop alarm after 10 minutes
+    private val autoDismissRunnable = Runnable {
+        SecureLogger.w(TAG, "Auto-dismissing alarm after 10 minutes")
+        dismissAlarm()
+    }
+
     companion object {
         private const val TAG = "AlarmTriggerService"
         private const val NOTIFICATION_ID = 1001
-        private const val CHANNEL_ID = "alarm_channel"
+        private const val CHANNEL_ID = "vyllo_alarm_channel_silent"
         private const val EXTRA_ALARM_ID = "alarm_id"
         private const val EXTRA_ALARM_LABEL = "alarm_label"
         private const val EXTRA_SOUND_TYPE = "sound_type"
@@ -95,6 +107,9 @@ class AlarmTriggerService : Service() {
         private const val EXTRA_GRADUAL_VOLUME = "gradual_volume"
         private const val EXTRA_VIBRATION_ENABLED = "vibration_enabled"
         
+        // Auto-dismiss after 10 minutes
+        private const val AUTO_DISMISS_MS = 10L * 60 * 1000
+
         // Actions
         const val ACTION_DISMISS = "com.vyllo.music.action.DISMISS_ALARM"
         const val ACTION_SNOOZE = "com.vyllo.music.action.SNOOZE_ALARM"
@@ -130,7 +145,7 @@ class AlarmTriggerService : Service() {
             return START_NOT_STICKY
         }
 
-        // Extract alarm data from intent
+        // Extract alarm data from intent extras
         alarmId = intent.getLongExtra(EXTRA_ALARM_ID, 0)
         alarmLabel = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: ""
         soundType = SoundType.valueOf(intent.getStringExtra(EXTRA_SOUND_TYPE) ?: SoundType.DEFAULT.name)
@@ -144,20 +159,55 @@ class AlarmTriggerService : Service() {
         SecureLogger.d(TAG, "soundType=$soundType, songUrl=$songUrl")
         SecureLogger.d(TAG, "volume=$volume, gradualVolume=$gradualVolume, vibrationEnabled=$vibrationEnabled")
 
-        // Acquire wake locks
-        acquireWakeLock()
+        // CRITICAL: Acquire wake locks IMMEDIATELY (before any async work)
+        acquireWakeLocks()
 
-        // Start foreground notification
+        // CRITICAL: Build and start the foreground notification BEFORE any async work.
+        // On Android 14+, the system will kill the service if startForeground() isn't called
+        // within 5 seconds of startService().
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, createNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+            startForeground(
+                NOTIFICATION_ID,
+                createNotification(),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            )
         } else {
             startForeground(NOTIFICATION_ID, createNotification())
         }
 
-        // Play alarm sound
+        // CRITICAL: Release the receiver's wake lock now that we're in foreground.
+        // This completes the receiver -> service wake lock handoff.
+        AlarmTriggerReceiver.releaseReceiverWakeLock()
+
+        // Set alarm volume to configured level
+        setAlarmStreamVolume()
+
+        // Now safe to do async work — the service is already in foreground
         playAlarm()
 
-        return START_STICKY
+        // Schedule auto-dismiss after 10 minutes as safety net
+        handler.removeCallbacks(autoDismissRunnable)
+        handler.postDelayed(autoDismissRunnable, AUTO_DISMISS_MS)
+
+        // CRITICAL: Use START_REDELIVER_INTENT so if the system kills and restarts
+        // this service, the original intent data is preserved and re-delivered.
+        return START_REDELIVER_INTENT
+    }
+
+    /**
+     * Set the system alarm stream volume to the user's configured level.
+     * This ensures the alarm is audible even if the user previously lowered alarm volume.
+     */
+    private fun setAlarmStreamVolume() {
+        try {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+            val targetVolume = (maxVolume * volume / 100f).toInt().coerceIn(1, maxVolume)
+            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, targetVolume, 0)
+            SecureLogger.d(TAG, "Set alarm stream volume to $targetVolume/$maxVolume")
+        } catch (e: Exception) {
+            SecureLogger.e(TAG, "Failed to set alarm volume", e)
+        }
     }
 
     /**
@@ -176,9 +226,8 @@ class AlarmTriggerService : Service() {
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Alarm notifications"
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 500, 500, 500)
-                setSound(Uri.parse("content://settings/system/alarm_alert"), audioAttributes)
+                enableVibration(false) // We handle vibration manually!
+                setSound(null, null) // WE HANDLE SOUND MANUALLY!
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 enableLights(true)
                 setShowBadge(true)
@@ -253,7 +302,7 @@ class AlarmTriggerService : Service() {
      */
     private fun playAlarm() {
         // Stop any existing playback first
-        stopAlarm()
+        stopPlayback()
         
         when (soundType) {
             SoundType.DOWNLOADED_SONG -> playDownloadedSong()
@@ -264,9 +313,6 @@ class AlarmTriggerService : Service() {
         if (vibrationEnabled) {
             startVibration()
         }
-
-        // Note: Gradual volume is disabled for alarms - we want maximum volume immediately
-        // to ensure the user wakes up
     }
 
     /**
@@ -290,6 +336,7 @@ class AlarmTriggerService : Service() {
                                 .build(),
                             false  // Disable automatic audio focus handling
                         )
+                        .setWakeMode(C.WAKE_MODE_LOCAL)  // ExoPlayer manages its own wake lock
                         .build()
                         .apply {
                             val mediaItem = MediaItem.fromUri("file://$filePath")
@@ -331,32 +378,46 @@ class AlarmTriggerService : Service() {
 
     /**
      * Play default alarm sound from system resources.
+     *
+     * CRITICAL: Uses STREAM_ALARM (not STREAM_MUSIC) so the alarm plays at the
+     * alarm volume level and bypasses Do Not Disturb when configured.
      */
     private fun playDefaultSound() {
         try {
             mediaPlayer = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
                 setDataSource(this@AlarmTriggerService, Uri.parse("content://settings/system/alarm_alert"))
-                setAudioStreamType(AudioManager.STREAM_MUSIC)  // Use MUSIC stream for louder volume
                 isLooping = true
                 prepare()
                 start()
-                // Set volume to maximum for alarm
+                // Set volume to maximum — actual volume is controlled by STREAM_ALARM level
                 this.setVolume(1.0f, 1.0f)
             }
+            SecureLogger.d(TAG, "Default alarm sound playing via STREAM_ALARM")
         } catch (e: Exception) {
+            SecureLogger.e(TAG, "System alarm sound failed, trying fallback", e)
             // If system alarm sound fails, use a simple tone
             try {
                 mediaPlayer = MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    )
                     setDataSource(this@AlarmTriggerService, Uri.parse("android.resource://${packageName}/raw/alarm"))
-                    setAudioStreamType(AudioManager.STREAM_MUSIC)  // Use MUSIC stream for louder volume
                     isLooping = true
                     prepare()
                     start()
-                    // Set volume to maximum
                     this.setVolume(1.0f, 1.0f)
                 }
             } catch (e2: Exception) {
-                SecureLogger.e(TAG, "Failed to play default sound", e2)
+                SecureLogger.e(TAG, "Failed to play fallback sound", e2)
             }
         }
     }
@@ -373,7 +434,7 @@ class AlarmTriggerService : Service() {
         val steps = (durationMs / intervalMs).toInt()
         val volumeStep = volume.toFloat() / steps
 
-        Handler(Looper.getMainLooper()).postDelayed(object : Runnable {
+        handler.postDelayed(object : Runnable {
             override fun run() {
                 if (isGradualVolumeComplete || currentVolume >= volume) {
                     isGradualVolumeComplete = true
@@ -386,7 +447,7 @@ class AlarmTriggerService : Service() {
                 
                 setVolume(currentVolume)
 
-                Handler(Looper.getMainLooper()).postDelayed(this, intervalMs)
+                handler.postDelayed(this, intervalMs)
             }
         }, intervalMs)
     }
@@ -422,36 +483,61 @@ class AlarmTriggerService : Service() {
     }
 
     /**
-     * Acquire wake lock to keep CPU awake.
+     * Acquire wake locks to keep CPU awake and turn screen on.
+     *
+     * CRITICAL: Uses PARTIAL_WAKE_LOCK for CPU (reliable on all modern Android).
+     * FULL_WAKE_LOCK is deprecated and unreliable — DO NOT use it.
+     * Screen turn-on is handled separately via the AlarmTriggerActivity window flags
+     * and the full-screen notification intent.
      */
-    private fun acquireWakeLock() {
+    private fun acquireWakeLocks() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(
-            PowerManager.FULL_WAKE_LOCK or
-            PowerManager.ACQUIRE_CAUSES_WAKEUP or
-            PowerManager.ON_AFTER_RELEASE,
-            "Vyllo::AlarmWakeLock"
+
+        // CPU wake lock — keeps CPU running, works reliably with screen off
+        cpuWakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "Vyllo::AlarmCpuWakeLock"
         ).apply {
             acquire(15 * 60 * 1000L) // 15 minutes max
         }
+
+        // Screen wake lock — turns screen on and keeps it on
+        // This is separate because PARTIAL_WAKE_LOCK doesn't affect the screen.
+        @Suppress("DEPRECATION")
+        screenWakeLock = powerManager.newWakeLock(
+            PowerManager.SCREEN_BRIGHT_WAKE_LOCK or
+            PowerManager.ACQUIRE_CAUSES_WAKEUP or
+            PowerManager.ON_AFTER_RELEASE,
+            "Vyllo::AlarmScreenWakeLock"
+        ).apply {
+            acquire(15 * 60 * 1000L) // 15 minutes max
+        }
+
+        SecureLogger.d(TAG, "Wake locks acquired (CPU + Screen)")
     }
 
     /**
-     * Release wake lock.
+     * Release all wake locks.
      */
-    private fun releaseWakeLock() {
-        wakeLock?.let {
-            if (it.isHeld) {
-                it.release()
-            }
+    private fun releaseWakeLocks() {
+        cpuWakeLock?.let {
+            if (it.isHeld) it.release()
         }
-        wakeLock = null
+        cpuWakeLock = null
+
+        screenWakeLock?.let {
+            if (it.isHeld) it.release()
+        }
+        screenWakeLock = null
+
+        SecureLogger.d(TAG, "Wake locks released")
     }
 
     /**
      * Handle dismiss action.
      */
     private fun dismissAlarm() {
+        handler.removeCallbacks(autoDismissRunnable)
         stopAlarm()
         stopSelf()
     }
@@ -460,7 +546,8 @@ class AlarmTriggerService : Service() {
      * Handle snooze action — reschedules the alarm for 5 minutes from now.
      */
     private fun snoozeAlarm() {
-        stopAlarm()
+        handler.removeCallbacks(autoDismissRunnable)
+        stopPlayback()
 
         serviceScope.launch {
             try {
@@ -483,35 +570,50 @@ class AlarmTriggerService : Service() {
             } catch (e: Exception) {
                 SecureLogger.e(TAG, "Failed to snooze alarm", e)
             } finally {
+                stopAlarm()
                 stopSelf()
             }
         }
     }
 
     /**
-     * Stop alarm playback and cleanup.
+     * Stop audio playback only (without releasing wake locks or stopping service).
      */
-    private fun stopAlarm() {
+    private fun stopPlayback() {
         player?.let {
-            it.stop()
-            it.release()
+            try {
+                it.stop()
+                it.release()
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Error stopping ExoPlayer", e)
+            }
         }
         player = null
 
         mediaPlayer?.let {
-            it.stop()
-            it.release()
+            try {
+                it.stop()
+                it.release()
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Error stopping MediaPlayer", e)
+            }
         }
         mediaPlayer = null
 
         // Stop vibration
         vibrator?.cancel()
-        
-        // Release wake locks
-        releaseWakeLock()
+    }
+
+    /**
+     * Stop alarm playback and cleanup everything.
+     */
+    private fun stopAlarm() {
+        stopPlayback()
+        releaseWakeLocks()
     }
 
     override fun onDestroy() {
+        handler.removeCallbacks(autoDismissRunnable)
         stopAlarm()
         isRunning = false
         super.onDestroy()

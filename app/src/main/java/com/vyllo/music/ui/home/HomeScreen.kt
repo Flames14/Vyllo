@@ -140,6 +140,7 @@ fun YTMHomeScreen(
     onPlay: (MusicItem) -> Unit,
     onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onRecognizeClick: () -> Unit,
     currentPlayingItem: MusicItem?,
     loadingItemUrl: String? = null
 ) {
@@ -203,6 +204,7 @@ fun YTMHomeScreen(
             YTMHeader(
                 onSearchClick = onSearchClick,
                 onSettingsClick = onSettingsClick,
+                onRecognizeClick = onRecognizeClick,
                 isRefreshing = uiState.isRefreshing,
                 onRefresh = { viewModel.refreshAllContent() }
             )

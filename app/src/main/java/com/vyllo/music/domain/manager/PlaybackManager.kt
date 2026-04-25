@@ -94,8 +94,6 @@ class PlaybackManager @Inject constructor(
         val controller = mediaController ?: return Result.failure(Exception("MediaController not connected"))
 
         return try {
-            playbackQueueManager.replaceQueue(listOf(item), 0)
-
             val metadata = MediaMetadata.Builder()
                 .setTitle(item.title)
                 .setArtist(item.uploader)

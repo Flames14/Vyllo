@@ -5,6 +5,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 val keystorePropertiesFile = rootProject.file("keystore.local.properties")
@@ -97,17 +98,26 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Use release signing config if keystore.properties exists, otherwise fall back to debug
-            signingConfig = if (resolveSigningProperty("storeFile") != null &&
+
+            val hasReleaseSigning = resolveSigningProperty("storeFile") != null &&
                 resolveSigningProperty("storePassword") != null &&
                 resolveSigningProperty("keyAlias") != null &&
                 resolveSigningProperty("keyPassword") != null
-            ) {
-                signingConfigs.getByName("release")
-            } else {
-                // Fallback: debug signing for development builds only
-                signingConfigs.getByName("debug")
+
+            if (!hasReleaseSigning) {
+                throw GradleException(
+                    "RELEASE SIGNING CONFIG IS MISSING.\n" +
+                    "To fix this, create a file named 'keystore.local.properties' in the project root with:\n" +
+                    "  storeFile=relative/path/to/keystore.jks\n" +
+                    "  storePassword=your_store_password\n" +
+                    "  keyAlias=your_key_alias\n" +
+                    "  keyPassword=your_key_password\n\n" +
+                    "Or set VYLLO_STOREFILE, VYLLO_STOREPASSWORD, VYLLO_KEYALIAS, VYLLO_KEYPASSWORD environment variables.\n" +
+                    "See keystore.local.properties.example for reference."
+                )
             }
+
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -212,4 +222,7 @@ dependencies {
     // Mockito for unit tests
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+
+    // Serialization
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
 }

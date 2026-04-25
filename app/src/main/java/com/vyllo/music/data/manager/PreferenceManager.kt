@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.vyllo.music.core.security.SecurePreferenceManager
 import com.vyllo.music.core.security.SecureLogger
+import com.vyllo.music.domain.model.EqualizerBandSetting
+import com.vyllo.music.domain.model.EqualizerSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -62,6 +64,26 @@ class PreferenceManager @Inject constructor(context: Context) {
         get() = preferences.getBoolean("liquid_scroll_enabled", false)
         set(value) { preferences.edit().putBoolean("liquid_scroll_enabled", value).apply() }
 
+    var isEqualizerEnabled: Boolean
+        get() = preferences.getBoolean(KEY_EQUALIZER_ENABLED, false)
+        set(value) { preferences.edit().putBoolean(KEY_EQUALIZER_ENABLED, value).apply() }
+
+    var equalizerBassBoostStrength: Int
+        get() = preferences.getInt(KEY_EQUALIZER_BASS_BOOST, 0)
+        set(value) {
+            preferences.edit()
+                .putInt(KEY_EQUALIZER_BASS_BOOST, value.coerceIn(EqualizerSettings.STRENGTH_MIN, EqualizerSettings.STRENGTH_MAX))
+                .apply()
+        }
+
+    var equalizerVirtualizerStrength: Int
+        get() = preferences.getInt(KEY_EQUALIZER_VIRTUALIZER, 0)
+        set(value) {
+            preferences.edit()
+                .putInt(KEY_EQUALIZER_VIRTUALIZER, value.coerceIn(EqualizerSettings.STRENGTH_MIN, EqualizerSettings.STRENGTH_MAX))
+                .apply()
+        }
+
     /**
      * Security: Save search query to encrypted DataStore
      */
@@ -117,6 +139,50 @@ class PreferenceManager @Inject constructor(context: Context) {
     fun loadLyricsPreference(videoUrl: String): String? {
         return securePrefs.loadLyricsPreference(videoUrl)
     }
+
+    fun loadEqualizerSettings(): EqualizerSettings {
+        val bands = loadEqualizerBandLevels()
+        return EqualizerSettings(
+            enabled = isEqualizerEnabled,
+            bassBoostStrength = equalizerBassBoostStrength,
+            virtualizerStrength = equalizerVirtualizerStrength,
+            bands = EqualizerSettings.DEFAULT_BANDS.mapIndexed { index, band ->
+                band.copy(level = bands.getOrElse(index) { band.level })
+            }
+        ).sanitized()
+    }
+
+    fun saveEqualizerSettings(settings: EqualizerSettings) {
+        val sanitized = settings.sanitized()
+        isEqualizerEnabled = sanitized.enabled
+        equalizerBassBoostStrength = sanitized.bassBoostStrength
+        equalizerVirtualizerStrength = sanitized.virtualizerStrength
+        saveEqualizerBandLevels(sanitized.bands.map(EqualizerBandSetting::level))
+    }
+
+    fun saveEqualizerBandLevels(levels: List<Int>) {
+        val sanitized = levels
+            .take(EqualizerSettings.DEFAULT_BANDS.size)
+            .map { it.coerceIn(EqualizerSettings.BAND_LEVEL_MIN, EqualizerSettings.BAND_LEVEL_MAX) }
+        preferences.edit()
+            .putString(KEY_EQUALIZER_BANDS, sanitized.joinToString(","))
+            .apply()
+    }
+
+    fun loadEqualizerBandLevels(): List<Int> {
+        val raw = preferences.getString(KEY_EQUALIZER_BANDS, null)
+        if (raw.isNullOrBlank()) {
+            return EqualizerSettings.DEFAULT_BANDS.map(EqualizerBandSetting::level)
+        }
+
+        val parsed = raw.split(",")
+            .mapNotNull { value -> value.toIntOrNull() }
+            .map { it.coerceIn(EqualizerSettings.BAND_LEVEL_MIN, EqualizerSettings.BAND_LEVEL_MAX) }
+
+        return EqualizerSettings.DEFAULT_BANDS.mapIndexed { index, band ->
+            parsed.getOrElse(index) { band.level }
+        }
+    }
     
     /**
      * Check if encryption is enabled
@@ -131,5 +197,12 @@ class PreferenceManager @Inject constructor(context: Context) {
     fun wipeSensitiveData() {
         securePrefs.wipeSensitiveData()
         SecureLogger.d(TAG, "Sensitive data wiped")
+    }
+
+    companion object {
+        const val KEY_EQUALIZER_ENABLED = "equalizer_enabled"
+        const val KEY_EQUALIZER_BASS_BOOST = "equalizer_bass_boost"
+        const val KEY_EQUALIZER_VIRTUALIZER = "equalizer_virtualizer"
+        const val KEY_EQUALIZER_BANDS = "equalizer_bands"
     }
 }
