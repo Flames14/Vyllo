@@ -32,8 +32,8 @@ android {
         applicationId = "com.vyllo.music"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 3
+        versionName = "1.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // Security: BuildConfig fields for sensitive URLs (not hardcoded in source)

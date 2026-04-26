@@ -331,7 +331,8 @@ fun SettingsDialog(
     themeMode: String,
     onThemeModeChange: (String) -> Unit,
     isLiquidScrollEnabled: Boolean = false,
-    onLiquidScrollChange: (Boolean) -> Unit = {}
+    onLiquidScrollChange: (Boolean) -> Unit = {},
+    onCheckUpdateClick: () -> Unit = {}
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -483,6 +484,33 @@ fun SettingsDialog(
                     Icon(
                         Icons.Rounded.Favorite,
                         contentDescription = "Donate",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onCheckUpdateClick() }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Check for Updates",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            "Download latest features and fixes",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
+                        )
+                    }
+                    Icon(
+                        Icons.Rounded.Update,
+                        contentDescription = "Update",
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }

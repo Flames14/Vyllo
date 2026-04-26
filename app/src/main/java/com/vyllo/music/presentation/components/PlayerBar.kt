@@ -46,29 +46,32 @@ fun PremiumPlayerContainer(
     val haptic = LocalHapticFeedback.current
     val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
     
-    val containerHeight = if (isExpanded) screenHeight else 80.dp
-    val targetCorner = if(isExpanded) 0.dp else 24.dp
+    val playerUiState by viewModel.uiState.collectAsState()
+    val isActuallyExpanded = isExpanded || playerUiState.isInPipMode
+    
+    val containerHeight = if (isActuallyExpanded) screenHeight else 80.dp
+    val targetCorner = if(isActuallyExpanded) 0.dp else 24.dp
     
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                if (isExpanded) Modifier.fillMaxSize() 
+                if (isActuallyExpanded) Modifier.fillMaxSize() 
                 else Modifier.height(containerHeight).padding(horizontal = 8.dp, vertical = 8.dp)
             )
             .shadow(
-                elevation = if(isExpanded) 0.dp else 16.dp, 
+                elevation = if(isActuallyExpanded) 0.dp else 16.dp, 
                 shape = RoundedCornerShape(targetCorner),
                 spotColor = Color.Black
             )
             .clip(RoundedCornerShape(targetCorner))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(enabled = !isExpanded) { 
+            .clickable(enabled = !isActuallyExpanded) { 
                 onExpand() 
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             }
     ) {
-        if (isExpanded) {
+        if (isActuallyExpanded) {
              val offsetY = remember { Animatable(0f) }
              val scope = rememberCoroutineScope()
              
@@ -77,6 +80,7 @@ fun PremiumPlayerContainer(
                      .fillMaxSize()
                      .offset { androidx.compose.ui.unit.IntOffset(0, offsetY.value.toInt()) }
                      .draggable(
+                         enabled = !playerUiState.isInPipMode, // Disable drag in PiP
                          orientation = Orientation.Vertical,
                          state = rememberDraggableState { delta ->
                              scope.launch {
