@@ -38,6 +38,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import androidx.activity.compose.BackHandler
+import android.app.Activity
+import android.content.pm.ActivityInfo
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.graphics.graphicsLayer
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -202,12 +207,37 @@ fun PremiumFullScreenPlayer(
         ImmersiveBackground(imageUrl = item.thumbnailUrl) {
             val listState = rememberLazyListState()
             val coroutineScope = rememberCoroutineScope()
-            
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+
+            // Handle orientation and system UI when in full screen
+            val activity = LocalContext.current as? Activity
+            DisposableEffect(playerUiState.isFullScreenVideo) {
+                if (playerUiState.isFullScreenVideo) {
+                    activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
+                } else {
+                    activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                }
+                onDispose {
+                    activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                }
+            }
+
+            // Back handler to exit full screen
+            BackHandler(enabled = playerUiState.isFullScreenVideo) {
+                viewModel.setFullScreenVideo(false)
+            }
+
+            if (playerUiState.isInPipMode) {
+                // PiP Mode: Only show video surface
+                VideoSurface(
+                    controller = controller,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                 item {
                     Column(
                         modifier = Modifier
@@ -285,11 +315,18 @@ fun PremiumFullScreenPlayer(
 
                         if (selectedTab == 0) {
                             Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(1f)
-                                    .clip(RoundedCornerShape(24.dp))
-                                    .background(Color.Black)
+                                modifier = if (playerUiState.isFullScreenVideo) {
+                                    Modifier
+                                        .fillMaxSize()
+                                        .zIndex(10f)
+                                        .background(Color.Black)
+                                } else {
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(1f) // Restore original square aspect ratio
+                                        .clip(RoundedCornerShape(24.dp))
+                                        .background(Color.Black)
+                                }
                             ) {
                                 // Background Video Layer
                                 if (viewModel.isVideoMode) {
@@ -297,14 +334,28 @@ fun PremiumFullScreenPlayer(
                                         controller = controller,
                                         modifier = Modifier.fillMaxSize()
                                     )
+                                    
+                                    // Professional Overlay Controls
+                                    VideoPlayerOverlayControls(
+                                        isPlaying = isPlaying,
+                                        isLoading = isLoading,
+                                        currentPosition = currentPosition,
+                                        duration = duration,
+                                        isFullScreen = playerUiState.isFullScreenVideo,
+                                        onTogglePlay = onTogglePlay,
+                                        onSeek = { newPercent -> 
+                                            val newPos = (newPercent * duration).toLong()
+                                            controller?.seekTo(newPos)
+                                            currentPosition = newPos 
+                                        },
+                                        onForward = { controller?.seekTo((currentPosition + 10000).coerceAtMost(duration)) },
+                                        onRewind = { controller?.seekTo((currentPosition - 10000).coerceAtLeast(0)) },
+                                        onToggleFullScreen = { viewModel.setFullScreenVideo(!playerUiState.isFullScreenVideo) }
+                                    )
                                 }
 
-                                // Album Art Layer (always rendered, visibility controlled by animation)
-                                androidx.compose.animation.AnimatedVisibility(
-                                    visible = !viewModel.isVideoMode,
-                                    enter = androidx.compose.animation.fadeIn(),
-                                    exit = androidx.compose.animation.fadeOut()
-                                ) {
+                                // Album Art Layer (only if not in video mode)
+                                if (!viewModel.isVideoMode) {
                                     AsyncImage(
                                         model = item.thumbnailUrl,
                                         contentDescription = null,
@@ -313,49 +364,51 @@ fun PremiumFullScreenPlayer(
                                     )
                                 }
 
-                                // Direct Video/Audio Toggle Icon
-                                Surface(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(16.dp)
-                                        .size(40.dp)
-                                        .clip(CircleShape)
-                                        .clickable {
-                                            viewModel.toggleVideoMode(currentPosition) { newUrl ->
-                                                if (newUrl != null) {
-                                                    val mediaItem = androidx.media3.common.MediaItem.Builder()
-                                                        .setUri(newUrl)
-                                                        .setMediaId(item.url)
-                                                        .setMediaMetadata(
-                                                            androidx.media3.common.MediaMetadata.Builder()
-                                                                .setTitle(item.title)
-                                                                .setArtist(item.uploader)
-                                                                .setArtworkUri(android.net.Uri.parse(item.thumbnailUrl))
-                                                                .build()
-                                                        )
-                                                        .build()
-                                                    controller?.setMediaItem(mediaItem, currentPosition)
-                                                    controller?.prepare()
-                                                    controller?.play()
+                                // Direct Video/Audio Toggle Icon (Only show if not fullscreen)
+                                if (!playerUiState.isFullScreenVideo) {
+                                    Surface(
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(16.dp)
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .clickable {
+                                                viewModel.toggleVideoMode(currentPosition) { newUrl ->
+                                                    if (newUrl != null) {
+                                                        val mediaItem = androidx.media3.common.MediaItem.Builder()
+                                                            .setUri(newUrl)
+                                                            .setMediaId(item.url)
+                                                            .setMediaMetadata(
+                                                                androidx.media3.common.MediaMetadata.Builder()
+                                                                    .setTitle(item.title)
+                                                                    .setArtist(item.uploader)
+                                                                    .setArtworkUri(android.net.Uri.parse(item.thumbnailUrl))
+                                                                    .build()
+                                                            )
+                                                            .build()
+                                                        controller?.setMediaItem(mediaItem, currentPosition)
+                                                        controller?.prepare()
+                                                        controller?.play()
+                                                    }
                                                 }
-                                            }
-                                        },
-                                    color = if (viewModel.isVideoMode) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.6f),
-                                    contentColor = Color.White,
-                                    tonalElevation = 8.dp
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = if (viewModel.isVideoMode) Icons.Rounded.MusicNote else Icons.Rounded.SmartDisplay,
-                                            contentDescription = "Toggle Video Mode",
-                                            modifier = Modifier.size(20.dp)
-                                        )
+                                            },
+                                        color = if (viewModel.isVideoMode) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.6f),
+                                        contentColor = Color.White,
+                                        tonalElevation = 8.dp
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = if (viewModel.isVideoMode) Icons.Rounded.MusicNote else Icons.Rounded.SmartDisplay,
+                                                contentDescription = "Toggle Video Mode",
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
                                     }
                                 }
 
                                 // Animated Hint Bar (Bottom Center)
                                 androidx.compose.animation.AnimatedVisibility(
-                                    visible = !viewModel.isVideoMode,
+                                    visible = !viewModel.isVideoMode && !playerUiState.isFullScreenVideo,
                                     enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(initialOffsetY = { it / 2 }),
                                     exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(targetOffsetY = { it / 2 }),
                                     modifier = Modifier.align(Alignment.BottomCenter)

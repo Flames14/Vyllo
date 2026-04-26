@@ -32,6 +32,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.vyllo.music.ui.alarm.AlarmViewModel
 import com.vyllo.music.recognition.ui.RecognitionScreen
 import com.vyllo.music.recognition.presentation.RecognitionViewModel
+import com.vyllo.music.update.AppUpdateViewModel
+import com.vyllo.music.update.AppUpdateDialog
 
 private const val TAG = "VylloApp"
 
@@ -66,6 +68,7 @@ fun VylloNavigation(
     
     val scrollState = rememberLazyListState()
     val recognitionViewModel: RecognitionViewModel = hiltViewModel()
+    val updateViewModel: AppUpdateViewModel = hiltViewModel()
 
     // Collect player UI state so Compose recomposes when player state changes
     val playerUiState by playerViewModel.uiState.collectAsState()
@@ -274,9 +277,16 @@ fun VylloNavigation(
                            themeMode = settingsViewModel.themeMode,
                            onThemeModeChange = { settingsViewModel.updateThemeMode(it) },
                            isLiquidScrollEnabled = settingsViewModel.isLiquidScrollEnabled,
-                           onLiquidScrollChange = { settingsViewModel.toggleLiquidScroll(it) }
+                           onLiquidScrollChange = { settingsViewModel.toggleLiquidScroll(it) },
+                           onCheckUpdateClick = { updateViewModel.checkForUpdates() }
                        )
                     }
+
+                    // App Update Dialog
+                    AppUpdateDialog(
+                        viewModel = updateViewModel,
+                        onDismiss = { /* Dialog handles internal hide, so no external toggle needed usually unless we want */ }
+                    )
 
                     if (libraryViewModel.showPlaylistAddDialog) {
                        PlaylistAddDialog(

@@ -47,6 +47,8 @@ data class PlayerUiState(
     val isTranslating: Boolean = false,
     val detectedLyricsLangCode: String? = null,
     val equalizerSettings: EqualizerSettings = EqualizerSettings(),
+    val isInPipMode: Boolean = false,
+    val isFullScreenVideo: Boolean = false,
 )
 
 @HiltViewModel
@@ -112,6 +114,10 @@ class PlayerViewModel @Inject constructor(
         get() = _uiState.value.detectedLyricsLangCode
     val equalizerSettings: EqualizerSettings
         get() = _uiState.value.equalizerSettings
+    val isInPipMode: Boolean
+        get() = _uiState.value.isInPipMode
+    val isFullScreenVideo: Boolean
+        get() = _uiState.value.isFullScreenVideo
 
     init {
         _uiState.update { it.copy(equalizerSettings = preferenceManager.loadEqualizerSettings()) }
@@ -286,5 +292,13 @@ class PlayerViewModel @Inject constructor(
         val sanitized = settings.sanitized()
         _uiState.update { it.copy(equalizerSettings = sanitized) }
         preferenceManager.saveEqualizerSettings(sanitized)
+    }
+
+    fun setPipMode(enabled: Boolean) {
+        _uiState.update { it.copy(isInPipMode = enabled) }
+    }
+
+    fun setFullScreenVideo(enabled: Boolean) {
+        _uiState.update { it.copy(isFullScreenVideo = enabled) }
     }
 }
