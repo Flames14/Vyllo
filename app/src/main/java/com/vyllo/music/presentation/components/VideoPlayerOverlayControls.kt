@@ -60,23 +60,6 @@ fun VideoPlayerOverlayControls(
             exit = fadeOut() + shrinkVertically()
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Top controls
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.TopEnd)
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    IconButton(onClick = onToggleFullScreen) {
-                        Icon(
-                            imageVector = if (isFullScreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-                            contentDescription = "Toggle Fullscreen",
-                            tint = Color.White
-                        )
-                    }
-                }
-
                 // Center controls (Play/Pause/Skip)
                 Row(
                     modifier = Modifier.align(Alignment.Center),
@@ -123,13 +106,13 @@ fun VideoPlayerOverlayControls(
                                 listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))
                             )
                         )
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     Slider(
                         value = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f,
                         onValueChange = onSeek,
                         colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.primary,
+                            thumbColor = Color.White,
                             activeTrackColor = MaterialTheme.colorScheme.primary,
                             inactiveTrackColor = Color.White.copy(alpha = 0.3f)
                         ),
@@ -137,18 +120,29 @@ fun VideoPlayerOverlayControls(
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = formatTime(currentPosition),
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White
                         )
-                        Text(
-                            text = formatTime(duration),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White
-                        )
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = onToggleFullScreen) {
+                                Icon(
+                                    imageVector = if (isFullScreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                                    contentDescription = "Toggle Fullscreen",
+                                    tint = Color.White
+                                )
+                            }
+                            Text(
+                                text = formatTime(duration),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
             }
