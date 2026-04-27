@@ -628,10 +628,6 @@ fun PremiumFullScreenPlayer(
                     }
                 }
                 
-                item {
-                    AutoplayRow(isChecked = isAutoplayEnabled, onToggle = onAutoplayToggle)
-                }
-                
                 if (relatedSongs.isNotEmpty()) {
                     item {
                         Text(
