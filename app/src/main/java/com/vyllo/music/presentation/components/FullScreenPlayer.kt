@@ -543,23 +543,33 @@ fun PremiumFullScreenPlayer(
                             
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                                horizontalArrangement = Arrangement.SpaceAround,
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                 IconButton(onClick = onPrev, modifier = Modifier.size(48.dp)) {
-                                     Icon(Icons.Rounded.SkipPrevious, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(36.dp))
+                                 IconButton(
+                                     onClick = {
+                                         shuffleModeEnabled = !shuffleModeEnabled
+                                         controller?.shuffleModeEnabled = shuffleModeEnabled
+                                     }, 
+                                     modifier = Modifier.size(36.dp)
+                                 ) {
+                                     Icon(Icons.Rounded.Shuffle, null, tint = if (shuffleModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
+                                 }
+
+                                 IconButton(onClick = onPrev, modifier = Modifier.size(40.dp)) {
+                                     Icon(Icons.Rounded.SkipPrevious, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(28.dp))
                                  }
                                  
                                  IconButton(
                                      onClick = { controller?.seekTo((currentPosition - 10000).coerceAtLeast(0)) }, 
-                                     modifier = Modifier.size(48.dp)
+                                     modifier = Modifier.size(40.dp)
                                  ) {
-                                     Icon(Icons.Rounded.Replay10, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(32.dp))
+                                     Icon(Icons.Rounded.Replay10, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
                                  }
                                  
                                  Surface(
                                      modifier = Modifier
-                                        .size(80.dp)
+                                        .size(64.dp)
                                         .clip(CircleShape)
                                         .clickable { onTogglePlay() },
                                      color = MaterialTheme.colorScheme.onBackground,
@@ -567,12 +577,12 @@ fun PremiumFullScreenPlayer(
                                  ) {
                                      Box(contentAlignment = Alignment.Center) {
                                          if (isLoading) {
-                                             CircularProgressIndicator(modifier = Modifier.size(40.dp), color = MaterialTheme.colorScheme.background, strokeWidth = 3.dp)
+                                             CircularProgressIndicator(modifier = Modifier.size(32.dp), color = MaterialTheme.colorScheme.background, strokeWidth = 3.dp)
                                          } else {
                                              Icon(
                                                  if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, 
                                                  null, 
-                                                 modifier = Modifier.size(48.dp)
+                                                 modifier = Modifier.size(40.dp)
                                              )
                                          }
                                      }
@@ -580,13 +590,28 @@ fun PremiumFullScreenPlayer(
                                  
                                  IconButton(
                                      onClick = { controller?.seekTo((currentPosition + 10000).coerceAtMost(duration)) }, 
-                                     modifier = Modifier.size(48.dp)
+                                     modifier = Modifier.size(40.dp)
                                  ) {
-                                     Icon(Icons.Rounded.Forward10, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(32.dp))
+                                     Icon(Icons.Rounded.Forward10, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
                                  }
                                  
-                                 IconButton(onClick = onNext, modifier = Modifier.size(48.dp)) {
-                                     Icon(Icons.Rounded.SkipNext, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(36.dp))
+                                 IconButton(onClick = onNext, modifier = Modifier.size(40.dp)) {
+                                     Icon(Icons.Rounded.SkipNext, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(28.dp))
+                                 }
+
+                                 IconButton(
+                                     onClick = {
+                                         repeatMode = when (repeatMode) {
+                                             androidx.media3.common.Player.REPEAT_MODE_OFF -> androidx.media3.common.Player.REPEAT_MODE_ALL
+                                             androidx.media3.common.Player.REPEAT_MODE_ALL -> androidx.media3.common.Player.REPEAT_MODE_ONE
+                                             else -> androidx.media3.common.Player.REPEAT_MODE_OFF
+                                         }
+                                         controller?.repeatMode = repeatMode
+                                     }, 
+                                     modifier = Modifier.size(36.dp)
+                                 ) {
+                                     val repeatIcon = if (repeatMode == androidx.media3.common.Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat
+                                     Icon(repeatIcon, null, tint = if (repeatMode != androidx.media3.common.Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
                                  }
                             }
                             
@@ -594,31 +619,14 @@ fun PremiumFullScreenPlayer(
                             
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.Center
                             ) {
-                                IconButton(onClick = {
-                                    shuffleModeEnabled = !shuffleModeEnabled
-                                    controller?.shuffleModeEnabled = shuffleModeEnabled
-                                }) {
-                                    Icon(Icons.Rounded.Shuffle, null, tint = if (shuffleModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(0.5f))
-                                }
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(12.dp).clickable {
                                     coroutineScope.launch { listState.animateScrollToItem(3) }
                                 }) {
                                     Icon(Icons.Rounded.QueueMusic, null, tint = MaterialTheme.colorScheme.onBackground.copy(0.5f))
                                     Spacer(Modifier.width(8.dp))
                                     Text(stringResource(R.string.player_up_next), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onBackground.copy(0.5f))
-                                }
-                                IconButton(onClick = {
-                                    repeatMode = when (repeatMode) {
-                                        androidx.media3.common.Player.REPEAT_MODE_OFF -> androidx.media3.common.Player.REPEAT_MODE_ALL
-                                        androidx.media3.common.Player.REPEAT_MODE_ALL -> androidx.media3.common.Player.REPEAT_MODE_ONE
-                                        else -> androidx.media3.common.Player.REPEAT_MODE_OFF
-                                    }
-                                    controller?.repeatMode = repeatMode
-                                }) {
-                                    val repeatIcon = if (repeatMode == androidx.media3.common.Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat
-                                    Icon(repeatIcon, null, tint = if (repeatMode != androidx.media3.common.Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(0.5f))
                                 }
                             }
                         } else {
