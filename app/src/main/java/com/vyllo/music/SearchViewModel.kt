@@ -77,13 +77,13 @@ class SearchViewModel @Inject constructor(
 
         suggestionJob?.cancel()
         suggestionJob = viewModelScope.launch {
-            delay(300) // Debounce for suggestions
+            delay(50) // Debounce for suggestions
             suggestions = repository.getSuggestions(newQuery)
         }
     }
 
     fun performSearch(rawQuery: String) {
-        // Security: Validate and sanitize input
+        // Validate and sanitize input
         val validationResult = InputSanitizer.validateInput(rawQuery, InputSanitizer.InputType.SEARCH)
         
         if (!validationResult.isValid) {
@@ -94,7 +94,7 @@ class SearchViewModel @Inject constructor(
             return
         }
 
-        // Security: Sanitize the query
+        // Sanitize the query
         val sanitizedQuery = InputSanitizer.sanitizeSearchQuery(rawQuery)
         
         // Additional security check for injection attempts

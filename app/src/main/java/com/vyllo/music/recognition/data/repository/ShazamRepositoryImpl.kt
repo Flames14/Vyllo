@@ -38,7 +38,7 @@ class ShazamRepositoryImpl @Inject constructor(
     @SuppressLint("MissingPermission")
     override suspend fun recognize(): Result<RecognitionResult> = withContext(Dispatchers.IO) {
         try {
-            // 1. Record Audio
+            // Record Audio
             Log.d(TAG, "Starting audio recording...")
             val rawAudio = recordAudio() ?: return@withContext Result.failure(Exception("Failed to record audio"))
             Log.d(TAG, "Recorded ${rawAudio.size} bytes")
@@ -48,7 +48,7 @@ class ShazamRepositoryImpl @Inject constructor(
                 Log.w(TAG, "WARNING: Recorded audio is pure silence!")
             }
 
-            // 2. Resample to 16kHz
+            // Resample to 16kHz
             val decodedAudio = AudioResampler.DecodedAudio(
                 data = rawAudio,
                 channelCount = 1,
@@ -58,11 +58,11 @@ class ShazamRepositoryImpl @Inject constructor(
             val resampled = AudioResampler.resample(decodedAudio, TARGET_SAMPLE_RATE).getOrThrow()
             Log.d(TAG, "Resampled to ${resampled.data.size} bytes at 16kHz")
 
-            // 3. Generate Signature
+            // Generate Signature
             val signature = ShazamSignatureGenerator.fromI16(resampled.data)
             val sampleDurationMs = (resampled.data.size / 2) * 1000L / TARGET_SAMPLE_RATE
 
-            // 4. Hit Shazam API
+            // Hit Shazam API
             Log.d(TAG, "Generated signature (length: ${signature.length}). Sending to API...")
             val apiResponse = api.recognize(signature, sampleDurationMs).getOrThrow()
             Log.d(TAG, "API Response: $apiResponse")

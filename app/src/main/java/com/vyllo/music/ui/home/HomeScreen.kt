@@ -45,6 +45,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.res.stringResource
 import com.vyllo.music.R
@@ -134,6 +137,7 @@ import com.vyllo.music.ui.components.*
 // =========================================================================
 // YTM HOME SCREEN
 // =========================================================================
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun YTMHomeScreen(
     viewModel: HomeViewModel,
@@ -149,8 +153,7 @@ fun YTMHomeScreen(
     val filterChips = remember { listOf("All", "Relax", "Energize", "Workout", "Focus", "Commute") }
     val scrollState = rememberLazyListState()
     val context = LocalContext.current
-    
-    // --- LIQUID SMOOTH SCROLL ---
+
     val liquidFlingBehavior = rememberLiquidFlingBehavior(uiState.isLiquidScrollEnabled)
     
     // Memoize recommendedItems calculation for performance
@@ -193,22 +196,35 @@ fun YTMHomeScreen(
         }
     }
 
-    LazyColumn(
-        state = scrollState,
-        flingBehavior = liquidFlingBehavior,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = if (currentPlayingItem != null) 140.dp else 16.dp)
-    ) {
-        // YTM Header
-        item {
-            YTMHeader(
-                onSearchClick = onSearchClick,
-                onSettingsClick = onSettingsClick,
-                onRecognizeClick = onRecognizeClick,
-                isRefreshing = uiState.isRefreshing,
-                onRefresh = { viewModel.refreshAllContent() }
-            )
+    val pullToRefreshState = rememberPullToRefreshState()
+    
+    if (pullToRefreshState.isRefreshing) {
+        LaunchedEffect(true) {
+            viewModel.refreshAllContent()
         }
+    }
+    LaunchedEffect(uiState.isRefreshing) {
+        if (uiState.isRefreshing) {
+            pullToRefreshState.startRefresh()
+        } else {
+            pullToRefreshState.endRefresh()
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().nestedScroll(pullToRefreshState.nestedScrollConnection)) {
+        LazyColumn(
+            state = scrollState,
+            flingBehavior = liquidFlingBehavior,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = if (currentPlayingItem != null) 140.dp else 16.dp)
+        ) {
+            // YTM Header
+            item {
+                YTMHeader(
+                    onSettingsClick = onSettingsClick,
+                    onRecognizeClick = onRecognizeClick
+                )
+            }
         
         // Filter Chips
         item {
@@ -416,48 +432,11 @@ fun YTMHomeScreen(
                 }
             }
         }
-    }
-    
-    // Full-screen refresh overlay for better visual feedback
-    if (uiState.isRefreshing) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.3f)),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            Card(
-                modifier = Modifier.padding(top = 80.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(40.dp),
-                        strokeWidth = 3.dp
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Refreshing...",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Fetching latest content",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                    )
-                }
-            }
-        }
-    }
+    } // End LazyColumn
+
+    PullToRefreshContainer(
+        state = pullToRefreshState,
+        modifier = Modifier.align(Alignment.TopCenter)
+    )
+} // End Box
 }

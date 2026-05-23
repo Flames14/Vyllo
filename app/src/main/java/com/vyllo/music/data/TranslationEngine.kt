@@ -226,7 +226,7 @@ object TranslationEngine {
         val token = getAuthToken() ?: return
 
         withContext(Dispatchers.IO) {
-            // 1. Try "auto" first
+            // Try "auto" first
             val autoResult = translateRawMET(sampleText, "auto", targetLang, token)
             if (autoResult != null) {
                 val overlap = calculateWordOverlap(sampleText, autoResult)

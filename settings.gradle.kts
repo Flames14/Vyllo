@@ -18,3 +18,9 @@ dependencyResolutionManagement {
 
 rootProject.name = "Vyllo"
 include(":app")
+
+includeBuild("C:/Users/user/Desktop/codex/NewPipeExtractor-dev") {
+    dependencySubstitution {
+        substitute(module("com.github.teamnewpipe:newpipeextractor")).using(project(":extractor"))
+    }
+}

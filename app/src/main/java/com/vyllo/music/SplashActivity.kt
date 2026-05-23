@@ -20,7 +20,7 @@ class SplashActivity : ComponentActivity() {
 
     private lateinit var videoView: VideoView
     private val handler = Handler(Looper.getMainLooper())
-    private val splashTimeOut: Long = 3500 // 3.5 seconds for video to play
+    private val splashTimeOut: Long = 3500 // 5 seconds for video to play
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

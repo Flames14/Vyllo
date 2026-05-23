@@ -23,6 +23,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.session.MediaController
@@ -440,78 +441,110 @@ fun PremiumFullScreenPlayer(
 
                             Spacer(modifier = Modifier.height(24.dp))
                             
-                            Row(
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.Start
+                                ) {
                                     Text(
                                          text = item.title, 
-                                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold), 
+                                         style = MaterialTheme.typography.titleLarge.copy(
+                                             fontWeight = FontWeight.ExtraBold,
+                                             lineHeight = 27.sp
+                                         ),
                                          color = MaterialTheme.colorScheme.onBackground, 
-                                         maxLines = 1, 
-                                         modifier = Modifier.basicMarquee()
+                                         maxLines = 2,
+                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
                                          text = item.uploader, 
-                                         style = MaterialTheme.typography.titleMedium, 
-                                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                                         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.62f),
+                                         maxLines = 1,
+                                         overflow = TextOverflow.Ellipsis
                                     )
                                 }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    DownloadButton(item)
-                                    IconButton(onClick = { showEqualizerSheet = true }) {
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(44.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterHorizontally),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                                        DownloadButton(item)
+                                    }
+                                    IconButton(
+                                        onClick = { showEqualizerSheet = true },
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
                                         Icon(
                                             Icons.Rounded.GraphicEq,
                                             contentDescription = stringResource(R.string.equalizer_title),
                                             tint = if (playerUiState.equalizerSettings.enabled) {
                                                 MaterialTheme.colorScheme.primary
                                             } else {
-                                                MaterialTheme.colorScheme.onBackground.copy(0.7f)
+                                                MaterialTheme.colorScheme.onBackground.copy(0.72f)
                                             },
-                                            modifier = Modifier.size(28.dp)
+                                            modifier = Modifier.size(24.dp)
                                         )
                                     }
-                                    IconButton(onClick = {
-                                        val shareUrl = item.getUniversalShareUrl()
-                                        if (shareUrl == null) {
-                                            Toast.makeText(
-                                                context,
-                                                context.getString(R.string.share_music_error),
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        } else {
-                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                type = "text/plain"
-                                                putExtra(
-                                                    Intent.EXTRA_SUBJECT,
-                                                    context.getString(R.string.share_music_subject, item.title)
-                                                )
-                                                putExtra(
-                                                    Intent.EXTRA_TEXT,
-                                                    context.getString(R.string.share_music_message, item.title, shareUrl)
+                                    IconButton(
+                                        onClick = {
+                                            val shareUrl = item.getUniversalShareUrl()
+                                            if (shareUrl == null) {
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.share_music_error),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            } else {
+                                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                    type = "text/plain"
+                                                    putExtra(
+                                                        Intent.EXTRA_SUBJECT,
+                                                        context.getString(R.string.share_music_subject, item.title)
+                                                    )
+                                                    putExtra(
+                                                        Intent.EXTRA_TEXT,
+                                                        context.getString(R.string.share_music_message, item.title, shareUrl)
+                                                    )
+                                                }
+                                                ContextCompat.startActivity(
+                                                    context,
+                                                    Intent.createChooser(
+                                                        shareIntent,
+                                                        context.getString(R.string.share_music_chooser)
+                                                    ),
+                                                    null
                                                 )
                                             }
-                                            ContextCompat.startActivity(
-                                                context,
-                                                Intent.createChooser(
-                                                    shareIntent,
-                                                    context.getString(R.string.share_music_chooser)
-                                                ),
-                                                null
-                                            )
-                                        }
-                                    }) {
+                                        },
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
                                         Icon(
                                             Icons.Rounded.Share,
                                             contentDescription = stringResource(R.string.share_music),
-                                            tint = MaterialTheme.colorScheme.onBackground.copy(0.7f),
-                                            modifier = Modifier.size(26.dp)
+                                            tint = MaterialTheme.colorScheme.onBackground.copy(0.72f),
+                                            modifier = Modifier.size(23.dp)
                                         )
                                     }
-                                    IconButton(onClick = { libraryViewModel.showPlaylistAddDialog(item) }) {
-                                        Icon(Icons.Rounded.PlaylistAdd, "Add to Playlist", tint = MaterialTheme.colorScheme.onBackground.copy(0.7f), modifier = Modifier.size(28.dp))
+                                    IconButton(
+                                        onClick = { libraryViewModel.showPlaylistAddDialog(item) },
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Rounded.PlaylistAdd,
+                                            "Add to Playlist",
+                                            tint = MaterialTheme.colorScheme.onBackground.copy(0.72f),
+                                            modifier = Modifier.size(25.dp)
+                                        )
                                     }
                                 }
                             }
