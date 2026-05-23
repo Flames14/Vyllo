@@ -26,6 +26,10 @@ class PlayMusicUseCase @Inject constructor(
      * @return PlayResult indicating success or failure with error message.
      */
     suspend fun execute(item: MusicItem, isVideo: Boolean = false): PlayResult {
+        // Senior Developer Fix: Stop current playback immediately so the user hears 
+        // the change instantly, even while we resolve the new stream URL.
+        playbackManager.stop()
+
         SecureLogger.d(TAG) { "Playing: ${item.title}, isVideo=$isVideo" }
 
         // Update queue immediately so UI shows the player with metadata

@@ -75,7 +75,7 @@ fun VylloNavigation(
     
     val appContext = LocalContext.current
     
-    // Security: Monitor device security risk on app start
+    // Monitor device security risk on app start
     LaunchedEffect(Unit) {
         val riskLevel = SecurityMonitor.getRiskLevel(appContext)
         when (riskLevel) {
@@ -166,6 +166,7 @@ fun VylloNavigation(
                                 showSearchScreen = false
                                 showRecognitionScreen = false
                             },
+                            onSearchClick = { showSearchScreen = true },
                             hasActivePlayer = playerUiState.currentPlayingItem != null
                         )
                     }

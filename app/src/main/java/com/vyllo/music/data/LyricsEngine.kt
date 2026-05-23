@@ -328,8 +328,6 @@ class LyricsEngine @Inject constructor(
         }
     }
 
-    // --- Helpers ---
-
     private fun parseLrclibResult(json: JSONObject): LyricsResult {
         val syncedLyrics = json.optString("syncedLyrics", null).takeIf { it?.isNotBlank() == true }
         val plainLyrics = json.optString("plainLyrics", null).takeIf { it?.isNotBlank() == true }
@@ -479,8 +477,6 @@ class LyricsEngine @Inject constructor(
         val union = aSet.union(bSet).size.toDouble()
         return intersection / union
     }
-
-    // --- Manual Search (for "search for lyrics" button) ---
 
     suspend fun searchLyrics(query: String): List<LyricsResult> = withContext(Dispatchers.IO) {
         SecureLogger.d(TAG, "MANUAL SEARCH: query='$query'")

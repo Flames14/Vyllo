@@ -67,7 +67,6 @@ fun YTMLibraryScreen(
             )
         }
 
-        // --- Alarms Section ---
         item {
             Card(
                 modifier = Modifier
@@ -119,7 +118,6 @@ fun YTMLibraryScreen(
             }
         }
 
-        // --- Playlists Section ---
         item {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -186,7 +184,6 @@ fun YTMLibraryScreen(
             }
         }
 
-        // --- Downloads Section ---
         item {
             Column(modifier = Modifier.padding(bottom = 8.dp)) {
                 YTMSectionHeader(title = "Downloads")

@@ -67,7 +67,7 @@ fun androidx.compose.foundation.lazy.LazyItemScope.LyricsTabContent(
     Column(
         modifier = Modifier.fillMaxWidth().height(520.dp)
     ) {
-        // --- SYNC CONTROLS ---
+
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
                 .clip(RoundedCornerShape(16.dp))
@@ -102,7 +102,6 @@ fun androidx.compose.foundation.lazy.LazyItemScope.LyricsTabContent(
             }
         }
 
-        // --- MAIN CONTENT AREA ---
         Box(
             modifier = Modifier.fillMaxWidth().weight(1f)
                 .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -163,7 +162,6 @@ fun androidx.compose.foundation.lazy.LazyItemScope.LyricsTabContent(
             }
         }
 
-        // --- ACTION ROW ---
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
             horizontalArrangement = Arrangement.Center,

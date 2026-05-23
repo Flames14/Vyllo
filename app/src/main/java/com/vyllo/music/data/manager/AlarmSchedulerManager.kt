@@ -106,11 +106,11 @@ class AlarmSchedulerManager @Inject constructor(
         // Only setExact()/setExactAndAllowWhileIdle() require that permission.
         //
         // setAlarmClock() provides:
-        // 1. Exact timing (no Doze batching)
-        // 2. Device wake from deep sleep
-        // 3. System alarm icon in status bar
-        // 4. Foreground service start exemption on Android 12+
-        // 5. Works in all scenarios: screen locked, app killed, background cleared
+        // Exact timing (no Doze batching)
+        // Device wake from deep sleep
+        // System alarm icon in status bar
+        // Foreground service start exemption on Android 12+
+        // Works in all scenarios: screen locked, app killed, background cleared
         try {
             val alarmClockInfo = AlarmManager.AlarmClockInfo(triggerTime, showPendingIntent)
             alarmManager.setAlarmClock(alarmClockInfo, operationPendingIntent)

@@ -101,6 +101,9 @@ class PlaybackQueueOrchestrator @Inject constructor(
         val track = playbackQueueManager.currentQueue[index]
         playbackQueueManager.setCurrentIndexSafe(index)
         scope.launch {
+            // Senior Developer Fix: Pause playback immediately to stop audio from the previous track
+            // while the new stream URL is being fetched asynchronously.
+            player?.pause()
             try {
                 wakeLockManager.acquire()
                 val streamUrl = repository.getStreamUrl(track.url, force = false)

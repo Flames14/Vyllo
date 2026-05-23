@@ -94,7 +94,7 @@ class DownloadWorker @AssistedInject constructor(
         try {
             downloadDao.updateStatus(url, DownloadStatus.DOWNLOADING)
 
-            // 1. Resolve stream URL with retry
+            // Resolve stream URL with retry
             var streamUrl = repository.getStreamUrl(url, force = false)
             if (streamUrl == null) {
                 kotlinx.coroutines.delay(500)
@@ -102,7 +102,7 @@ class DownloadWorker @AssistedInject constructor(
             }
             streamUrl ?: return Result.failure()
 
-            // 2. Prepare local file
+            // Prepare local file
             val downloadsDir = File(applicationContext.filesDir, "downloads")
             if (!downloadsDir.exists()) downloadsDir.mkdirs()
 
@@ -112,7 +112,7 @@ class DownloadWorker @AssistedInject constructor(
             val tempFile = File(downloadsDir, "${localFile.name}.part")
             workingFile = tempFile
 
-            // 3. Start download with optimized settings
+            // Start download with optimized settings
             val request = Request.Builder()
                 .url(streamUrl)
                 .header("User-Agent", getRandomUserAgent())
@@ -170,7 +170,7 @@ class DownloadWorker @AssistedInject constructor(
                 }
                 workingFile = localFile
 
-                // 4. Save metadata to database
+                // Save metadata to database
                 val entity = DownloadEntity(
                     url = url,
                     title = title,

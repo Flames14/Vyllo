@@ -52,19 +52,12 @@ fun GlassBorder() = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.15f)
 
 @Composable
 fun YTMHeader(
-    onSearchClick: () -> Unit,
+    onSearchClick: () -> Unit = {},
     onSettingsClick: () -> Unit,
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
     onRecognizeClick: () -> Unit = {}
 ) {
-    // Animation for refresh icon rotation (continuous spin when refreshing)
-    val refreshRotation by animateFloatAsState(
-        targetValue = if (isRefreshing) 1440f else 0f,
-        animationSpec = tween(durationMillis = if (isRefreshing) 1200 else 300, easing = FastOutSlowInEasing),
-        label = "refreshRotation"
-    )
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -94,47 +87,6 @@ fun YTMHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Refresh Button with continuous rotation
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(
-                        if (isRefreshing) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isRefreshing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(48.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                        strokeWidth = 2.dp
-                    )
-                }
-                IconButton(
-                    onClick = onRefresh,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Refresh,
-                        contentDescription = "Refresh",
-                        tint = if (isRefreshing) MaterialTheme.colorScheme.primary
-                              else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                        modifier = Modifier
-                            .size(24.dp)
-                            .graphicsLayer { rotationZ = refreshRotation }
-                    )
-                }
-            }
-            // Search Button
-            IconButton(
-                onClick = onSearchClick,
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            ) {
-                Icon(Icons.Rounded.Search, "Search", tint = MaterialTheme.colorScheme.onBackground)
-            }
             // Music Recognition Button
             IconButton(
                 onClick = onRecognizeClick,
@@ -377,11 +329,12 @@ fun CreatePlaylistDialog(
 fun YTMBottomNavBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
+    onSearchClick: () -> Unit = {},
     hasActivePlayer: Boolean
 ) {
     val tabs = listOf(
         Pair("Home", Icons.Rounded.Home),
-        Pair("Explore", Icons.Rounded.Explore),
+        Pair("Search", Icons.Rounded.Search),
         Pair("Library", Icons.Rounded.LibraryMusic)
     )
     
@@ -391,19 +344,33 @@ fun YTMBottomNavBar(
         tonalElevation = 0.dp
     ) {
         tabs.forEachIndexed { index, (label, icon) ->
-            NavigationBarItem(
-                icon = { Icon(icon, contentDescription = label) },
-                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                selected = selectedTab == index,
-                onClick = { onTabSelected(index) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.primary,
-                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                    unselectedIconColor = MaterialTheme.colorScheme.onBackground.copy(0.5f),
-                    unselectedTextColor = MaterialTheme.colorScheme.onBackground.copy(0.5f),
-                    indicatorColor = MaterialTheme.colorScheme.primary.copy(0.1f)
+            if (index == 1) { // Search
+                NavigationBarItem(
+                    icon = { Icon(icon, contentDescription = label) },
+                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                    selected = false,
+                    onClick = onSearchClick,
+                    colors = NavigationBarItemDefaults.colors(
+                        unselectedIconColor = MaterialTheme.colorScheme.onBackground.copy(0.5f),
+                        unselectedTextColor = MaterialTheme.colorScheme.onBackground.copy(0.5f)
+                    )
                 )
-            )
+            } else {
+                val mappedIndex = if (index == 0) 0 else 2
+                NavigationBarItem(
+                    icon = { Icon(icon, contentDescription = label) },
+                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                    selected = selectedTab == mappedIndex,
+                    onClick = { onTabSelected(mappedIndex) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        unselectedIconColor = MaterialTheme.colorScheme.onBackground.copy(0.5f),
+                        unselectedTextColor = MaterialTheme.colorScheme.onBackground.copy(0.5f),
+                        indicatorColor = MaterialTheme.colorScheme.primary.copy(0.1f)
+                    )
+                )
+            }
         }
     }
 }

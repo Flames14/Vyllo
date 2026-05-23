@@ -85,7 +85,7 @@ class MusicService : MediaSessionService() {
         private var simpleCache: SimpleCache? = null
 
         fun getSimpleCache(context: android.content.Context): SimpleCache {
-            // Security: Use SecureCacheManager for encrypted cache with randomized directory
+            // Use SecureCacheManager for encrypted cache with randomized directory
             return simpleCache ?: synchronized(this) {
                 simpleCache ?: SecureCacheManager.getSecureCache(context).also { simpleCache = it }
             }
@@ -100,6 +100,49 @@ class MusicService : MediaSessionService() {
             .connectionPool(okhttp3.ConnectionPool(10, 5, TimeUnit.MINUTES))
             .readTimeout(15, TimeUnit.SECONDS)
             .connectTimeout(15, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val request = chain.request()
+                val url = request.url.toString()
+                if (request.url.host.contains("googlevideo.com")) {
+                    val userAgent = when {
+                        url.contains("c=ANDROID", ignoreCase = true) -> {
+                            "com.google.android.youtube/21.03.36 (Linux; U; Android 15; US) gzip"
+                        }
+                        url.contains("c=IOS", ignoreCase = true) -> {
+                            "com.google.ios.youtube/21.03.2(iPhone16,2; U; CPU iOS 18_7_2 like Mac OS X; US)"
+                        }
+                        url.contains("c=WEB", ignoreCase = true) -> {
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.3"
+                        }
+                        else -> request.header("User-Agent")
+                    }
+                    if (userAgent != null) {
+                        val playbackRequest = request.newBuilder()
+                            .header("User-Agent", userAgent)
+                            .header("Accept", "*/*")
+                            .header("Accept-Encoding", "identity")
+                            .build()
+                        // log all outgoing headers
+                        SecureLogger.d("MusicService") {
+                            val hdrs = playbackRequest.headers.toMultimap().entries.joinToString { "${it.key}=${it.value}" }
+                            "ExoPlayer request: method=${playbackRequest.method}, url_prefix=${url.take(120)}, headers=[$hdrs]"
+                        }
+                        val response = chain.proceed(playbackRequest)
+                        if (!response.isSuccessful) {
+                            // Log response headers for diagnosis
+                            val respHdrs = response.headers.toMultimap().entries.joinToString { "${it.key}=${it.value}" }
+                            SecureLogger.w(
+                                "MusicService",
+                                "googlevideo REJECTED: code=${response.code}, client=${clientNameFromUrl(url)}, resp_headers=[$respHdrs]"
+                            )
+                        } else {
+                            SecureLogger.d("MusicService") { "googlevideo ACCEPTED: code=${response.code}, client=${clientNameFromUrl(url)}" }
+                        }
+                        return@addInterceptor response
+                    }
+                }
+                chain.proceed(request)
+            }
             .build()
 
         // Configure Cache
@@ -117,7 +160,7 @@ class MusicService : MediaSessionService() {
         val keepAudioPlaying = preferenceManager.isKeepAudioPlayingEnabled
         preferenceManager.preferences.registerOnSharedPreferenceChangeListener(preferenceListener)
 
-        // 1. Initialize Player
+        // Initialize Player
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(this).setDataSourceFactory(cacheDataSourceFactory))
             .setLoadControl(loadControl)
@@ -128,7 +171,6 @@ class MusicService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
 
-        // --- RETRY & AUTO-PLAY MECHANISM ---
         player?.addListener(object : Player.Listener {
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 playbackErrorHandler.handleError(error)
@@ -193,7 +235,7 @@ class MusicService : MediaSessionService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // 3. Initialize MediaSession
+        // Initialize MediaSession
         mediaSession = MediaSession.Builder(this, player!!)
             .setSessionActivity(pendingIntent)
             .build()
@@ -230,5 +272,14 @@ class MusicService : MediaSessionService() {
             mediaSession = null
         }
         super.onDestroy()
+    }
+
+    private fun clientNameFromUrl(url: String): String {
+        return when {
+            url.contains("c=IOS", ignoreCase = true) -> "IOS"
+            url.contains("c=ANDROID", ignoreCase = true) -> "ANDROID"
+            url.contains("c=WEB", ignoreCase = true) -> "WEB"
+            else -> "UNKNOWN"
+        }
     }
 }

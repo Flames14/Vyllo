@@ -13,6 +13,13 @@ import com.vyllo.music.data.repository.DownloadRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.schabi.newpipe.extractor.stream.AudioStream
+import org.schabi.newpipe.extractor.stream.VideoStream
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,11 +34,18 @@ class MusicRepositoryImpl @Inject constructor(
     private val playbackQueueManager: PlaybackQueueManager,
     private val lyricsEngine: LyricsEngine
 ) : IMusicRepository {
+    private val streamProbeClient = OkHttpClient.Builder()
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .build()
 
     override suspend fun getSuggestions(query: String): List<String> = suggestionDataSource.getSuggestions(query)
 
     override suspend fun searchMusic(query: String, maintainSession: Boolean): List<MusicItem> =
         youtubeDataSource.searchMusic(query, maintainSession)
+
 
     override suspend fun loadMoreResults(): List<MusicItem> =
         youtubeDataSource.loadMoreResults()
@@ -53,17 +67,117 @@ class MusicRepositoryImpl @Inject constructor(
         return try {
             val info = youtubeDataSource.getOrFetchStreamInfo(url, force)
             if (isVideo) {
-                val videoUrl = info.videoStreams.maxByOrNull { it.bitrate }?.url
-                SecureLogger.d("MusicRepositoryImpl") { "Video stream selected" }
+                val videoUrl = withContext(Dispatchers.IO) {
+                    selectPlayableVideoUrl(info.videoStreams)
+                }
+                SecureLogger.d("MusicRepositoryImpl") { "Video stream selected: ${videoUrl != null}" }
                 videoUrl
             } else {
-                val audioUrl = info.audioStreams.maxByOrNull { it.averageBitrate }?.url
-                SecureLogger.d("MusicRepositoryImpl") { "Audio stream selected" }
+                var audioUrl = withContext(Dispatchers.IO) {
+                    selectPlayableAudioUrl(info.audioStreams)
+                }
+                if (audioUrl == null) {
+                    SecureLogger.w("MusicRepositoryImpl", "No playable audio stream found, falling back to low-resolution video stream for audio playback")
+                    audioUrl = withContext(Dispatchers.IO) {
+                        selectPlayableVideoUrlForAudio(info.videoStreams)
+                    }
+                }
+                SecureLogger.d("MusicRepositoryImpl") { "Audio stream selected: ${audioUrl != null}" }
                 audioUrl
             }
         } catch (e: Exception) {
             SecureLogger.e("MusicRepositoryImpl", "Failed to get stream URL", e)
             null
+        }
+    }
+
+    private fun selectPlayableAudioUrl(streams: List<AudioStream>): String? {
+        streams.forEach { stream ->
+            SecureLogger.d("MusicRepositoryImpl") { "Available stream: format=${stream.format}, bitrate=${stream.averageBitrate}, url=${stream.url}" }
+        }
+        return streams
+            .asSequence()
+            .filter { it.isUrl && !it.url.isNullOrBlank() }
+            .sortedByDescending { it.averageBitrate }
+            .mapNotNull { it.url }
+            .firstOrNull(::isPlayableStreamUrl)
+    }
+
+    private fun selectPlayableVideoUrl(streams: List<VideoStream>): String? {
+        streams.forEach { stream ->
+            SecureLogger.d("MusicRepositoryImpl") { "Available video stream: format=${stream.format}, bitrate=${stream.bitrate}, url=${stream.url}" }
+        }
+        return streams
+            .asSequence()
+            .filter { it.isUrl && !it.url.isNullOrBlank() }
+            .sortedByDescending { it.bitrate }
+            .mapNotNull { it.url }
+            .firstOrNull(::isPlayableStreamUrl)
+    }
+
+    private fun selectPlayableVideoUrlForAudio(streams: List<VideoStream>): String? {
+        streams.forEach { stream ->
+            SecureLogger.d("MusicRepositoryImpl") { "Available video stream for audio: format=${stream.format}, bitrate=${stream.bitrate}, url=${stream.url}" }
+        }
+        return streams
+            .asSequence()
+            .filter { it.isUrl && !it.url.isNullOrBlank() }
+            // Sort by ascending bitrate to get the lowest-resolution video stream
+            // to save bandwidth, while maintaining standard audio quality.
+            .sortedBy { it.bitrate }
+            .mapNotNull { it.url }
+            .firstOrNull(::isPlayableStreamUrl)
+    }
+
+    private fun isPlayableStreamUrl(streamUrl: String): Boolean {
+        return try {
+            val ua = userAgentForStreamUrl(streamUrl)
+            val request = Request.Builder()
+                .url(streamUrl)
+                .header("Range", "bytes=0-1")
+                .header("User-Agent", ua)
+                .build()
+
+            streamProbeClient.newCall(request).execute().use { response ->
+                val playable = response.isSuccessful || response.code == 206
+                SecureLogger.d("MusicRepositoryImpl") {
+                    "Probe result: http=${response.code}, playable=$playable, client=${clientNameFromUrl(streamUrl)}, UA=$ua"
+                }
+                if (!playable) {
+                    SecureLogger.w(
+                        "MusicRepositoryImpl",
+                        "Rejected stream candidate: http=${response.code}, client=${clientNameFromUrl(streamUrl)}"
+                    )
+                }
+                playable
+            }
+        } catch (e: Exception) {
+            SecureLogger.w(
+                "MusicRepositoryImpl",
+                "Rejected stream candidate: ${e.javaClass.simpleName}, client=${clientNameFromUrl(streamUrl)}",
+                e
+            )
+            false
+        }
+    }
+
+    private fun userAgentForStreamUrl(streamUrl: String): String {
+        return when {
+            streamUrl.contains("c=IOS", ignoreCase = true) ->
+                "com.google.ios.youtube/21.03.2(iPhone16,2; U; CPU iOS 18_7_2 like Mac OS X; US)"
+            streamUrl.contains("c=ANDROID", ignoreCase = true) ->
+                "com.google.android.youtube/21.03.36 (Linux; U; Android 15; US) gzip"
+            else ->
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        }
+    }
+
+    private fun clientNameFromUrl(streamUrl: String): String {
+        return when {
+            streamUrl.contains("c=IOS", ignoreCase = true) -> "IOS"
+            streamUrl.contains("c=ANDROID", ignoreCase = true) -> "ANDROID"
+            streamUrl.contains("c=WEB", ignoreCase = true) -> "WEB"
+            else -> "UNKNOWN"
         }
     }
 
@@ -123,7 +237,7 @@ class MusicRepositoryImpl @Inject constructor(
 
         val allItems = mutableListOf<MusicItem>()
 
-        // 1. Fetch Quick Picks based on multiple top artists (8 items)
+        // Fetch Quick Picks based on multiple top artists (8 items)
         if (topArtists.isNotEmpty()) {
             val artist1 = topArtists.random()
             allItems.addAll(youtubeDataSource.searchMusic("Mix of $artist1", maintainSession = false).take(8))
@@ -131,7 +245,7 @@ class MusicRepositoryImpl @Inject constructor(
             allItems.addAll(youtubeDataSource.getTrendingMusic().take(8))
         }
 
-        // 2. Fetch Mixed For You from another random top artist (6 items)
+        // Fetch Mixed For You from another random top artist (6 items)
         if (topArtists.size > 1) {
             val otherArtists = topArtists.filter { name -> allItems.none { it.uploader.contains(name, ignoreCase = true) } }
             val artist2 = if (otherArtists.isNotEmpty()) otherArtists.random() else topArtists.first()
@@ -140,10 +254,10 @@ class MusicRepositoryImpl @Inject constructor(
             allItems.addAll(youtubeDataSource.searchMusic("New suggested music", maintainSession = false).take(6))
         }
 
-        // 3. New Releases (8 items)
+        // New Releases (8 items)
         allItems.addAll(youtubeDataSource.searchMusic("Official new music releases", maintainSession = false).take(8))
 
-        // 4. Trending Now (8 items)
+        // Trending Now (8 items)
         allItems.addAll(youtubeDataSource.getTrendingMusic().take(8))
 
         // Ensure we have a distinct list and enough items for pagination

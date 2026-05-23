@@ -18,6 +18,8 @@ import org.schabi.newpipe.extractor.localization.Localization
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import org.schabi.newpipe.extractor.playlist.PlaylistInfoItem
+import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeStreamExtractor
+import com.vyllo.music.data.network.potoken.PoTokenProviderImpl
 import java.util.concurrent.Executors
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -63,6 +65,9 @@ class YouTubeDataSource @Inject constructor(
                 if (!isInitialized) {
                     // TODO: Move these to a config file or preferences
                     NewPipe.init(OkHttpDownloader(), Localization.DEFAULT, ContentCountry.DEFAULT)
+                    YoutubeStreamExtractor.setFetchIosClient(false)
+                    PoTokenProviderImpl.init(context)
+                    YoutubeStreamExtractor.setPoTokenProvider(PoTokenProviderImpl)
                     isInitialized = true
                 }
             }
