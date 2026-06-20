@@ -15,6 +15,7 @@ class UpdateDownloader @Inject constructor(
         val request = DownloadManager.Request(Uri.parse(url))
             .setTitle("Downloading Vyllo Update")
             .setDescription("Downloading the latest version...")
+            .setMimeType("application/vnd.android.package-archive")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
             .setAllowedOverMetered(true)
