@@ -32,11 +32,13 @@ import com.vyllo.music.domain.model.EqualizerSettings
 @Composable
 fun EqualizerBottomSheet(
     settings: EqualizerSettings,
+    volumeBoostMultiplier: Float,
     onDismiss: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
     onBassBoostChange: (Int) -> Unit,
     onVirtualizerChange: (Int) -> Unit,
     onBandLevelChange: (Int, Int) -> Unit,
+    onVolumeBoostChange: (Float) -> Unit,
     onReset: () -> Unit
 ) {
     ModalBottomSheet(
@@ -83,6 +85,12 @@ fun EqualizerBottomSheet(
             }
 
             HorizontalDivider()
+
+            VolumeBoosterSlider(
+                value = volumeBoostMultiplier,
+                enabled = settings.enabled,
+                onValueChange = onVolumeBoostChange
+            )
 
             EqualizerStrengthSlider(
                 title = stringResource(R.string.equalizer_bass_boost),
@@ -188,6 +196,38 @@ private fun EqualizerBandSlider(
             onValueChange = { onValueChange(it.toInt()) },
             valueRange = EqualizerSettings.BAND_LEVEL_MIN.toFloat()..EqualizerSettings.BAND_LEVEL_MAX.toFloat(),
             enabled = enabled
+        )
+    }
+}
+
+@Composable
+private fun VolumeBoosterSlider(
+    value: Float,
+    enabled: Boolean,
+    onValueChange: (Float) -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Volume Booster",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+            )
+            Text(
+                text = "${(value * 100).toInt()}%",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            enabled = enabled,
+            valueRange = 1.0f..3.0f,
+            steps = 19
         )
     }
 }

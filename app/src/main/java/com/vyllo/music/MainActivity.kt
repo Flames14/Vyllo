@@ -2,10 +2,19 @@ package com.vyllo.music
 
 import android.app.PictureInPictureParams
 import android.content.res.Configuration
+import android.media.AudioManager
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.util.Rational
+import android.view.KeyEvent
 import android.widget.Toast
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -105,7 +114,6 @@ class MainActivity : ComponentActivity() {
                             .build()
                     }
                     .crossfade(true)
-                    .allowHardware(true)
                     .build()
             }
 
@@ -116,18 +124,26 @@ class MainActivity : ComponentActivity() {
                 MaterialTheme(colorScheme = colorScheme) {
                     val systemUiController = WindowCompat.getInsetsController(window, window.decorView)
                     systemUiController.isAppearanceLightStatusBars = !isDark
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        VylloNavigation(
+                            playbackManager = playbackManager, 
+                            homeViewModel = homeViewModel,
+                            searchViewModel = searchViewModel,
+                            libraryViewModel = libraryViewModel,
+                            playerViewModel = playerViewModel,
+                            settingsViewModel = settingsViewModel,
+                            onPlay = { item -> playMusic(item) },
+                            onNext = { item -> playNext(item) },
+                            onPrev = { item -> playPrevious(item) }
+                        )
 
-                    VylloNavigation(
-                        playbackManager = playbackManager, 
-                        homeViewModel = homeViewModel,
-                        searchViewModel = searchViewModel,
-                        libraryViewModel = libraryViewModel,
-                        playerViewModel = playerViewModel,
-                        settingsViewModel = settingsViewModel,
-                        onPlay = { item -> playMusic(item) },
-                        onNext = { item -> playNext(item) },
-                        onPrev = { item -> playPrevious(item) }
-                    )
+                        val playerState by playerViewModel.uiState.collectAsState()
+                        com.vyllo.music.presentation.components.VolumeBoosterOverlay(
+                            isVisible = playerState.isVolumeBoosterUIVisible,
+                            multiplier = playerState.volumeBoostMultiplier,
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        )
+                    }
                 }
             }
         }
@@ -280,5 +296,24 @@ class MainActivity : ComponentActivity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent)
             else startService(intent)
         }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+
+            if (currentVolume >= maxVolume) {
+                playerViewModel.adjustVolumeBoost(0.1f)
+                return true
+            }
+        } else if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            if (playerViewModel.volumeBoostMultiplier > 1.0f) {
+                playerViewModel.adjustVolumeBoost(-0.1f)
+                return true
+            }
+        }
+        return super.onKeyDown(keyCode, event)
     }
 }

@@ -285,7 +285,7 @@ class AlarmTriggerService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Alarm")
             .setContentText(if (alarmLabel.isNotBlank()) alarmLabel else "Tap to dismiss or snooze")
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -309,6 +309,12 @@ class AlarmTriggerService : Service() {
             SoundType.DEFAULT -> playDefaultSound()
         }
 
+        if (gradualVolume) {
+            startGradualVolumeIncrease()
+        } else {
+            setFinalVolume()
+        }
+
         // Start vibration if enabled
         if (vibrationEnabled) {
             startVibration()
@@ -318,7 +324,7 @@ class AlarmTriggerService : Service() {
     /**
      * Play a downloaded song from local storage.
      */
-    private fun playDownloadedSong() {
+     private fun playDownloadedSong() {
         serviceScope.launch {
             try {
                 // Get download entity to get file path
@@ -343,8 +349,8 @@ class AlarmTriggerService : Service() {
                             setMediaItem(mediaItem)
                             repeatMode = Player.REPEAT_MODE_ALL
                             playWhenReady = true
-                            // Set volume to maximum for alarm
-                            this.volume = 1.0f
+                            // Set initial volume based on gradual volume setting
+                            this.volume = if (gradualVolume) 0.0f else 1.0f
                             prepare()
 
                             addListener(object : Player.Listener {
@@ -395,8 +401,9 @@ class AlarmTriggerService : Service() {
                 isLooping = true
                 prepare()
                 start()
-                // Set volume to maximum — actual volume is controlled by STREAM_ALARM level
-                this.setVolume(1.0f, 1.0f)
+                // Set initial volume based on gradual volume setting
+                val initialVol = if (gradualVolume) 0.0f else 1.0f
+                this.setVolume(initialVol, initialVol)
             }
             SecureLogger.d(TAG, "Default alarm sound playing via STREAM_ALARM")
         } catch (e: Exception) {
@@ -414,7 +421,8 @@ class AlarmTriggerService : Service() {
                     isLooping = true
                     prepare()
                     start()
-                    this.setVolume(1.0f, 1.0f)
+                    val initialVol = if (gradualVolume) 0.0f else 1.0f
+                    this.setVolume(initialVol, initialVol)
                 }
             } catch (e2: Exception) {
                 SecureLogger.e(TAG, "Failed to play fallback sound", e2)

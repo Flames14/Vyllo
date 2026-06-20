@@ -69,4 +69,20 @@ data class MusicItem(
     private fun isLikelyYouTubeId(candidate: String): Boolean {
         return candidate.length >= 11 && candidate.all { it.isLetterOrDigit() || it == '-' || it == '_' }
     }
+
+    /**
+     * Attempts to get the highest resolution thumbnail from a standard YouTube thumbnail URL.
+     * Often 'hqdefault.jpg' or 'mqdefault.jpg' can be upgraded to 'maxresdefault.jpg'.
+     */
+    fun getHighResThumbnailUrl(): String {
+        if (thumbnailUrl.contains("ytimg.com/vi/")) {
+            // Replace standard resolutions with maximum resolution
+            return thumbnailUrl
+                .replace("hqdefault.jpg", "maxresdefault.jpg")
+                .replace("mqdefault.jpg", "maxresdefault.jpg")
+                .replace("sddefault.jpg", "maxresdefault.jpg")
+                .replace("default.jpg", "maxresdefault.jpg")
+        }
+        return thumbnailUrl
+    }
 }

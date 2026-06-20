@@ -30,9 +30,6 @@ class SecurityConfig @Inject constructor() {
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
 
-            // Encrypted DNS - Prevents DNS spoofing and eavesdropping
-            .dns(createDnsOverHttps())
-
             // Connection Security - Only allow modern TLS
             .connectionSpecs(
                 listOf(
@@ -87,13 +84,11 @@ class SecurityConfig @Inject constructor() {
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
 
-            // Encrypted DNS only
-            .dns(createDnsOverHttps())
-
-            // Modern TLS only
+            // Modern & Compatible TLS
             .connectionSpecs(
                 listOf(
-                    okhttp3.ConnectionSpec.MODERN_TLS
+                    okhttp3.ConnectionSpec.MODERN_TLS,
+                    okhttp3.ConnectionSpec.COMPATIBLE_TLS
                 )
             )
 

@@ -33,7 +33,7 @@ android {
         minSdk = 24
         targetSdk = 34
         versionCode = 5
-        versionName = "2.0"
+        versionName = "v2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // Security: BuildConfig fields for sensitive URLs (not hardcoded in source)
@@ -145,7 +145,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 
 dependencies {
     // NewPipe Extractor
-    implementation("com.github.teamnewpipe:newpipeextractor:v0.26.0")
+    implementation("com.github.teamnewpipe:newpipeextractor:v0.26.3")
 
     // Network
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

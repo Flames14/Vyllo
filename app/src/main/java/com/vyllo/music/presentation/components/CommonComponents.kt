@@ -66,11 +66,12 @@ fun YTMHeader(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Rounded.PlayCircleFilled,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(32.dp)
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(id = com.vyllo.music.R.drawable.app_icon),
+                contentDescription = "App Icon",
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -329,48 +330,52 @@ fun CreatePlaylistDialog(
 fun YTMBottomNavBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
-    onSearchClick: () -> Unit = {},
     hasActivePlayer: Boolean
 ) {
     val tabs = listOf(
         Pair("Home", Icons.Rounded.Home),
         Pair("Search", Icons.Rounded.Search),
+        Pair("Explore", Icons.Rounded.Explore),
         Pair("Library", Icons.Rounded.LibraryMusic)
     )
     
     NavigationBar(
-        modifier = Modifier.padding(bottom = if (hasActivePlayer) 72.dp else 0.dp),
-        containerColor = MaterialTheme.colorScheme.background.copy(0.95f),
+        modifier = Modifier
+            .height(if (hasActivePlayer) 132.dp else 60.dp)
+            .padding(bottom = if (hasActivePlayer) 72.dp else 0.dp),
+        containerColor = MaterialTheme.colorScheme.background.copy(0.98f),
+        contentColor = MaterialTheme.colorScheme.onBackground,
         tonalElevation = 0.dp
     ) {
         tabs.forEachIndexed { index, (label, icon) ->
-            if (index == 1) { // Search
-                NavigationBarItem(
-                    icon = { Icon(icon, contentDescription = label) },
-                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                    selected = false,
-                    onClick = onSearchClick,
-                    colors = NavigationBarItemDefaults.colors(
-                        unselectedIconColor = MaterialTheme.colorScheme.onBackground.copy(0.5f),
-                        unselectedTextColor = MaterialTheme.colorScheme.onBackground.copy(0.5f)
-                    )
+            val isSelected = selectedTab == index
+            NavigationBarItem(
+                icon = { 
+                    Icon(
+                        imageVector = icon, 
+                        contentDescription = label,
+                        modifier = Modifier.size(if (isSelected) 24.dp else 20.dp)
+                    ) 
+                },
+                label = { 
+                    Text(
+                        label, 
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    ) 
+                },
+                selected = isSelected,
+                onClick = { onTabSelected(index) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.onBackground,
+                    selectedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unselectedIconColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                    unselectedTextColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                    indicatorColor = Color.Transparent
                 )
-            } else {
-                val mappedIndex = if (index == 0) 0 else 2
-                NavigationBarItem(
-                    icon = { Icon(icon, contentDescription = label) },
-                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                    selected = selectedTab == mappedIndex,
-                    onClick = { onTabSelected(mappedIndex) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = MaterialTheme.colorScheme.primary,
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        unselectedIconColor = MaterialTheme.colorScheme.onBackground.copy(0.5f),
-                        unselectedTextColor = MaterialTheme.colorScheme.onBackground.copy(0.5f),
-                        indicatorColor = MaterialTheme.colorScheme.primary.copy(0.1f)
-                    )
-                )
-            }
+            )
         }
     }
 }

@@ -41,6 +41,8 @@ import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.*
 import com.vyllo.music.presentation.components.*
 import com.vyllo.music.ui.components.*
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 
 // =========================================================================
 // YTM SEARCH SCREEN
@@ -124,6 +126,11 @@ fun YTMSearchScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    val focusRequester = remember { FocusRequester() }
+                    LaunchedEffect(Unit) {
+                        focusRequester.requestFocus()
+                    }
+
                     androidx.compose.foundation.text.BasicTextField(
                         value = viewModel.searchQuery,
                         onValueChange = viewModel::onQueryChanged,
@@ -131,7 +138,7 @@ fun YTMSearchScreen(
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { viewModel.performSearch(viewModel.searchQuery) }),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).focusRequester(focusRequester),
                         decorationBox = { innerTextField ->
                             if (viewModel.searchQuery.isEmpty()) {
                                 Text("Search songs, albums, artists", color = MaterialTheme.colorScheme.onBackground.copy(0.4f))

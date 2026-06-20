@@ -109,11 +109,11 @@ class HomeViewModel @Inject constructor(
             _uiState.update { state ->
                 state.copy(
                     homeTitle = if (!isHistoryEmpty) "Recommended For You" else "Trending Now",
-                    quickPicksRows = recommendations.take(8).chunked(2),
+                    quickPicksRows = recommendations.take(16).chunked(4),
                     mixedForYouItems = recommendations.drop(8).take(6),
                     newReleasesItems = newReleases.take(8),
                     trendingNowItems = trending.take(8),
-                    trendingNowRows = trending.take(8).chunked(2),
+                    trendingNowRows = trending.take(16).chunked(4),
                     quickPicksItems = recommendations.drop(14),
                     isLoading = false
                 )
@@ -208,11 +208,10 @@ class HomeViewModel @Inject constructor(
                     else -> "trending music"
                 }
                 val results = repository.searchMusic(query)
-                _uiState.update {
-                    it.copy(
-                        quickPicksRows = results.take(8).chunked(2),
-                        mixedForYouItems = results.drop(8).take(6),
-                        quickPicksItems = results.drop(14),
+                _uiState.update { state ->
+                    state.copy(
+                        quickPicksRows = results.take(16).chunked(4),
+                        mixedForYouItems = results.drop(16).take(6),
                         isLoading = false
                     )
                 }
@@ -282,11 +281,11 @@ class HomeViewModel @Inject constructor(
                 _uiState.update { state ->
                     state.copy(
                         homeTitle = if (!isHistoryEmpty) "Recommended For You" else "Trending Now",
-                        quickPicksRows = recommendationsResult.take(8).chunked(2),
+                        quickPicksRows = recommendationsResult.take(16).chunked(4),
                         mixedForYouItems = recommendationsResult.drop(8).take(6),
                         newReleasesItems = newReleasesResult.take(8),
                         trendingNowItems = trendingResult.take(8),
-                        trendingNowRows = trendingResult.take(8).chunked(2),
+                        trendingNowRows = trendingResult.take(16).chunked(4),
                         quickPicksItems = recommendationsResult.drop(14),
                         isRefreshing = false
                     )

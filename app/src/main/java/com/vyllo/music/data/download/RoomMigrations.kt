@@ -39,16 +39,14 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
 val MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(database: SupportSQLiteDatabase) {
         database.execSQL(
-            "CREATE TABLE IF NOT EXISTS `HistoryEntity` (" +
-            "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+            "CREATE TABLE IF NOT EXISTS `playback_history` (" +
             "`url` TEXT NOT NULL, " +
             "`title` TEXT NOT NULL, " +
             "`uploader` TEXT NOT NULL, " +
             "`thumbnailUrl` TEXT NOT NULL, " +
-            "`listenedAt` INTEGER NOT NULL DEFAULT 0)"
-        )
-        database.execSQL(
-            "CREATE INDEX IF NOT EXISTS `index_HistoryEntity_listenedAt` ON `HistoryEntity`(`listenedAt`)"
+            "`type` TEXT NOT NULL, " +
+            "`lastPlayedAt` INTEGER NOT NULL, " +
+            "PRIMARY KEY(`url`))"
         )
     }
 }

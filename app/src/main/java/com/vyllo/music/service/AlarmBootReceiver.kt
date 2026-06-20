@@ -35,6 +35,7 @@ class AlarmBootReceiver : BroadcastReceiver() {
         // CRITICAL: Do NOT use Hilt here. Access database directly to ensure
         // alarms are re-scheduled even if the DI framework hasn't initialized.
         // Run DB operations in a coroutine scope since DAO methods are suspend functions.
+        val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 val db = DownloadDatabase.getInstance(context)
@@ -60,6 +61,8 @@ class AlarmBootReceiver : BroadcastReceiver() {
                 SecureLogger.d(TAG, "Successfully re-scheduled ${enabledAlarms.size} alarm(s) after reboot")
             } catch (e: Exception) {
                 SecureLogger.e(TAG, "Failed to re-schedule alarms after reboot", e)
+            } finally {
+                pendingResult.finish()
             }
         }
     }

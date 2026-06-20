@@ -49,8 +49,11 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun providePreferenceManager(@ApplicationContext context: Context): PreferenceManager {
-        return PreferenceManager(context)
+    fun providePreferenceManager(
+        @ApplicationContext context: Context,
+        securePreferenceManager: SecurePreferenceManager
+    ): PreferenceManager {
+        return PreferenceManager(context, securePreferenceManager)
     }
 
     @Provides
