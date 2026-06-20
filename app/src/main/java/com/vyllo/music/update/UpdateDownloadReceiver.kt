@@ -22,12 +22,27 @@ class UpdateDownloadReceiver : BroadcastReceiver() {
             if (cursor.moveToFirst()) {
                 val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
                 if (statusIndex >= 0 && cursor.getInt(statusIndex) == DownloadManager.STATUS_SUCCESSFUL) {
-                    val uriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-                    if (uriIndex >= 0) {
-                        val uriString = cursor.getString(uriIndex)
-                        if (uriString != null) {
-                            val apkUri = Uri.parse(uriString)
-                            promptInstall(context, apkUri)
+                    val contentUri = downloadManager.getUriForDownloadedFile(downloadId)
+                    if (contentUri != null) {
+                        promptInstall(context, contentUri)
+                    } else {
+                        val uriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+                        if (uriIndex >= 0) {
+                            val uriString = cursor.getString(uriIndex)
+                            if (uriString != null) {
+                                val apkUri = Uri.parse(uriString)
+                                if (apkUri.scheme == "file") {
+                                    val file = java.io.File(apkUri.path!!)
+                                    val providerUri = androidx.core.content.FileProvider.getUriForFile(
+                                        context, 
+                                        "${context.packageName}.provider", 
+                                        file
+                                    )
+                                    promptInstall(context, providerUri)
+                                } else {
+                                    promptInstall(context, apkUri)
+                                }
+                            }
                         }
                     }
                 }
