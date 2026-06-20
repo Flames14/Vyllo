@@ -50,18 +50,66 @@ class LyricsEngine @Inject constructor(
     suspend fun findLyricsUniversal(
         rawTitle: String,
         rawArtist: String,
-        durationSecs: Long
+        durationSecs: Long,
+        extractedTitle: String? = null,
+        extractedArtist: String? = null,
+        extractedAlbum: String? = null,
+        extractedLanguage: String? = null,
+        extractedMusic: String? = null
     ): LyricsResponse = withContext(Dispatchers.IO) {
-        val (cleanTitle, cleanArtist) = cleanTitleAndArtist(rawTitle, rawArtist)
+        val (cleanedTitle, cleanedArtist) = cleanTitleAndArtist(rawTitle, rawArtist)
+        
+        val cleanTitle = if (!extractedTitle.isNullOrBlank()) extractedTitle.trim() else cleanedTitle
+        
+        var cleanArtist = when {
+            !extractedArtist.isNullOrBlank() -> extractedArtist.trim()
+            !extractedMusic.isNullOrBlank() -> extractedMusic.trim()
+            else -> cleanedArtist
+        }
+
+        if (isRecordLabel(cleanArtist) && !extractedMusic.isNullOrBlank()) {
+            cleanArtist = extractedMusic.trim()
+        }
+
+        if (isRecordLabel(cleanArtist)) {
+            cleanArtist = ""
+        }
+        
+        if (cleanArtist.startsWith("@")) {
+            cleanArtist = cleanArtist.removePrefix("@")
+        }
+
         SecureLogger.d(TAG, "=== LYRICS FETCH === rawTitle='$rawTitle' rawArtist='$rawArtist' cleanTitle='$cleanTitle' cleanArtist='$cleanArtist' dur=$durationSecs")
 
         if (cleanTitle.isBlank()) {
             return@withContext LyricsResponse(success = false, strategy = "NO_TITLE", error = "Song title is empty")
         }
 
-        // Strategy 1: LRCLIB exact match with clean data
+        // Strategy 1: Paxsenix (Dynamic Apple Music token scrape & Paxsenix synced lyrics fetch)
         if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
-            SecureLogger.d(TAG, "Strategy 1: LRCLIB exact (title='$cleanTitle', artist='$cleanArtist')")
+            SecureLogger.d(TAG, "Strategy 1: Paxsenix (title='$cleanTitle', artist='$cleanArtist')")
+            val paxLrc = com.vyllo.music.data.lyrics.PaxsenixProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum)
+            if (paxLrc != null) {
+                SecureLogger.d(TAG, "FOUND via Paxsenix: $cleanTitle")
+                val lyricsResult = buildResultFromLrc(cleanTitle, cleanArtist, extractedAlbum, durationSecs, paxLrc)
+                return@withContext buildResponse("PAXSENIX", lyricsResult)
+            }
+        }
+
+        // Strategy 2: BetterLyrics (Boidu cached Timed-Text XML API)
+        if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
+            SecureLogger.d(TAG, "Strategy 2: BetterLyrics (title='$cleanTitle', artist='$cleanArtist')")
+            val betterLrc = com.vyllo.music.data.lyrics.BetterLyricsProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum)
+            if (betterLrc != null) {
+                SecureLogger.d(TAG, "FOUND via BetterLyrics: $cleanTitle")
+                val lyricsResult = buildResultFromLrc(cleanTitle, cleanArtist, extractedAlbum, durationSecs, betterLrc)
+                return@withContext buildResponse("BETTERLYRICS", lyricsResult)
+            }
+        }
+
+        // Strategy 3: LRCLIB exact match with clean data
+        if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
+            SecureLogger.d(TAG, "Strategy 3: LRCLIB exact (title='$cleanTitle', artist='$cleanArtist')")
             val result = tryLrclibExact(cleanTitle, cleanArtist, durationSecs)
             if (result != null) {
                 SecureLogger.d(TAG, "FOUND via LRCLIB exact: ${result.trackName}")
@@ -69,9 +117,9 @@ class LyricsEngine @Inject constructor(
             }
         }
 
-        // Strategy 2: LRCLIB structured search (track_name + artist_name)
+        // Strategy 4: LRCLIB structured search (track_name + artist_name)
         if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
-            SecureLogger.d(TAG, "Strategy 2: LRCLIB search (track_name='$cleanTitle', artist_name='$cleanArtist')")
+            SecureLogger.d(TAG, "Strategy 4: LRCLIB search (track_name='$cleanTitle', artist_name='$cleanArtist')")
             val result = tryLrclibSearch(cleanTitle, cleanArtist, durationSecs)
             if (result != null) {
                 SecureLogger.d(TAG, "FOUND via LRCLIB search: ${result.trackName}")
@@ -79,17 +127,39 @@ class LyricsEngine @Inject constructor(
             }
         }
 
-        // Strategy 3: LRCLIB title-only search (most reliable fallback)
-        SecureLogger.d(TAG, "Strategy 3: LRCLIB title-only search (title='$cleanTitle')")
+        // Strategy 5: LRCLIB title-only search (most reliable fallback)
+        SecureLogger.d(TAG, "Strategy 5: LRCLIB title-only search (title='$cleanTitle')")
         val titleOnly = tryLrclibSearch(cleanTitle, "", durationSecs)
         if (titleOnly != null) {
             SecureLogger.d(TAG, "FOUND via LRCLIB title-only: ${titleOnly.trackName}")
             return@withContext buildResponse("LRCLIB_TITLE_ONLY", titleOnly)
         }
 
-        // Strategy 4: Lyrics.ovh (plain text only)
+        // Strategy 6: LyricsPlus / Binimum API (mirrors and metadata search)
         if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
-            SecureLogger.d(TAG, "Strategy 4: Lyrics.ovh")
+            SecureLogger.d(TAG, "Strategy 6: LyricsPlus (title='$cleanTitle', artist='$cleanArtist')")
+            val plusLrc = com.vyllo.music.data.lyrics.LyricsPlusProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum)
+            if (plusLrc != null) {
+                SecureLogger.d(TAG, "FOUND via LyricsPlus: $cleanTitle")
+                val lyricsResult = buildResultFromLrc(cleanTitle, cleanArtist, extractedAlbum, durationSecs, plusLrc)
+                return@withContext buildResponse("LYRICS_PLUS", lyricsResult)
+            }
+        }
+
+        // Strategy 7: KuGou (East Asian/regional and instrumental)
+        if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
+            SecureLogger.d(TAG, "Strategy 7: KuGou (title='$cleanTitle', artist='$cleanArtist')")
+            val kugouLrc = com.vyllo.music.data.lyrics.KuGouProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum)
+            if (kugouLrc != null) {
+                SecureLogger.d(TAG, "FOUND via KuGou: $cleanTitle")
+                val lyricsResult = buildResultFromLrc(cleanTitle, cleanArtist, extractedAlbum, durationSecs, kugouLrc)
+                return@withContext buildResponse("KUGOU", lyricsResult)
+            }
+        }
+
+        // Strategy 8: Lyrics.ovh (plain text only)
+        if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
+            SecureLogger.d(TAG, "Strategy 8: Lyrics.ovh")
             val ovh = tryLyricsOvh(cleanTitle, cleanArtist)
             if (ovh != null) {
                 SecureLogger.d(TAG, "FOUND via Lyrics.ovh: ${ovh.trackName}")
@@ -97,8 +167,8 @@ class LyricsEngine @Inject constructor(
             }
         }
 
-        // Strategy 5: NetEase (Asian music)
-        SecureLogger.d(TAG, "Strategy 5: NetEase")
+        // Strategy 9: NetEase (Asian music)
+        SecureLogger.d(TAG, "Strategy 9: NetEase")
         val netease = tryNetEase(cleanTitle, cleanArtist, durationSecs)
         if (netease != null) {
             SecureLogger.d(TAG, "FOUND via NetEase: ${netease.trackName}")
@@ -345,6 +415,20 @@ class LyricsEngine @Inject constructor(
         )
     }
 
+    private fun buildResultFromLrc(title: String, artist: String, album: String?, durationSecs: Long, lrc: String): LyricsResult {
+        val hasTimestamps = looksLikeTimedLyrics(lrc)
+        return LyricsResult(
+            id = System.currentTimeMillis(),
+            trackName = title,
+            artistName = artist,
+            albumName = album,
+            duration = durationSecs,
+            instrumental = false,
+            plainLyrics = if (hasTimestamps) null else lrc,
+            syncedLyrics = if (hasTimestamps) lrc else null
+        )
+    }
+
     private fun buildResponse(strategy: String, result: LyricsResult): LyricsResponse {
         val syncedSource = result.syncedLyrics ?: result.plainLyrics?.takeIf { looksLikeTimedLyrics(it) }
         val parsedLines = parseSyncedLyrics(syncedSource)
@@ -380,88 +464,120 @@ class LyricsEngine @Inject constructor(
      *
      * Goal: extract clean song name and artist for LRCLIB lookup.
      */
+    fun isRecordLabel(name: String): Boolean {
+        val labelKeywords = listOf("music", "records", "series", "company", "entertainment", "channel", "official", "tv", "indie", "south", "india")
+        val lower = name.lowercase()
+        return labelKeywords.any { lower.contains(it) }
+    }
+
     private fun cleanTitleAndArtist(rawTitle: String, rawArtist: String): Pair<String, String> {
         var title = rawTitle.trim()
         var artist = rawArtist.trim()
 
-        // Step 1: Remove common YouTube suffixes from title
+        // Step 1: Clean suffixes and garbage words first
         val suffixPatterns = listOf(
-            "\\(Official (?:Music )?Video\\)",
-            "\\[Official (?:Music )?Video\\]",
-            "\\(Official Audio\\)",
-            "\\[Official Audio\\]",
-            "\\(Lyric(?:s)? Video\\)",
-            "\\[Lyric(?:s)?\\]",
-            "\\(Audio\\)",
-            "\\[Audio\\]",
-            "\\(Visualizer\\)",
-            "\\[Visualizer\\]",
-            "\\(Music Video\\)",
-            "\\[Music Video\\]",
-            "\\(4K Video\\)",
-            "\\[4K\\]",
-            "\\(HD\\)",
-            "\\[HD\\]",
-            "\\|.*$",  // Everything after |
+            "(?i)\\(Official (?:Music )?Video\\)",
+            "(?i)\\[Official (?:Music )?Video\\]",
+            "(?i)\\(Official Audio\\)",
+            "(?i)\\[Official Audio\\]",
+            "(?i)\\(Lyric(?:s)? Video\\)",
+            "(?i)\\[Lyric(?:s)?\\]",
+            "(?i)\\(Audio\\)",
+            "(?i)\\[Audio\\]",
+            "(?i)\\([vV]isualizer\\)",
+            "(?i)\\[[vV]isualizer\\]",
+            "(?i)\\(Music Video\\)",
+            "(?i)\\[Music Video\\]",
+            "(?i)\\(4K Video\\)",
+            "(?i)\\[4K\\]",
+            "(?i)\\(HD\\)",
+            "(?i)\\[HD\\]"
         )
         for (pattern in suffixPatterns) {
-            title = title.replace(Regex("(?i)\\s*$pattern"), "").trim()
+            title = title.replace(Regex(pattern), "").trim()
         }
 
+        val garbageWords = listOf(
+            "official music video", "official video", "official audio", "video song",
+            "lyrical video", "lyric video", "audio song", "full song", "music video",
+            "full video", "hd video", "4k video", "lyric", "lyrics"
+        )
+        for (garbage in garbageWords) {
+            title = title.replace(Regex("(?i)\\b$garbage\\b"), "").trim()
+        }
+
+        // Clean up empty dashes followed by pipes
+        title = title.replace(Regex("\\s*[-\u2013\u2014]+\\s*(?=\\||$)"), " ").trim()
+        title = title.replace(Regex("\\s*[-\u2013\u2014|]+\\s*$"), "").trim()
+        title = title.replace(Regex("\\s+"), " ").trim()
+
         // Step 2: Handle "Artist - Title" format in title
-        // This is the most common YouTube format: "Queen - Bohemian Rhapsody"
-        val separators = listOf(" - ", " \u2013 ", " \u2014 ")
-        for (sep in separators) {
-            if (title.contains(sep)) {
-                val parts = title.split(sep, limit = 2)
+        val dashes = listOf(" - ", " \u2013 ", " \u2014 ")
+        var hasDashArtist = false
+        for (dash in dashes) {
+            if (title.contains(dash)) {
+                val parts = title.split(dash, limit = 2)
                 if (parts.size == 2) {
                     val potentialArtist = parts[0].trim()
                     val potentialTitle = parts[1].trim()
-                    // Only split if the first part looks like an artist name (not too long)
-                    if (potentialArtist.length < 50 && potentialArtist.split("\\s+".toRegex()).size <= 4) {
-                        // Use this as artist if we don't have a better one
-                        if (artist.isBlank() || artist.contains("Topic", ignoreCase = true) || artist.contains("VEVO", ignoreCase = true)) {
+                    
+                    if (potentialArtist.length < 50 && potentialArtist.split(Regex("\\s+")).size <= 4) {
+                        if (!isRecordLabel(potentialArtist)) {
                             artist = potentialArtist
+                            title = potentialTitle
+                            hasDashArtist = true
+                            break
                         }
-                        title = potentialTitle
-                        break
                     }
                 }
             }
         }
 
-        // Step 3: Clean up artist name
-        artist = artist
-            .replace(Regex("(-\\s*)?Topic", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("VEVO", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("-\\s*Topic", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("\\(.*\\)"), "")  // Remove parenthetical info
-            .replace(Regex("\\[.*\\]"), "")  // Remove bracketed info
-            .trim()
-            .replace(Regex("\\s+"), " ")
+        // Step 3: Handle " | " separator in title
+        if (title.contains(" | ")) {
+            val parts = title.split(" | ")
+            val firstPart = parts[0].trim()
+            val secondPart = if (parts.size > 1) parts[1].trim() else ""
+            
+            if (secondPart.isNotBlank() && !isRecordLabel(secondPart) && secondPart.split(Regex("\\s+")).size <= 3) {
+                title = "$firstPart $secondPart"
+            } else {
+                title = firstPart
+            }
+            
+            title = title.replace(Regex("\\s* - \\s*$"), "").trim()
+        }
 
-        // Step 4: Remove featured artists from title but add to artist
-        val featMatch = Regex("\\(?\\s*(?:ft|feat|featuring|\\&|x)\\s+([^)\\]]+)", RegexOption.IGNORE_CASE)
-        val featResult = featMatch.find(title)
-        if (featResult != null) {
-            title = title.replace(featResult.value, "").trim().trim(',', '&')
-            val featuredArtist = featResult.groupValues[1].trim().trim(',', '&')
-            if (artist.isBlank()) {
+        title = title.replace(Regex("\\s*[-\u2013\u2014|]+\\s*$"), "").trim()
+
+        artist = artist
+            .replace(Regex("(?i)(-\\s*)?Topic"), "")
+            .replace(Regex("(?i)VEVO"), "")
+            .replace(Regex("(?i)(-\\s*)?Official(?:\\s+Channel)?"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            
+        if (artist.startsWith("@")) {
+            artist = artist.removePrefix("@")
+        }
+
+        val featMatch = Regex("(?i)\\(?\\s*(?:ft|feat|featuring|\\&|x)\\s+([^)\\]]+)").find(title)
+        if (featMatch != null) {
+            title = title.replace(featMatch.value, "").trim().trim(',', '&').trim()
+            val featuredArtist = featMatch.groupValues[1].trim().trim(',', '&').trim()
+            if (artist.isBlank() || isRecordLabel(artist)) {
                 artist = featuredArtist
             } else if (!artist.contains(featuredArtist, ignoreCase = true)) {
                 artist = "$artist feat. $featuredArtist"
             }
         }
 
-        // Step 5: Final cleanup of title
-        title = title
-            .replace(Regex("\\(.*\\)"), "")  // Remove remaining parentheticals
-            .replace(Regex("\\[.*\\]"), "")  // Remove remaining brackets
-            .trim()
-            .replace(Regex("\\s+"), " ")
+        title = title.replace(Regex("\\(\\s*\\)"), "")
+        title = title.replace(Regex("\\[\\s*\\]"), "")
+        title = title.replace(Regex("\\s+"), " ").trim()
 
         SecureLogger.d(TAG, "  Cleaned: title='$title' artist='$artist'")
-        return title to artist
+        return Pair(title, artist)
     }
 
     /**

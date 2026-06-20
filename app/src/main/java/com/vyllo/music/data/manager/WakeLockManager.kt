@@ -39,10 +39,10 @@ class WakeLockManager @Inject constructor(
      * Acquire both CPU and WiFi wake locks.
      * Safe to call multiple times — checks held state first.
      */
-    fun acquire() {
+    fun acquire(timeoutMs: Long = 3600000L) {
         try {
             if (!wakeLock.isHeld) {
-                wakeLock.acquire()
+                wakeLock.acquire(timeoutMs)
             }
             if (!wifiLock.isHeld) {
                 wifiLock.acquire()

@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
@@ -160,13 +162,16 @@ fun VylloNavigation(
                 bottomBar = {
                     if (!isPlayerExpanded) {
                         YTMBottomNavBar(
-                            selectedTab = homeViewModel.selectedNavTab,
+                            selectedTab = if (showSearchScreen) 1 else if (homeViewModel.selectedNavTab == 0) 0 else homeViewModel.selectedNavTab + 1,
                             onTabSelected = { 
-                                homeViewModel.selectedNavTab = it
-                                showSearchScreen = false
+                                if (it == 1) {
+                                    showSearchScreen = true
+                                } else {
+                                    showSearchScreen = false
+                                    homeViewModel.selectedNavTab = if (it == 0) 0 else it - 1
+                                }
                                 showRecognitionScreen = false
                             },
-                            onSearchClick = { showSearchScreen = true },
                             hasActivePlayer = playerUiState.currentPlayingItem != null
                         )
                     }
@@ -340,35 +345,33 @@ fun LazyListScope.YTMGridSection(
     loadingItemUrl: String? = null,
     sectionKey: String = "grid"
 ) {
-    itemsIndexed(
-        items = rows,
-        key = { index: Int, _: List<MusicItem> ->
-            // Use index-based key with section prefix to avoid duplicates across sections
-            "${sectionKey}_row_$index"
-        },
-        contentType = { _: Int, _: List<MusicItem> -> "grid_row" }
-    ) { _, rowItems: List<MusicItem> ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+    item {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            rowItems.forEach { item ->
-                YTMCompactRow(
-                    item = item,
-                    isPlaying = currentPlayingItem?.title == item.title,
-                    onClick = { onPlay(item) },
-                    modifier = Modifier.weight(1f),
-                    homeViewModel = homeViewModel,
-                    isLoading = loadingItemUrl == item.url
-                )
-            }
-            // Fill empty space if row is not full
-            if (rowItems.size == 1) {
-                Spacer(modifier = Modifier.weight(1f))
+            items(
+                items = rows,
+                key = { colItems -> "${sectionKey}_col_${colItems.firstOrNull()?.url ?: "empty"}" }
+            ) { columnItems ->
+                Column(
+                    modifier = Modifier.width(340.dp), // Standard width for YT Music compact row columns
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    columnItems.forEach { item ->
+                        YTMCompactRow(
+                            item = item,
+                            isPlaying = currentPlayingItem?.title == item.title,
+                            onClick = { onPlay(item) },
+                            modifier = Modifier.fillMaxWidth(),
+                            homeViewModel = homeViewModel,
+                            isLoading = loadingItemUrl == item.url
+                        )
+                    }
+                }
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }

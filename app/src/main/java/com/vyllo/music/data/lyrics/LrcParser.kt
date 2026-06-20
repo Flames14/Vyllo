@@ -29,7 +29,11 @@ object LrcParser {
                         0 -> 0L
                         else -> fractionStr.take(3).toLong()
                     }
-                    val text = matchResult.groupValues[4].trim()
+                    var text = matchResult.groupValues[4].trim()
+                    // Strip agent and background vocal tags to keep display clean
+                    text = text.replace(Regex("\\{agent:[^}]+\\}"), "")
+                               .replace("{bg}", "")
+                               .trim()
                     if (text.isNotBlank() || lines.isNotEmpty()) {
                         val timeMs = (minutes * 60 + seconds) * 1000 + fractionMs
                         lines.add(SyncedLyricLine(timeMs, text))

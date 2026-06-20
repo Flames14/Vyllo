@@ -77,7 +77,7 @@ class YouTubeDataSource @Inject constructor(
     suspend fun searchMusic(query: String, maintainSession: Boolean = true): List<MusicItem> = withContext(extractorDispatcher) {
         try {
             val service = ServiceList.YouTube
-            val searchExtractor = service.getSearchExtractor(query, listOf("videos"), "")
+            val searchExtractor = service.getSearchExtractor(query, emptyList(), "")
             searchExtractor.fetchPage()
             
             if (maintainSession) {
@@ -109,7 +109,7 @@ class YouTubeDataSource @Inject constructor(
     suspend fun fetchItemsWithPagination(query: String): List<MusicItem> = withContext(extractorDispatcher) {
         try {
             val service = ServiceList.YouTube
-            val extractor = service.getSearchExtractor(query, listOf("videos"), "")
+            val extractor = service.getSearchExtractor(query, emptyList(), "")
             extractor.fetchPage()
 
             currentListExtractor = extractor

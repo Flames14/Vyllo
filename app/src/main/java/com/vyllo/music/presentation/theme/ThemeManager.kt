@@ -64,13 +64,13 @@ object ThemeManager {
      * Default dark theme with YT Music Red accent.
      */
     private fun defaultDarkScheme(): ColorScheme = darkColorScheme(
-        primary = Color(0xFFE91E63),
+        primary = Color(0xFFFF0000), // YouTube Red
         onPrimary = Color.White,
-        background = Color(0xFF0F0F0F),
+        background = Color(0xFF030303), // YouTube Music background
         onBackground = Color.White,
-        surface = Color(0xFF161616),
+        surface = Color(0xFF212121), // YouTube Music surface
         onSurface = Color.White,
-        surfaceVariant = Color(0xFF212121),
+        surfaceVariant = Color(0xFF303030),
         onSurfaceVariant = Color.White.copy(alpha = 0.7f),
         secondaryContainer = Color(0xFF2B2B2B),
         onSecondaryContainer = Color.White

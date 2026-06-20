@@ -68,6 +68,8 @@ fun PremiumFullScreenPlayer(
     var selectedTab by remember { mutableIntStateOf(0) }
     var recentlySelectedSongUrl by remember { mutableStateOf<String?>(null) }
     var showEqualizerSheet by rememberSaveable { mutableStateOf(false) }
+    var showStoryShareSheet by remember { mutableStateOf(false) }
+    var showCommentsSheet by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     var shuffleModeEnabled by remember { mutableStateOf(controller?.shuffleModeEnabled ?: false) }
@@ -196,11 +198,13 @@ fun PremiumFullScreenPlayer(
         if (showEqualizerSheet) {
             EqualizerBottomSheet(
                 settings = playerUiState.equalizerSettings,
+                volumeBoostMultiplier = playerUiState.volumeBoostMultiplier,
                 onDismiss = { showEqualizerSheet = false },
                 onEnabledChange = viewModel::setEqualizerEnabled,
                 onBassBoostChange = viewModel::updateBassBoost,
                 onVirtualizerChange = viewModel::updateVirtualizer,
                 onBandLevelChange = viewModel::updateEqualizerBand,
+                onVolumeBoostChange = viewModel::updateVolumeBoost,
                 onReset = viewModel::resetEqualizer
             )
         }
@@ -277,19 +281,38 @@ fun PremiumFullScreenPlayer(
                                     color = MaterialTheme.colorScheme.onBackground
                                 )
                             }
-                            IconButton(onClick = {}, enabled = false) {
-                                Icon(Icons.Rounded.MoreVert, null, tint = Color.Transparent)
+                            Box {
+                                var showMoreMenu by remember { mutableStateOf(false) }
+                                IconButton(onClick = { showMoreMenu = true }) {
+                                    Icon(Icons.Rounded.MoreVert, "More Options", tint = MaterialTheme.colorScheme.onBackground)
+                                }
+                                DropdownMenu(
+                                    expanded = showMoreMenu,
+                                    onDismissRequest = { showMoreMenu = false },
+                                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Equalizer", color = MaterialTheme.colorScheme.onSurface) },
+                                        onClick = {
+                                            showMoreMenu = false
+                                            showEqualizerSheet = true
+                                        },
+                                        leadingIcon = {
+                                            Icon(Icons.Rounded.Tune, "Equalizer", tint = MaterialTheme.colorScheme.onSurface)
+                                        }
+                                    )
+                                }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(40.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
                         
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(50))
                                 .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f))
-                                .padding(4.dp),
+                                .padding(2.dp),
                             horizontalArrangement = Arrangement.Center
                         ) {
                             listOf(R.string.player_tab_player, R.string.player_tab_lyrics).forEachIndexed { idx, labelRes ->
@@ -300,12 +323,12 @@ fun PremiumFullScreenPlayer(
                                         .clip(RoundedCornerShape(50))
                                         .background(if (active) MaterialTheme.colorScheme.onBackground.copy(alpha = 0.18f) else Color.Transparent)
                                         .clickable { selectedTab = idx }
-                                        .padding(vertical = 8.dp),
+                                        .padding(vertical = 4.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = stringResource(labelRes),
-                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (active) FontWeight.Bold else FontWeight.Normal),
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = if (active) FontWeight.Bold else FontWeight.Normal),
                                         color = if (active) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                                     )
                                 }
@@ -357,11 +380,20 @@ fun PremiumFullScreenPlayer(
 
                                 // Album Art Layer (only if not in video mode)
                                 if (!viewModel.isVideoMode) {
+                                    var thumbnailError by remember { mutableStateOf(false) }
                                     AsyncImage(
-                                        model = item.thumbnailUrl,
+                                        model = coil.request.ImageRequest.Builder(LocalContext.current)
+                                            .data(if (thumbnailError) item.thumbnailUrl else item.getHighResThumbnailUrl())
+                                            .allowHardware(false) // Fix Emulator crashes
+                                            .build(),
                                         contentDescription = null,
                                         contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
+                                        modifier = Modifier.fillMaxSize(),
+                                        onState = { state ->
+                                            if (state is coil.compose.AsyncImagePainter.State.Error) {
+                                                thumbnailError = true
+                                            }
+                                        }
                                     )
                                 }
 
@@ -437,6 +469,7 @@ fun PremiumFullScreenPlayer(
                                         }
                                     )
                                 }
+
                             }
 
                             Spacer(modifier = Modifier.height(24.dp))
@@ -470,81 +503,13 @@ fun PremiumFullScreenPlayer(
 
                                 Spacer(modifier = Modifier.height(14.dp))
 
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(44.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterHorizontally),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                                        DownloadButton(item)
+                                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.Start), verticalAlignment = Alignment.CenterVertically) {
+                                    YtmActionButton(icon = Icons.Rounded.Comment, label = "Comments") {
+                                        showCommentsSheet = true
                                     }
-                                    IconButton(
-                                        onClick = { showEqualizerSheet = true },
-                                        modifier = Modifier.size(40.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Rounded.GraphicEq,
-                                            contentDescription = stringResource(R.string.equalizer_title),
-                                            tint = if (playerUiState.equalizerSettings.enabled) {
-                                                MaterialTheme.colorScheme.primary
-                                            } else {
-                                                MaterialTheme.colorScheme.onBackground.copy(0.72f)
-                                            },
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = {
-                                            val shareUrl = item.getUniversalShareUrl()
-                                            if (shareUrl == null) {
-                                                Toast.makeText(
-                                                    context,
-                                                    context.getString(R.string.share_music_error),
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            } else {
-                                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                    type = "text/plain"
-                                                    putExtra(
-                                                        Intent.EXTRA_SUBJECT,
-                                                        context.getString(R.string.share_music_subject, item.title)
-                                                    )
-                                                    putExtra(
-                                                        Intent.EXTRA_TEXT,
-                                                        context.getString(R.string.share_music_message, item.title, shareUrl)
-                                                    )
-                                                }
-                                                ContextCompat.startActivity(
-                                                    context,
-                                                    Intent.createChooser(
-                                                        shareIntent,
-                                                        context.getString(R.string.share_music_chooser)
-                                                    ),
-                                                    null
-                                                )
-                                            }
-                                        },
-                                        modifier = Modifier.size(40.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Rounded.Share,
-                                            contentDescription = stringResource(R.string.share_music),
-                                            tint = MaterialTheme.colorScheme.onBackground.copy(0.72f),
-                                            modifier = Modifier.size(23.dp)
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = { libraryViewModel.showPlaylistAddDialog(item) },
-                                        modifier = Modifier.size(40.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Rounded.PlaylistAdd,
-                                            "Add to Playlist",
-                                            tint = MaterialTheme.colorScheme.onBackground.copy(0.72f),
-                                            modifier = Modifier.size(25.dp)
-                                        )
+                                    YtmActionButton(icon = Icons.Rounded.PlaylistAdd, label = "Save") { libraryViewModel.showPlaylistAddDialog(item) }
+                                    YtmActionButton(icon = Icons.Rounded.Share, label = "Share") {
+                                        showStoryShareSheet = true
                                     }
                                 }
                             }
@@ -593,13 +558,6 @@ fun PremiumFullScreenPlayer(
                                      Icon(Icons.Rounded.SkipPrevious, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(28.dp))
                                  }
                                  
-                                 IconButton(
-                                     onClick = { controller?.seekTo((currentPosition - 10000).coerceAtLeast(0)) }, 
-                                     modifier = Modifier.size(40.dp)
-                                 ) {
-                                     Icon(Icons.Rounded.Replay10, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
-                                 }
-                                 
                                  Surface(
                                      modifier = Modifier
                                         .size(64.dp)
@@ -619,13 +577,6 @@ fun PremiumFullScreenPlayer(
                                              )
                                          }
                                      }
-                                 }
-                                 
-                                 IconButton(
-                                     onClick = { controller?.seekTo((currentPosition + 10000).coerceAtMost(duration)) }, 
-                                     modifier = Modifier.size(40.dp)
-                                 ) {
-                                     Icon(Icons.Rounded.Forward10, null, tint = MaterialTheme.colorScheme.onBackground, modifier = Modifier.size(24.dp))
                                  }
                                  
                                  IconButton(onClick = onNext, modifier = Modifier.size(40.dp)) {
@@ -704,4 +655,32 @@ fun PremiumFullScreenPlayer(
         }
     }
 }
+
+    if (showStoryShareSheet) {
+        StoryShareBottomSheet(item = item, onDismiss = { showStoryShareSheet = false })
+    }
+
+    if (showCommentsSheet) {
+        CommentsBottomSheet(item = item, onDismiss = { showCommentsSheet = false })
+    }
+}
+
+@Composable
+fun YtmActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier.clip(RoundedCornerShape(50)).clickable { onClick() },
+        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
+        contentColor = MaterialTheme.colorScheme.onBackground
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = label, modifier = Modifier.size(20.dp))
+            if (label.isNotEmpty()) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(label, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+            }
+        }
+    }
 }

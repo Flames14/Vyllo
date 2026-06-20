@@ -56,35 +56,35 @@ class DownloadRepository @Inject constructor(
                     status = DownloadStatus.PENDING
                 )
             )
+
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+
+            val workRequestBuilder = OneTimeWorkRequestBuilder<DownloadWorker>()
+                .setConstraints(constraints)
+                .setInputData(workDataOf(
+                    "url" to item.url,
+                    "title" to item.title,
+                    "uploader" to item.uploader,
+                    "thumbnailUrl" to item.thumbnailUrl
+                ))
+                .addTag("download_song")
+                .addTag("download_${item.url}")
+
+            // CRITICAL: setExpedited() ensures the work survives screen-off on Android 12+
+            // Without this, WorkManager defers work when the device enters Doze mode
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                workRequestBuilder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            }
+
+            val workRequest = workRequestBuilder.build()
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                "download_${item.url}",
+                ExistingWorkPolicy.KEEP,
+                workRequest
+            )
         }
-
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        val workRequestBuilder = OneTimeWorkRequestBuilder<DownloadWorker>()
-            .setConstraints(constraints)
-            .setInputData(workDataOf(
-                "url" to item.url,
-                "title" to item.title,
-                "uploader" to item.uploader,
-                "thumbnailUrl" to item.thumbnailUrl
-            ))
-            .addTag("download_song")
-            .addTag("download_${item.url}")
-
-        // CRITICAL: setExpedited() ensures the work survives screen-off on Android 12+
-        // Without this, WorkManager defers work when the device enters Doze mode
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            workRequestBuilder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-        }
-
-        val workRequest = workRequestBuilder.build()
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            "download_${item.url}",
-            ExistingWorkPolicy.KEEP,
-            workRequest
-        )
     }
 
     fun cancelDownload(url: String) {

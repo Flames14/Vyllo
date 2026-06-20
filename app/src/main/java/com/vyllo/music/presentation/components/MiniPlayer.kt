@@ -31,66 +31,78 @@ fun PremiumMiniPlayer(
     onTogglePlay: () -> Unit
 ) {
     val libraryViewModel = LocalLibraryViewModel.current
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        val context = LocalContext.current
-        val miniPlayerImageRequest = remember(musicItem.thumbnailUrl) {
-            ImageRequest.Builder(context)
-                .data(musicItem.thumbnailUrl)
-                .size(120, 120)
-                .build()
-        }
-        AsyncImage(
-            model = miniPlayerImageRequest,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(8.dp))
-        )
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = musicItem.title,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val context = LocalContext.current
+            val miniPlayerImageRequest = remember(musicItem.thumbnailUrl) {
+                ImageRequest.Builder(context)
+                    .data(musicItem.thumbnailUrl)
+                    .size(120, 120)
+                    .build()
+            }
+            AsyncImage(
+                model = miniPlayerImageRequest,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(4.dp)) // YouTube Music has very small rounding
             )
-            Text(
-                text = musicItem.uploader,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(0.6f),
-                maxLines = 1
-            )
-        }
 
-        IconButton(onClick = { libraryViewModel.showPlaylistAddDialog(musicItem) }) {
-            Icon(
-                Icons.Rounded.PlaylistAdd,
-                contentDescription = "Add to Playlist",
-                tint = MaterialTheme.colorScheme.onSurface.copy(0.6f),
-                modifier = Modifier.size(24.dp)
-            )
-        }
+            Spacer(modifier = Modifier.width(12.dp))
 
-        IconButton(onClick = onTogglePlay) {
-            if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
-            } else {
-                Icon(
-                    if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(32.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = musicItem.title,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = musicItem.uploader,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(0.6f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
+
+            IconButton(onClick = { libraryViewModel.showPlaylistAddDialog(musicItem) }) {
+                Icon(
+                    Icons.Rounded.PlaylistAdd,
+                    contentDescription = "Add to Playlist",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+
+            IconButton(onClick = onTogglePlay) {
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(28.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
+                } else {
+                    Icon(
+                        if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            }
         }
+        
+        // YouTube Music style continuous progress bar
+        LinearProgressIndicator(
+            progress = { 0.5f }, // Placeholder progress for now
+            modifier = Modifier.fillMaxWidth().height(2.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+        )
     }
 }

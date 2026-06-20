@@ -19,6 +19,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.VideoStream
+import org.schabi.newpipe.extractor.stream.SubtitlesStream
+import com.vyllo.music.domain.model.LyricsResult
+import com.vyllo.music.domain.model.LyricsStatus
+import com.vyllo.music.domain.model.SyncedLyricLine
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -278,12 +282,364 @@ class MusicRepositoryImpl @Inject constructor(
     override fun loadSearchHistory() = preferenceManager.loadSearchHistory()
     override fun saveSearchQuery(query: String) = preferenceManager.saveSearchQuery(query)
     override fun clearSearchHistory() = preferenceManager.clearSearchHistory()
-    
+
     override fun saveLyricsPreference(videoUrl: String, lrcId: Long) = preferenceManager.saveLyricsPreference(videoUrl, lrcId.toString())
     override fun getSavedLyricsId(videoUrl: String): Long? = preferenceManager.loadLyricsPreference(videoUrl)?.toLongOrNull()
     override fun isLiquidScrollEnabled(): Boolean = preferenceManager.isLiquidScrollEnabled
 
+    private data class DescriptionMetadata(
+        val title: String?,
+        val singers: String?,
+        val music: String?,
+        val movie: String?,
+        val language: String?
+    )
+
+    private fun parseProvidedToYouTubeDescription(description: String): DescriptionMetadata? {
+        val lines = description.lines().map { it.trim() }
+        val startIndex = lines.indexOfFirst { it.contains("Provided to YouTube by", ignoreCase = true) }
+        if (startIndex == -1) return null
+
+        var songLineIndex = -1
+        for (i in (startIndex + 1) until lines.size) {
+            if (lines[i].isNotBlank()) {
+                songLineIndex = i
+                break
+            }
+        }
+        if (songLineIndex == -1) return null
+
+        val songLine = lines[songLineIndex]
+        val songParts = songLine.split(Regex("[·•]")).map { it.trim() }
+        if (songParts.isEmpty()) return null
+
+        val title = songParts[0]
+        val singers = if (songParts.size > 1) {
+            songParts.subList(1, songParts.size).joinToString(", ")
+        } else {
+            null
+        }
+
+        var albumLineIndex = -1
+        for (i in (songLineIndex + 1) until lines.size) {
+            if (lines[i].isNotBlank()) {
+                albumLineIndex = i
+                break
+            }
+        }
+        val album = if (albumLineIndex != -1) {
+            val candidate = lines[albumLineIndex]
+            if (candidate.startsWith("℗") || candidate.startsWith("Released on:", ignoreCase = true) || candidate.contains("Auto-generated", ignoreCase = true)) {
+                null
+            } else {
+                candidate
+            }
+        } else {
+            null
+        }
+
+        return DescriptionMetadata(
+            title = title,
+            singers = singers,
+            music = null,
+            movie = album,
+            language = null
+        )
+    }
+
+    private fun parseDescriptionMetadata(description: String): DescriptionMetadata {
+        var title: String? = null
+        var singers: String? = null
+        var music: String? = null
+        var movie: String? = null
+        var language: String? = null
+
+        description.lines().forEach { line ->
+            val trimmed = line.trim()
+            if (title == null) {
+                val match = Regex("(?i)^(?:\\s*[-–—•*]*\\s*)?(?:Song|Track|Title)\\s*[:\\-–—]\\s*(.+)").find(trimmed)
+                if (match != null) title = match.groupValues[1].trim()
+            }
+            if (singers == null) {
+                val match = Regex("(?i)^(?:\\s*[-–—•*]*\\s*)?(?:Singer|Singers|Artist|Artists|Vocals|Sung by|Singers/Vocals|Singer/Vocals)\\s*[:\\-–—]\\s*(.+)").find(trimmed)
+                if (match != null) singers = match.groupValues[1].trim()
+            }
+            if (music == null) {
+                val match = Regex("(?i)^(?:\\s*[-–—•*]*\\s*)?(?:Music|Music Director|Composer|Composed by|Music Composer)\\s*[:\\-–—]\\s*(.+)").find(trimmed)
+                if (match != null) music = match.groupValues[1].trim()
+            }
+            if (movie == null) {
+                val match = Regex("(?i)^(?:\\s*[-–—•*]*\\s*)?(?:Movie|Album|Film|Movie Name|Film Name)\\s*[:\\-–—]\\s*(.+)").find(trimmed)
+                if (match != null) movie = match.groupValues[1].trim()
+            }
+            if (language == null) {
+                val match = Regex("(?i)^(?:\\s*[-–—•*]*\\s*)?(?:Language|Lang)\\s*[:\\-–—]\\s*(.+)").find(trimmed)
+                if (match != null) language = match.groupValues[1].trim()
+            }
+        }
+
+        return DescriptionMetadata(title, singers, music, movie, language)
+    }
+
+    private fun detectLanguageFromTagsOrTitle(title: String, tags: List<String>): String? {
+        val languages = listOf("Tamil", "Telugu", "Hindi", "Malayalam", "Kannada", "Punjabi", "Bengali", "English", "Spanish")
+        for (lang in languages) {
+            if (title.contains(lang, ignoreCase = true)) return lang
+            if (tags.any { it.contains(lang, ignoreCase = true) }) return lang
+        }
+        return null
+    }
+
+    private fun detectLanguageFromText(text: String): String? {
+        val languages = listOf("Tamil", "Telugu", "Hindi", "Malayalam", "Kannada", "Punjabi", "Bengali", "English", "Spanish")
+        for (lang in languages) {
+            if (text.contains(lang, ignoreCase = true)) return lang
+        }
+        return null
+    }
+
+    private fun selectBestSubtitles(streams: List<SubtitlesStream>, targetLanguage: String?): SubtitlesStream? {
+        if (streams.isEmpty()) return null
+        
+        val supportedStreams = streams.filter { 
+            (it.format == org.schabi.newpipe.extractor.MediaFormat.VTT || 
+            it.format == org.schabi.newpipe.extractor.MediaFormat.SRT) &&
+            !it.url.isNullOrBlank()
+        }
+        
+        if (supportedStreams.isEmpty()) return null
+
+        val langLower = targetLanguage?.lowercase()
+
+        if (!langLower.isNullOrBlank()) {
+            supportedStreams.firstOrNull { 
+                !it.isAutoGenerated && 
+                (it.languageTag.lowercase().contains(langLower) || it.displayLanguageName.lowercase().contains(langLower)) 
+            }?.let { return it }
+        }
+
+        supportedStreams.firstOrNull { 
+            !it.isAutoGenerated && 
+            (it.languageTag.lowercase().startsWith("en") || it.displayLanguageName.lowercase().contains("english")) 
+        }?.let { return it }
+
+        if (!langLower.isNullOrBlank()) {
+            supportedStreams.firstOrNull { 
+                it.isAutoGenerated && 
+                (it.languageTag.lowercase().contains(langLower) || it.displayLanguageName.lowercase().contains(langLower)) 
+            }?.let { return it }
+        }
+
+        supportedStreams.firstOrNull { 
+            it.isAutoGenerated && 
+            (it.languageTag.lowercase().startsWith("en") || it.displayLanguageName.lowercase().contains("english")) 
+        }?.let { return it }
+
+        supportedStreams.firstOrNull { !it.isAutoGenerated }?.let { return it }
+
+        return supportedStreams.firstOrNull()
+    }
+
+    private fun parseSubtitleTimestamp(timeStr: String): Long? {
+        val clean = timeStr.trim().replace(',', '.')
+        val parts = clean.split('.')
+        val timeParts = parts[0].split(':')
+        if (timeParts.size < 2) return null
+        val ms = parts.getOrNull(1)?.padEnd(3, '0')?.take(3)?.toLongOrNull() ?: 0L
+        val secs = timeParts.last().toLongOrNull() ?: return null
+        val mins = timeParts[timeParts.size - 2].toLongOrNull() ?: return null
+        val hrs = if (timeParts.size > 2) timeParts[timeParts.size - 3].toLongOrNull() ?: 0L else 0L
+        return hrs * 3600000L + mins * 60000L + secs * 1000L + ms
+    }
+
+    private fun parseSubtitles(content: String): List<SyncedLyricLine> {
+        val lines = content.lines()
+        val list = mutableListOf<SyncedLyricLine>()
+        var currentTimestamp: Long? = null
+        val currentText = StringBuilder()
+
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (trimmed.contains("-->")) {
+                if (currentTimestamp != null && currentText.isNotEmpty()) {
+                    val text = cleanSubtitleText(currentText.toString())
+                    if (text.isNotBlank()) {
+                        list.add(SyncedLyricLine(currentTimestamp, text))
+                    }
+                    currentText.clear()
+                }
+                val parts = trimmed.split("-->")
+                if (parts.isNotEmpty()) {
+                    currentTimestamp = parseSubtitleTimestamp(parts[0])
+                }
+            } else if (trimmed.isBlank()) {
+                if (currentTimestamp != null && currentText.isNotEmpty()) {
+                    val text = cleanSubtitleText(currentText.toString())
+                    if (text.isNotBlank()) {
+                        list.add(SyncedLyricLine(currentTimestamp, text))
+                    }
+                    currentText.clear()
+                }
+                currentTimestamp = null
+            } else if (trimmed.toLongOrNull() != null) {
+                continue
+            } else if (trimmed.equals("WEBVTT", ignoreCase = true) || trimmed.startsWith("NOTE")) {
+                continue
+            } else {
+                if (currentTimestamp != null) {
+                    if (currentText.isNotEmpty()) currentText.append(" ")
+                    currentText.append(trimmed)
+                }
+            }
+        }
+        if (currentTimestamp != null && currentText.isNotEmpty()) {
+            val text = cleanSubtitleText(currentText.toString())
+            if (text.isNotBlank()) {
+                list.add(SyncedLyricLine(currentTimestamp, text))
+            }
+        }
+        return list
+    }
+
+    private fun cleanSubtitleText(text: String): String {
+        return text.replace(Regex("<[^>]*>"), "").trim()
+    }
+
     override suspend fun getLyrics(title: String, artist: String, duration: Long, url: String): LyricsResponse? {
-        return lyricsEngine.findLyricsUniversal(title, artist, duration)
+        var extTitle: String? = null
+        var extArtist: String? = null
+        var extAlbum: String? = null
+        var extLanguage: String? = null
+        var extMusic: String? = null
+        var subtitleResponse: LyricsResponse? = null
+
+        if (url.isNotBlank()) {
+            getSavedLyricsId(url)?.let { savedId ->
+                lyricsEngine.getLyricsById(savedId)?.let { saved ->
+                    val syncedSource = saved.syncedLyrics ?: saved.plainLyrics
+                    val syncedLines = LyricsEngine.parseSyncedLyrics(syncedSource)
+                    val plainLyrics = saved.plainLyrics ?: syncedLines.joinToString("\n") { it.content }.takeIf { it.isNotBlank() }
+                    return LyricsResponse(
+                        success = true,
+                        strategy = "LRCLIB_SAVED",
+                        result = saved,
+                        results = listOf(saved),
+                        plainLyrics = plainLyrics,
+                        syncedLines = syncedLines.takeIf { it.isNotEmpty() },
+                        languages = LyricsEngine.detectLanguage(syncedSource ?: plainLyrics ?: ""),
+                        lyricsStatus = LyricsStatus(
+                            hasPlain = !plainLyrics.isNullOrBlank(),
+                            hasSynced = syncedLines.isNotEmpty(),
+                            isInstrumental = saved.instrumental
+                        )
+                    )
+                }
+            }
+        }
+
+        val quickLrclib = lyricsEngine.findLyricsUniversal(
+            rawTitle = title,
+            rawArtist = artist,
+            durationSecs = duration
+        )
+        if (quickLrclib.success) {
+            return quickLrclib
+        }
+
+        try {
+            if (url.isNotBlank()) {
+                val info = youtubeDataSource.getOrFetchStreamInfo(url, false)
+                val description = info.description?.content ?: ""
+                val tags = info.tags?.map { it.toString() } ?: emptyList()
+                
+                val topicMeta = parseProvidedToYouTubeDescription(description)
+                val meta = topicMeta ?: parseDescriptionMetadata(description)
+                extTitle = meta.title
+                extArtist = meta.singers
+                extAlbum = meta.movie
+                extLanguage = meta.language ?: detectLanguageFromTagsOrTitle(title, tags) ?: detectLanguageFromText(description)
+                extMusic = meta.music
+                
+                SecureLogger.d("MusicRepositoryImpl") {
+                    "Parsed metadata from StreamInfo: title=$extTitle, artist=$extArtist, album=$extAlbum, lang=$extLanguage, music=$extMusic"
+                }
+
+                // Try to extract and download subtitles
+                val bestSubStream = selectBestSubtitles(info.subtitles, extLanguage)
+                if (bestSubStream != null) {
+                    SecureLogger.d("MusicRepositoryImpl") {
+                        "Found subtitle stream: lang=${bestSubStream.displayLanguageName}, format=${bestSubStream.format}, url=${bestSubStream.url}"
+                    }
+                    val request = Request.Builder()
+                        .url(bestSubStream.url!!)
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                        .build()
+                    
+                    val subContent = withContext(Dispatchers.IO) {
+                        try {
+                            streamProbeClient.newCall(request).execute().use { response ->
+                                if (response.isSuccessful) response.body?.string() else null
+                            }
+                        } catch (e: Exception) {
+                            SecureLogger.e("MusicRepositoryImpl", "Failed to download subtitles: ${e.message}", e)
+                            null
+                        }
+                    }
+
+                    if (!subContent.isNullOrBlank()) {
+                        val syncedLines = parseSubtitles(subContent)
+                        if (syncedLines.isNotEmpty()) {
+                            val plainText = syncedLines.joinToString("\n") { it.content }
+                            val detectText = plainText
+                            val detectedLangs = LyricsEngine.detectLanguage(detectText)
+                            
+                            val lyricsResult = LyricsResult(
+                                id = -1L,
+                                trackName = extTitle ?: title,
+                                artistName = extArtist ?: artist,
+                                albumName = extAlbum,
+                                duration = duration,
+                                instrumental = false,
+                                plainLyrics = plainText,
+                                syncedLyrics = subContent
+                            )
+                            
+                            subtitleResponse = LyricsResponse(
+                                success = true,
+                                strategy = "YOUTUBE_SUBTITLES",
+                                result = lyricsResult,
+                                results = listOf(lyricsResult),
+                                plainLyrics = plainText,
+                                syncedLines = syncedLines,
+                                languages = if (extLanguage != null) listOf(extLanguage.lowercase()) else detectedLangs,
+                                lyricsStatus = LyricsStatus(
+                                    hasPlain = true,
+                                    hasSynced = true,
+                                    isInstrumental = false
+                                )
+                            )
+                            SecureLogger.d("MusicRepositoryImpl") { "Successfully loaded lyrics from YouTube subtitles!" }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            SecureLogger.e("MusicRepositoryImpl", { "Failed to extract StreamInfo metadata for lyrics: ${e.message}" }, e)
+        }
+
+        if (subtitleResponse != null) {
+            return subtitleResponse
+        }
+
+        return lyricsEngine.findLyricsUniversal(
+            rawTitle = title,
+            rawArtist = artist,
+            durationSecs = duration,
+            extractedTitle = extTitle,
+            extractedArtist = extArtist,
+            extractedAlbum = extAlbum,
+            extractedLanguage = extLanguage,
+            extractedMusic = extMusic
+        )
     }
 }

@@ -47,6 +47,8 @@ data class PlayerUiState(
     val isTranslating: Boolean = false,
     val detectedLyricsLangCode: String? = null,
     val equalizerSettings: EqualizerSettings = EqualizerSettings(),
+    val volumeBoostMultiplier: Float = 1.0f,
+    val isVolumeBoosterUIVisible: Boolean = false,
     val isInPipMode: Boolean = false,
     val isFullScreenVideo: Boolean = false,
 )
@@ -63,6 +65,7 @@ class PlayerViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
+    private var volumeBoosterJob: kotlinx.coroutines.Job? = null
 
     // Convenience properties for backward compatibility with Compose UI
     val currentPlayingItem: MusicItem?
@@ -114,13 +117,20 @@ class PlayerViewModel @Inject constructor(
         get() = _uiState.value.detectedLyricsLangCode
     val equalizerSettings: EqualizerSettings
         get() = _uiState.value.equalizerSettings
+    val volumeBoostMultiplier: Float
+        get() = _uiState.value.volumeBoostMultiplier
+    val isVolumeBoosterUIVisible: Boolean
+        get() = _uiState.value.isVolumeBoosterUIVisible
     val isInPipMode: Boolean
         get() = _uiState.value.isInPipMode
     val isFullScreenVideo: Boolean
         get() = _uiState.value.isFullScreenVideo
 
     init {
-        _uiState.update { it.copy(equalizerSettings = preferenceManager.loadEqualizerSettings()) }
+        _uiState.update { it.copy(
+            equalizerSettings = preferenceManager.loadEqualizerSettings(),
+            volumeBoostMultiplier = preferenceManager.volumeBoostMultiplier
+        ) }
         viewModelScope.launch {
             playbackQueueManager.currentPlayingItem.collectLatest { item ->
                 _uiState.update { it.copy(currentPlayingItem = item) }
@@ -292,6 +302,27 @@ class PlayerViewModel @Inject constructor(
         val sanitized = settings.sanitized()
         _uiState.update { it.copy(equalizerSettings = sanitized) }
         preferenceManager.saveEqualizerSettings(sanitized)
+    }
+
+    fun updateVolumeBoost(multiplier: Float) {
+        val clamped = multiplier.coerceIn(1.0f, 3.0f)
+        preferenceManager.volumeBoostMultiplier = clamped
+        _uiState.update { it.copy(volumeBoostMultiplier = clamped) }
+    }
+
+    fun adjustVolumeBoost(delta: Float) {
+        val current = _uiState.value.volumeBoostMultiplier
+        updateVolumeBoost(current + delta)
+        showVolumeBoosterUI()
+    }
+
+    fun showVolumeBoosterUI() {
+        _uiState.update { it.copy(isVolumeBoosterUIVisible = true) }
+        volumeBoosterJob?.cancel()
+        volumeBoosterJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(3000)
+            _uiState.update { it.copy(isVolumeBoosterUIVisible = false) }
+        }
     }
 
     fun setPipMode(enabled: Boolean) {

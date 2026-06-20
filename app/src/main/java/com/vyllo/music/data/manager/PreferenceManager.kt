@@ -26,15 +26,15 @@ private const val TAG = "PreferenceManager"
  * Regular preferences for non-sensitive UI settings
  */
 @Singleton
-class PreferenceManager @Inject constructor(context: Context) {
+class PreferenceManager @Inject constructor(
+    context: Context,
+    private val securePrefs: SecurePreferenceManager
+) {
     
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     // Regular preferences for non-sensitive UI settings
     val preferences: SharedPreferences = context.getSharedPreferences("music_prefs", Context.MODE_PRIVATE)
-    
-    // Secure preference manager for sensitive data
-    private val securePrefs = SecurePreferenceManager(context)
 
     var isFloatingPlayerEnabled: Boolean
         get() = preferences.getBoolean("floating_player_enabled", false)
@@ -63,6 +63,10 @@ class PreferenceManager @Inject constructor(context: Context) {
     var isLiquidScrollEnabled: Boolean
         get() = preferences.getBoolean("liquid_scroll_enabled", false)
         set(value) { preferences.edit().putBoolean("liquid_scroll_enabled", value).apply() }
+
+    var volumeBoostMultiplier: Float
+        get() = preferences.getFloat(KEY_VOLUME_BOOST, 1.0f)
+        set(value) { preferences.edit().putFloat(KEY_VOLUME_BOOST, value.coerceIn(1.0f, 3.0f)).apply() }
 
     var isEqualizerEnabled: Boolean
         get() = preferences.getBoolean(KEY_EQUALIZER_ENABLED, false)
@@ -204,5 +208,6 @@ class PreferenceManager @Inject constructor(context: Context) {
         const val KEY_EQUALIZER_BASS_BOOST = "equalizer_bass_boost"
         const val KEY_EQUALIZER_VIRTUALIZER = "equalizer_virtualizer"
         const val KEY_EQUALIZER_BANDS = "equalizer_bands"
+        const val KEY_VOLUME_BOOST = "volume_boost_multiplier"
     }
 }

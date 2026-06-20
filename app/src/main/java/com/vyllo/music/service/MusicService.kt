@@ -14,6 +14,10 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.*
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.AudioSink
+import android.content.Context
 import com.vyllo.music.MainActivity
 import com.vyllo.music.data.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PlaybackAudioEffectsManager
@@ -61,6 +65,9 @@ class MusicService : MediaSessionService() {
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
 
+    private val volumeBoostProcessor = VolumeBoostAudioProcessor()
+
+
     private val playbackErrorHandler = PlaybackErrorHandler(
         maxRetries = 3,
         baseDelayMs = 2_000L,
@@ -76,6 +83,8 @@ class MusicService : MediaSessionService() {
                 AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).setUsage(C.USAGE_MEDIA).build(),
                 !enabled // false means keep playing when mic/camera is used
             )
+        } else if (key == PreferenceManager.KEY_VOLUME_BOOST) {
+            volumeBoostProcessor.volumeMultiplier = preferenceManager.volumeBoostMultiplier
         }
         playbackAudioEffectsManager.onPreferenceChanged(key)
     }
@@ -158,10 +167,25 @@ class MusicService : MediaSessionService() {
             .build()
         
         val keepAudioPlaying = preferenceManager.isKeepAudioPlayingEnabled
+
         preferenceManager.preferences.registerOnSharedPreferenceChangeListener(preferenceListener)
+        volumeBoostProcessor.volumeMultiplier = preferenceManager.volumeBoostMultiplier
+
+        val renderersFactory = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean
+            ): AudioSink {
+                return DefaultAudioSink.Builder(context)
+                    .setAudioProcessors(arrayOf(volumeBoostProcessor))
+                    .build()
+            }
+        }
 
         // Initialize Player
         player = ExoPlayer.Builder(this)
+            .setRenderersFactory(renderersFactory)
             .setMediaSourceFactory(DefaultMediaSourceFactory(this).setDataSourceFactory(cacheDataSourceFactory))
             .setLoadControl(loadControl)
             .setAudioAttributes(
@@ -181,7 +205,7 @@ class MusicService : MediaSessionService() {
                     Player.STATE_READY -> {
                         SecureLogger.d("MusicService", "Playback STATE_READY")
                         playbackErrorHandler.resetOnSuccess()
-                        wakeLockManager.acquire()
+                        if (player?.playWhenReady == true) wakeLockManager.acquire()
                     }
                     Player.STATE_ENDED -> {
                         SecureLogger.d("MusicService", "Playback STATE_ENDED reached")
@@ -196,10 +220,21 @@ class MusicService : MediaSessionService() {
                     }
                     Player.STATE_IDLE -> {
                         SecureLogger.d("MusicService", "Playback STATE_IDLE")
+                        wakeLockManager.release()
                     }
                     Player.STATE_BUFFERING -> {
                         SecureLogger.d("MusicService", "Playback STATE_BUFFERING")
                         wakeLockManager.acquire()
+                    }
+                }
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (isPlaying) {
+                    wakeLockManager.acquire()
+                } else {
+                    if (player?.playbackState != Player.STATE_BUFFERING) {
+                        wakeLockManager.release()
                     }
                 }
             }

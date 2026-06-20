@@ -49,18 +49,18 @@ fun PremiumPlayerContainer(
     val playerUiState by viewModel.uiState.collectAsState()
     val isActuallyExpanded = isExpanded || playerUiState.isInPipMode
     
-    val containerHeight = if (isActuallyExpanded) screenHeight else 80.dp
-    val targetCorner = if(isActuallyExpanded) 0.dp else 24.dp
+    val containerHeight = if (isActuallyExpanded) screenHeight else 64.dp
+    val targetCorner = 0.dp
     
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .then(
                 if (isActuallyExpanded) Modifier.fillMaxSize() 
-                else Modifier.height(containerHeight).padding(horizontal = 8.dp, vertical = 8.dp)
+                else Modifier.height(containerHeight)
             )
             .shadow(
-                elevation = if(isActuallyExpanded) 0.dp else 16.dp, 
+                elevation = if(isActuallyExpanded) 0.dp else 8.dp, 
                 shape = RoundedCornerShape(targetCorner),
                 spotColor = Color.Black
             )

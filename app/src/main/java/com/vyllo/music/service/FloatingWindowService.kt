@@ -190,6 +190,7 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
             }
         }
         composeView = null
+        store.clear()
     }
 }
 
