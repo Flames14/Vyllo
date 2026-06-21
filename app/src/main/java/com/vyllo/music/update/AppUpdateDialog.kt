@@ -20,8 +20,31 @@ fun AppUpdateDialog(
     onDismiss: () -> Unit
 ) {
     val state by viewModel.updateState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
-    if (state == AppUpdateState.Idle) return
+    androidx.compose.runtime.LaunchedEffect(state) {
+        if (state is AppUpdateState.DownloadComplete) {
+            val file = (state as AppUpdateState.DownloadComplete).file
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.provider",
+                file
+            )
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+            try {
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            viewModel.resetState()
+            onDismiss()
+        }
+    }
+
+    if (state == AppUpdateState.Idle || state is AppUpdateState.DownloadComplete) return
 
     AlertDialog(
         onDismissRequest = {
@@ -128,6 +151,7 @@ fun AppUpdateDialog(
                             )
                         }
                     }
+                    is AppUpdateState.DownloadComplete -> {}
                     AppUpdateState.Idle -> {}
                 }
             }
@@ -147,6 +171,7 @@ fun AppUpdateDialog(
                         Text("OK")
                     }
                 }
+                is AppUpdateState.DownloadComplete -> {}
                 else -> {}
             }
         },

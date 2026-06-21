@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 sealed class AppUpdateState {
@@ -16,6 +17,7 @@ sealed class AppUpdateState {
     object UpToDate : AppUpdateState()
     data class Error(val message: String) : AppUpdateState()
     object Downloading : AppUpdateState()
+    data class DownloadComplete(val file: File) : AppUpdateState()
 }
 
 @HiltViewModel
@@ -46,10 +48,15 @@ class AppUpdateViewModel @Inject constructor(
     }
 
     fun startDownload(url: String) {
-        _updateState.value = AppUpdateState.Downloading
-        downloader.downloadApk(url)
-        // Reset state after triggering download so dialog closes smoothly or updates
-        // Leaving it in downloading state can let the UI show "Check notification bar"
+        viewModelScope.launch {
+            _updateState.value = AppUpdateState.Downloading
+            val apkFile = downloader.downloadApk(url)
+            if (apkFile != null) {
+                _updateState.value = AppUpdateState.DownloadComplete(apkFile)
+            } else {
+                _updateState.value = AppUpdateState.Error("Failed to download update.")
+            }
+        }
     }
     
     fun resetState() {
