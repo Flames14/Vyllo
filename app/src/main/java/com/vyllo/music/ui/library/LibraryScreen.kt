@@ -9,12 +9,13 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Alarm
-import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DownloadDone
-import androidx.compose.material.icons.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,12 +55,19 @@ fun YTMLibraryScreen(
         )
     }
 
+    if (viewModel.showYouTubeSyncSheet) {
+        YouTubeSyncBottomSheet(
+            viewModel = viewModel,
+            onDismiss = { viewModel.showYouTubeSyncSheet = false }
+        )
+    }
+
     LazyColumn(
         state = scrollState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
+        contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-        item {
+        item(key = "ytm_header", contentType = "header") {
             YTMHeader(
                 onSearchClick = onSearchClick,
                 onSettingsClick = onSettingsClick,
@@ -67,7 +75,7 @@ fun YTMLibraryScreen(
             )
         }
 
-        item {
+        item(key = "alarms_card", contentType = "card") {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -110,7 +118,7 @@ fun YTMLibraryScreen(
                         }
                     }
                     Icon(
-                        Icons.Rounded.ArrowForward,
+                        Icons.AutoMirrored.Rounded.ArrowForward,
                         contentDescription = "Open",
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -118,7 +126,7 @@ fun YTMLibraryScreen(
             }
         }
 
-        item {
+        item(key = "playlists_header", contentType = "header") {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -129,14 +137,28 @@ fun YTMLibraryScreen(
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onBackground
                 )
-                IconButton(onClick = { showCreateDialog = true }) {
-                    Icon(Icons.Rounded.Add, "New Playlist", tint = MaterialTheme.colorScheme.primary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = {
+                        viewModel.showYouTubeSyncSheet = true
+                        if (viewModel.isGoogleConnected.value) {
+                            viewModel.loadRemoteYouTubePlaylists()
+                        }
+                    }) {
+                        Icon(
+                            Icons.Rounded.Sync,
+                            contentDescription = "Sync YouTube Playlists",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    IconButton(onClick = { showCreateDialog = true }) {
+                        Icon(Icons.Rounded.Add, "New Playlist", tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         }
 
         if (viewModel.allPlaylists.isEmpty()) {
-            item {
+            item(key = "empty_playlists", contentType = "empty") {
                 Box(
                     modifier = Modifier.fillMaxWidth().height(120.dp),
                     contentAlignment = Alignment.Center
@@ -149,7 +171,11 @@ fun YTMLibraryScreen(
                 }
             }
         } else {
-            items(viewModel.allPlaylists) { playlist ->
+            items(
+                items = viewModel.allPlaylists,
+                key = { "playlist_${it.id}" },
+                contentType = { "playlist_item" }
+            ) { playlist ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -167,7 +193,7 @@ fun YTMLibraryScreen(
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Rounded.PlaylistPlay, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                        Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
@@ -184,7 +210,7 @@ fun YTMLibraryScreen(
             }
         }
 
-        item {
+        item(key = "downloads_header", contentType = "header") {
             Column(modifier = Modifier.padding(bottom = 8.dp)) {
                 YTMSectionHeader(title = "Downloads")
                 if (viewModel.downloadedSongs.isNotEmpty()) {
@@ -199,7 +225,7 @@ fun YTMLibraryScreen(
         }
         
         if (viewModel.downloadedSongs.isEmpty()) {
-            item {
+            item(key = "empty_downloads", contentType = "empty") {
                 Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
@@ -218,10 +244,11 @@ fun YTMLibraryScreen(
                 }
             }
         } else {
-            itemsIndexed(
+            items(
                 items = viewModel.downloadedSongs,
-                key = { _, entry -> entry.url }
-            ) { _, entry ->
+                key = { "download_${it.url}" },
+                contentType = { "song_row" }
+            ) { entry ->
                 val musicItem = MusicItem(entry.title, entry.url, entry.uploader, entry.thumbnailUrl)
                 YTMSongRow(
                     item = musicItem,

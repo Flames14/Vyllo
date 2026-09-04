@@ -25,15 +25,24 @@ class PlayMusicUseCase @Inject constructor(
      * Resolves the stream URL and starts playback.
      * @return PlayResult indicating success or failure with error message.
      */
-    suspend fun execute(item: MusicItem, isVideo: Boolean = false): PlayResult {
-        // Senior Developer Fix: Stop current playback immediately so the user hears 
-        // the change instantly, even while we resolve the new stream URL.
+    suspend fun execute(item: MusicItem, isVideo: Boolean = false, keepQueue: Boolean = false): PlayResult {
+        // Stop current playback immediately so the user hears the change instantly
         playbackManager.stop()
 
-        SecureLogger.d(TAG) { "Playing: ${item.title}, isVideo=$isVideo" }
+        SecureLogger.d(TAG) { "Playing: ${item.title}, isVideo=$isVideo, keepQueue=$keepQueue" }
 
-        // Update queue immediately so UI shows the player with metadata
-        playbackQueueManager.replaceQueue(listOf(item), 0)
+        // Only replace queue if not explicitly instructed to keep existing queue
+        if (!keepQueue) {
+            playbackQueueManager.replaceQueue(listOf(item), 0)
+        } else {
+            val idx = playbackQueueManager.indexOf(item)
+            if (idx >= 0) {
+                playbackQueueManager.setCurrentIndexSafe(idx)
+            } else {
+                playbackQueueManager.addItem(item)
+                playbackQueueManager.setCurrentIndexSafe(playbackQueueManager.size - 1)
+            }
+        }
 
         // The repository/datasource already has internal retries, so we remove the second layer of delay here
         val streamUrl = getStreamUrlUseCase(item.url, isVideo = isVideo)

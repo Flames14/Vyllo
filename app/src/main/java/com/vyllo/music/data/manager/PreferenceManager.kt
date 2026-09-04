@@ -64,6 +64,14 @@ class PreferenceManager @Inject constructor(
         get() = preferences.getBoolean("liquid_scroll_enabled", false)
         set(value) { preferences.edit().putBoolean("liquid_scroll_enabled", value).apply() }
 
+    var isHighRefreshRateEnabled: Boolean
+        get() = preferences.getBoolean("high_refresh_rate_enabled", true)
+        set(value) { preferences.edit().putBoolean("high_refresh_rate_enabled", value).apply() }
+
+    var isQueueSticky: Boolean
+        get() = preferences.getBoolean("queue_sticky_enabled", true)
+        set(value) { preferences.edit().putBoolean("queue_sticky_enabled", value).apply() }
+
     var volumeBoostMultiplier: Float
         get() = preferences.getFloat(KEY_VOLUME_BOOST, 1.0f)
         set(value) { preferences.edit().putFloat(KEY_VOLUME_BOOST, value.coerceIn(1.0f, 3.0f)).apply() }
@@ -88,12 +96,48 @@ class PreferenceManager @Inject constructor(
                 .apply()
         }
 
+    private val memorySearchHistory = java.util.Collections.synchronizedList(mutableListOf<String>())
+
+    init {
+        // Pre-populate in-memory search history from encrypted DataStore
+        scope.launch {
+            try {
+                securePrefs.getSearchHistory().collect { historyList ->
+                    synchronized(memorySearchHistory) {
+                        memorySearchHistory.clear()
+                        memorySearchHistory.addAll(historyList)
+                    }
+                }
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Failed to load encrypted search history: ${e.message}")
+            }
+        }
+        // Cleanup any legacy plaintext search_history from regular preferences
+        if (preferences.contains("search_history")) {
+            val legacy = preferences.getString("search_history", null)
+            if (!legacy.isNullOrBlank()) {
+                legacy.split("|||").forEach { query ->
+                    if (query.isNotBlank()) {
+                        scope.launch { securePrefs.saveSearchQuery(query) }
+                    }
+                }
+            }
+            preferences.edit().remove("search_history").apply()
+        }
+    }
+
     /**
-     * Security: Save search query to encrypted DataStore
+     * Security: Save search query to encrypted DataStore (Zero plaintext leakage)
      */
     fun saveSearchQuery(query: String) {
         if (query.isBlank()) return
-        // Save to encrypted DataStore (async, fire-and-forget)
+        synchronized(memorySearchHistory) {
+            memorySearchHistory.remove(query)
+            memorySearchHistory.add(0, query)
+            if (memorySearchHistory.size > 10) {
+                memorySearchHistory.removeAt(memorySearchHistory.size - 1)
+            }
+        }
         scope.launch {
             try {
                 securePrefs.saveSearchQuery(query)
@@ -101,25 +145,21 @@ class PreferenceManager @Inject constructor(
                 SecureLogger.e(TAG, "Failed to save search query: ${e.message}")
             }
         }
-        // Also keep in regular prefs for backward compatibility
-        val history = loadSearchHistory().toMutableList()
-        history.remove(query)
-        history.add(0, query)
-        val limitedHistory = history.take(10)
-        preferences.edit().putString("search_history", limitedHistory.joinToString("|||")).apply()
     }
 
     /**
-     * Security: Load search history from encrypted DataStore
+     * Security: Load search history from encrypted DataStore cache
      */
     fun loadSearchHistory(): List<String> {
-        // Fallback to regular prefs for simplicity
-        // Encrypted DataStore can be used in a future refactor
-        val historyString = preferences.getString("search_history", "") ?: ""
-        return if (historyString.isBlank()) emptyList() else historyString.split("|||")
+        return synchronized(memorySearchHistory) {
+            memorySearchHistory.toList()
+        }
     }
 
     fun clearSearchHistory() {
+        synchronized(memorySearchHistory) {
+            memorySearchHistory.clear()
+        }
         scope.launch {
             try {
                 securePrefs.clearSearchHistory()
@@ -127,7 +167,6 @@ class PreferenceManager @Inject constructor(
                 SecureLogger.e(TAG, "Failed to clear search history: ${e.message}")
             }
         }
-        preferences.edit().remove("search_history").apply()
     }
 
     /**

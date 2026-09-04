@@ -60,6 +60,17 @@ class PlaybackManager @Inject constructor(
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                val mediaId = mediaItem?.mediaId
+                if (!mediaId.isNullOrBlank()) {
+                    val queue = playbackQueueManager.getQueueSnapshot()
+                    val idx = queue.indexOfFirst { it.url == mediaId }
+                    if (idx >= 0) {
+                        playbackQueueManager.setCurrentIndexSafe(idx)
+                    } else {
+                        val item = mediaItem.toMusicItem()
+                        playbackQueueManager.setCurrentPlayingItemDirectly(item)
+                    }
+                }
                 val item = mediaItem?.toMusicItem()
                 notifyMediaItemChanged(item)
             }

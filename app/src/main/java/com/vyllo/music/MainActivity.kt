@@ -4,6 +4,8 @@ import android.app.PictureInPictureParams
 import android.content.res.Configuration
 import android.media.AudioManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Rational
@@ -22,6 +24,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -87,75 +90,101 @@ class MainActivity : ComponentActivity() {
         checkPermissions()
         
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+            window.isStatusBarContrastEnforced = false
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode = 
                 android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
-        hideSystemBars()
         
         // Start foreground service for playback
         startService(android.content.Intent(this, MusicService::class.java))
         playbackManager.initialize()
 
+        handleIncomingIntent(intent)
+
         setContent {
-            val context = LocalContext.current
+            val isDark = ThemeManager.isDarkTheme(settingsViewModel.themeMode, isSystemInDarkTheme())
+            val colorScheme = ThemeManager.getColorScheme(settingsViewModel.themeMode, isSystemInDarkTheme())
             
-            // Custom Coil image loader for better performance
-            // Note: allowHardware(true) is used for large images (album art) for better performance.
-            // bitmapConfig is not set because hardware bitmaps use their own internal format,
-            // making RGB_565 redundant and ignored.
-            val imageLoader = remember {
-                ImageLoader.Builder(context)
-                    .memoryCache { MemoryCache.Builder(context).maxSizePercent(0.25).build() }
-                    .diskCache {
-                        DiskCache.Builder()
-                            .directory(context.cacheDir.resolve("image_cache"))
-                            .maxSizeBytes(100L * 1024 * 1024)
-                            .build()
-                    }
-                    .crossfade(true)
-                    .build()
-            }
-
-            CompositionLocalProvider(LocalImageLoader provides imageLoader) {
-                val isDark = ThemeManager.isDarkTheme(settingsViewModel.themeMode, isSystemInDarkTheme())
-                val colorScheme = ThemeManager.getColorScheme(settingsViewModel.themeMode, isSystemInDarkTheme())
-                
-                MaterialTheme(colorScheme = colorScheme) {
-                    val systemUiController = WindowCompat.getInsetsController(window, window.decorView)
+            MaterialTheme(colorScheme = colorScheme) {
+                val systemUiController = remember(window) { WindowCompat.getInsetsController(window, window.decorView) }
+                LaunchedEffect(isDark) {
                     systemUiController.isAppearanceLightStatusBars = !isDark
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        VylloNavigation(
-                            playbackManager = playbackManager, 
-                            homeViewModel = homeViewModel,
-                            searchViewModel = searchViewModel,
-                            libraryViewModel = libraryViewModel,
-                            playerViewModel = playerViewModel,
-                            settingsViewModel = settingsViewModel,
-                            onPlay = { item -> playMusic(item) },
-                            onNext = { item -> playNext(item) },
-                            onPrev = { item -> playPrevious(item) }
-                        )
+                    systemUiController.isAppearanceLightNavigationBars = !isDark
+                }
+                Box(modifier = Modifier.fillMaxSize()) {
+                    VylloNavigation(
+                        playbackManager = playbackManager, 
+                        homeViewModel = homeViewModel,
+                        searchViewModel = searchViewModel,
+                        libraryViewModel = libraryViewModel,
+                        playerViewModel = playerViewModel,
+                        settingsViewModel = settingsViewModel,
+                        onPlay = { item -> playMusic(item) },
+                        onPlayFromQueue = { item -> playMusic(item, fromQueue = true) },
+                        onNext = { item -> playNext(item) },
+                        onPrev = { item -> playPrevious(item) }
+                    )
 
-                        val playerState by playerViewModel.uiState.collectAsState()
-                        com.vyllo.music.presentation.components.VolumeBoosterOverlay(
-                            isVisible = playerState.isVolumeBoosterUIVisible,
-                            multiplier = playerState.volumeBoostMultiplier,
-                            modifier = Modifier.align(Alignment.TopCenter)
-                        )
+                    val playerState by playerViewModel.uiState.collectAsState()
+                    com.vyllo.music.presentation.components.VolumeBoosterOverlay(
+                        isVisible = playerState.isVolumeBoosterUIVisible,
+                        multiplier = playerState.volumeBoostMultiplier,
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    )
+
+                    // Dynamic refresh rate listener
+                    LaunchedEffect(settingsViewModel.isHighRefreshRateEnabled) {
+                        setupDisplayMode()
                     }
                 }
             }
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    private fun handleIncomingIntent(intent: Intent?) {
+        val data = intent?.data ?: return
+        if (data.scheme == "com.vyllo.music" && data.host == "oauth2redirect") {
+            libraryViewModel.handleGoogleAuthRedirect(data)
+        }
+    }
+
     private fun setupDisplayMode() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val display = windowManager.defaultDisplay
-            display.supportedModes.maxByOrNull { it.refreshRate }?.let { maxMode ->
+            val targetDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                display
+            } else {
+                @Suppress("DEPRECATION")
+                windowManager.defaultDisplay
+            } ?: return
+
+            val isHighRefresh = preferenceManager.isHighRefreshRateEnabled
+            val modes = targetDisplay.supportedModes
+            val targetMode = if (isHighRefresh) {
+                modes.maxByOrNull { it.refreshRate }
+            } else {
+                // Find 60Hz mode for battery saver, or fallback to lowest refresh rate
+                modes.filter { it.refreshRate in 59.0f..61.0f }.firstOrNull()
+                    ?: modes.minByOrNull { it.refreshRate }
+            }
+
+            targetMode?.let { mode ->
                 val params = window.attributes
-                params.preferredDisplayModeId = maxMode.modeId
-                window.attributes = params
+                if (params.preferredDisplayModeId != mode.modeId) {
+                    params.preferredDisplayModeId = mode.modeId
+                    window.attributes = params
+                }
             }
         }
     }
@@ -172,21 +201,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun hideSystemBars() {
-        val controller = WindowCompat.getInsetsController(window, window.decorView)
-        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller.hide(WindowInsetsCompat.Type.systemBars())
-    }
-
-    private fun playMusic(item: MusicItem) {
+    private fun playMusic(item: MusicItem, fromQueue: Boolean = false) {
         val isVideo = playerViewModel.isVideoMode
         // Set loading state immediately so the player UI shows the spinner while resolving URL
         playerViewModel.setPlaybackLoading(true, item.url)
         lifecycleScope.launch {
-            val result = playMusicUseCase.execute(item, isVideo = isVideo)
+            val result = playMusicUseCase.execute(item, isVideo = isVideo, keepQueue = fromQueue)
             playerViewModel.setPlaybackLoading(false)
             when (result) {
-                is PlayResult.Success -> playerViewModel.loadRelatedSongs(item)
+                is PlayResult.Success -> {
+                    homeViewModel.addToRecentlyPlayed(item)
+                    if (!fromQueue || playerViewModel.relatedSongs.isEmpty()) {
+                        playerViewModel.loadRelatedSongs(item)
+                    }
+                }
                 is PlayResult.Failure -> {
                     if (!isFinishing && !isDestroyed) {
                         Toast.makeText(
@@ -201,31 +229,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun playNext(currentItem: MusicItem?) {
-        val controller = playbackManager.getController()
-        if (controller != null && controller.hasNextMediaItem()) {
-            playbackManager.skipToNext()
+        val queueSnapshot = playbackQueueManager.getQueueSnapshot()
+        val currentIdx = playbackQueueManager.currentIndex
+        if (currentIdx >= 0 && currentIdx < queueSnapshot.size - 1) {
+            playMusic(queueSnapshot[currentIdx + 1], fromQueue = true)
         } else {
-            val queueSnapshot = playbackQueueManager.getQueueSnapshot()
-            val currentIdx = playbackQueueManager.currentIndex
-            if (currentIdx >= 0 && currentIdx < queueSnapshot.size - 1) {
-                // If it's in the manager but not ExoPlayer, force play it
-                playMusic(queueSnapshot[currentIdx + 1])
-            } else {
-                playerViewModel.getNextAutoplayItem()?.let { playMusic(it) }
-            }
+            playerViewModel.getNextAutoplayItem()?.let { playMusic(it, fromQueue = true) }
         }
     }
 
     private fun playPrevious(currentItem: MusicItem?) {
-        val controller = playbackManager.getController()
-        if (controller != null && controller.hasPreviousMediaItem()) {
-            playbackManager.skipToPrevious()
-        } else {
-            val queueSnapshot = playbackQueueManager.getQueueSnapshot()
-            val currentIdx = playbackQueueManager.currentIndex
-            if (currentIdx > 0) {
-                playMusic(queueSnapshot[currentIdx - 1])
-            }
+        val queueSnapshot = playbackQueueManager.getQueueSnapshot()
+        val currentIdx = playbackQueueManager.currentIndex
+        if (currentIdx > 0) {
+            playMusic(queueSnapshot[currentIdx - 1], fromQueue = true)
         }
     }
 

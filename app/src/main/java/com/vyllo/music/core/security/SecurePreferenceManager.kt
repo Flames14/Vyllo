@@ -79,10 +79,15 @@ class SecurePreferenceManager(private val context: Context) {
      * Saves search query to encrypted DataStore
      */
     suspend fun saveSearchQuery(query: String) {
+        if (query.isBlank()) return
         try {
             context.dataStore.edit { prefs ->
                 val id = query.toSha256().take(8)
-                prefs[stringPreferencesKey("search_$id")] = query
+                val timestamp = System.currentTimeMillis()
+                // Remove existing entry for the same query hash to avoid duplicates
+                val existingKeys = prefs.asMap().keys.filter { it.name.endsWith("_$id") }
+                existingKeys.forEach { prefs.remove(it) }
+                prefs[stringPreferencesKey("search_${timestamp}_$id")] = query
             }
             Log.sensitive(TAG, "Saved search query")
         } catch (e: Exception) {
@@ -91,15 +96,16 @@ class SecurePreferenceManager(private val context: Context) {
     }
 
     /**
-     * Gets search history as a Flow
+     * Gets search history as a Flow (most recent first)
      */
     fun getSearchHistory(): Flow<List<String>> {
         return context.dataStore.data.map { prefs ->
             prefs.asMap()
                 .filterKeys { it.name.startsWith("search_") }
-                .values
-                .map { it.toString() }
-                .sortedByDescending { it } // Most recent first
+                .entries
+                .sortedByDescending { it.key.name } // Most recent timestamp first
+                .map { it.value.toString() }
+                .distinct()
         }
     }
 

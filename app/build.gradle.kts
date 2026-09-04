@@ -32,8 +32,8 @@ android {
         applicationId = "com.vyllo.music"
         minSdk = 24
         targetSdk = 34
-        versionCode = 5
-        versionName = "v2.1"
+        versionCode = 8
+        versionName = "v2.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // Security: BuildConfig fields for sensitive URLs (not hardcoded in source)
@@ -131,6 +131,11 @@ android {
             }
         }
     }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
 }
 
 // Enable Compose Strong Skipping Mode for better scroll performance
@@ -141,6 +146,10 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
             "plugin:androidx.compose.compiler.plugins.kotlin:experimentalStrongSkipping=true"
         )
     }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {

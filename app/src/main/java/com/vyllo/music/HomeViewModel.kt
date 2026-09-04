@@ -110,11 +110,11 @@ class HomeViewModel @Inject constructor(
                 state.copy(
                     homeTitle = if (!isHistoryEmpty) "Recommended For You" else "Trending Now",
                     quickPicksRows = recommendations.take(16).chunked(4),
-                    mixedForYouItems = recommendations.drop(8).take(6),
+                    mixedForYouItems = recommendations.drop(16).take(8),
                     newReleasesItems = newReleases.take(8),
                     trendingNowItems = trending.take(8),
-                    trendingNowRows = trending.take(16).chunked(4),
-                    quickPicksItems = recommendations.drop(14),
+                    trendingNowRows = trending.drop(8).take(16).chunked(4),
+                    quickPicksItems = recommendations.drop(24).take(8),
                     isLoading = false
                 )
             }

@@ -18,8 +18,8 @@ object InputSanitizer {
     private const val MAX_PLAYLIST_NAME_LENGTH = 50
     private const val MAX_URL_LENGTH = 2048
 
-    // Dangerous characters that could be used for injection
-    private val DANGEROUS_CHARS = Regex("[<>\"'`;\\\\|&\$()]")
+    // Dangerous characters that could be used for script injection while preserving music title punctuation (', &, (, ))
+    private val DANGEROUS_CHARS = Regex("[<>\"`;\\\\|\$]")
 
     // SQL injection patterns
     private val SQL_INJECTION_PATTERN = Regex(

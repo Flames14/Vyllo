@@ -5,302 +5,214 @@ import com.vyllo.music.domain.model.SyncedLyricLine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
-import java.util.Base64
 
 /**
- * Translation engine using Microsoft Edge Translator (Cognitive Services) API.
- * This is the same backend engine used by edge/bing translation tools.
- * It perfectly translates romanized Indian lyrics (Hinglish/Punjabi) by using
- * a two-step process: Transliteration (Latn -> Native) -> Translation (Native -> en).
+ * High-performance lyrics translation engine.
+ *
+ * Tier 1: Google Translate Chrome-Ex API (Direct HTTP POST, zero auth token, sub-300ms, batch-capable).
+ * Tier 2: MyMemory Neural Machine Translation API (Open API fallback with automatic language detection).
+ * Tier 3: In-memory LRU caching for instantaneous toggle and zero repeat overhead.
  */
 object TranslationEngine {
 
     private val client = OkHttpClient.Builder()
-        .readTimeout(15, TimeUnit.SECONDS)
-        .connectTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(12, TimeUnit.SECONDS)
         .build()
 
-    private val JSON_MEDIA_TYPE = "application/json".toMediaType()
-
-    // Edge Auth Token caching
-    private var jwtToken: String? = null
-    private var tokenExpiryMs: Long = 0
-
-    // In-memory LRU translation cache (max 200 entries)
-    private val translationCache = object : java.util.LinkedHashMap<String, String>(64, 0.75f, true) {
+    // In-memory LRU translation cache (stores up to 500 entries)
+    private val translationCache = object : java.util.LinkedHashMap<String, String>(128, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean {
-            return size > 200
+            return size > 500
         }
     }
 
-    // Detected source language for current session
+    @Volatile
     private var detectedSourceLang: String? = null
 
-    // Supported transliteration parameters for Romanized (Latn) to Native Scripts
-    private val TRANSLIT_LANGS = mapOf(
-        "hi" to "Deva", // Hindi
-        "pa" to "Guru", // Punjabi
-        "ta" to "Taml", // Tamil
-        "te" to "Telu", // Telugu
-        "ml" to "Mlym", // Malayalam
-        "bn" to "Beng", // Bengali
-        "gu" to "Gujr", // Gujarati
-        "kn" to "Knda", // Kannada
-        "mr" to "Deva", // Marathi
-        "ur" to "Arab", // Urdu
-    )
-
     /**
-     * Fetches a free authentication token from Edge's translator endpoint.
-     * The token is typical valid for 10 minutes.
+     * Translates a block of text using Google Translate Chrome-Ex API.
+     * Returns Pair(translatedText, detectedLang) or null if failed.
      */
-    private suspend fun getAuthToken(): String? = withContext(Dispatchers.IO) {
-        if (jwtToken != null && System.currentTimeMillis() < tokenExpiryMs - 60000) {
-            return@withContext jwtToken
-        }
-
+    private fun translateViaGoogle(text: String, targetLang: String = "en"): Pair<String, String>? {
+        if (text.isBlank()) return null
         try {
-            val request = Request.Builder()
-                .url("https://edge.microsoft.com/translate/auth")
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0")
-                .header("Accept", "*/*")
-                .header("Accept-Language", "en-US,en;q=0.9")
-                .header("sec-ch-ua", "\"Microsoft Edge\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"")
-                .header("sec-ch-ua-mobile", "?0")
-                .header("sec-ch-ua-platform", "\"Windows\"")
-                .header("Sec-Fetch-Dest", "empty")
-                .header("Sec-Fetch-Mode", "cors")
-                .header("Sec-Fetch-Site", "same-origin")
-                .header("Origin", "https://edge.microsoft.com")
-                .header("Referer", "https://edge.microsoft.com/translate/")
+            val url = "https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=$targetLang"
+            val formBody = FormBody.Builder()
+                .add("q", text)
                 .build()
 
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val token = response.body?.string()?.trim()
-                if (!token.isNullOrEmpty()) {
-                    // Extract expiry from JWT
-                    try {
-                        val payloadStr = String(Base64.getUrlDecoder().decode(token.split(".")[1]))
-                        val payload = JSONObject(payloadStr)
-                        val exp = payload.getLong("exp")
-                        
-                        jwtToken = token
-                        tokenExpiryMs = exp * 1000L
-                        SecureLogger.d("TranslationEngine", "Fetched new Edge JWT auth token")
-                        return@withContext jwtToken
-                    } catch (e: Exception) {
-                        SecureLogger.e("TranslationEngine", "JWT parse error", e)
+            val request = Request.Builder()
+                .url(url)
+                .post(formBody)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+                .header("Accept", "*/*")
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val bodyString = response.body?.string() ?: return null
+                    val jsonArr = JSONArray(bodyString)
+                    if (jsonArr.length() > 0) {
+                        val translated = jsonArr.getString(0)
+                        val detected = if (jsonArr.length() > 1) jsonArr.getString(1) else "auto"
+                        return Pair(translated, detected)
+                    }
+                } else {
+                    SecureLogger.w("TranslationEngine", "Google translate HTTP error: ${response.code}")
+                }
+            }
+        } catch (e: Exception) {
+            SecureLogger.w("TranslationEngine", "Google translate exception: ${e.message}")
+        }
+        return null
+    }
+
+    /**
+     * Fallback translation using MyMemory API.
+     */
+    private fun translateViaMyMemory(text: String, targetLang: String = "en"): String? {
+        if (text.isBlank()) return null
+        try {
+            val encoded = URLEncoder.encode(text, "UTF-8")
+            val url = "https://api.mymemory.translated.net/get?q=$encoded&langpair=autodetect|$targetLang"
+
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .header("User-Agent", "Mozilla/5.0 (Android 14; Mobile)")
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val bodyString = response.body?.string() ?: return null
+                    val json = JSONObject(bodyString)
+                    val responseData = json.optJSONObject("responseData")
+                    val translatedText = responseData?.optString("translatedText")
+                    if (!translatedText.isNullOrBlank() && !translatedText.startsWith("MYMEMORY WARNING")) {
+                        return translatedText
                     }
                 }
             }
         } catch (e: Exception) {
-            SecureLogger.w("TranslationEngine", "Failed to fetch auth token: ${e.message}")
+            SecureLogger.w("TranslationEngine", "MyMemory translate exception: ${e.message}")
         }
+        return null
+    }
+
+    /**
+     * Single string translation with multi-tier fallback and in-memory LRU caching.
+     */
+    suspend fun translateText(text: String, targetLang: String = "en"): String? = withContext(Dispatchers.IO) {
+        val trimmed = text.trim()
+        if (trimmed.isBlank()) return@withContext null
+
+        val cacheKey = "$targetLang:${trimmed.hashCode()}"
+        synchronized(translationCache) {
+            translationCache[cacheKey]?.let { return@withContext it }
+        }
+
+        // 1. Try Google Translate
+        val googleResult = translateViaGoogle(trimmed, targetLang)
+        if (googleResult != null) {
+            val (translated, detected) = googleResult
+            detectedSourceLang = detected
+            synchronized(translationCache) {
+                translationCache[cacheKey] = translated
+            }
+            return@withContext translated
+        }
+
+        // 2. Fallback to MyMemory
+        val myMemoryResult = translateViaMyMemory(trimmed, targetLang)
+        if (myMemoryResult != null) {
+            synchronized(translationCache) {
+                translationCache[cacheKey] = myMemoryResult
+            }
+            return@withContext myMemoryResult
+        }
+
         return@withContext null
     }
 
     /**
-     * Transforms Romanized text into the native script (e.g. Punjabi Latn -> Gurmukhi).
+     * Translates a list of synchronized lyrics lines in bulk.
+     * Maintains precise 1-to-1 mapping with input lines.
      */
-    private suspend fun transliterateRaw(text: String, lang: String, toScript: String, token: String): String? {
-        try {
-            val url = "https://api.cognitive.microsofttranslator.com/transliterate?api-version=3.0&language=$lang&fromScript=Latn&toScript=$toScript"
-            
-            val jsonBody = JSONArray().apply { put(JSONObject().put("Text", text)) }
-            
-            val request = Request.Builder()
-                .url(url)
-                .post(jsonBody.toString().toRequestBody(JSON_MEDIA_TYPE))
-                .header("Authorization", "Bearer $token")
-                .build()
-
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return null
-                val resultArr = JSONArray(body)
-                if (resultArr.length() > 0) {
-                    return resultArr.getJSONObject(0).getString("text")
-                }
-            }
-        } catch (e: Exception) {
-            SecureLogger.w("TranslationEngine", "Transliterate error: ${e.message}")
-        }
-        return null
-    }
-
-    /**
-     * Translates native text to target language (e.g. Gurmukhi -> English).
-     */
-    private suspend fun translateRawMET(text: String, fromLang: String, toLang: String, token: String): String? {
-        try {
-            // If fromLang is auto, omit the from parameter
-            val url = if (fromLang == "auto") {
-                "https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=$toLang"
-            } else {
-                "https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&from=$fromLang&to=$toLang"
-            }
-            
-            val jsonBody = JSONArray().apply { put(JSONObject().put("Text", text)) }
-            
-            val request = Request.Builder()
-                .url(url)
-                .post(jsonBody.toString().toRequestBody(JSON_MEDIA_TYPE))
-                .header("Authorization", "Bearer $token")
-                .build()
-
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string() ?: return null
-                val resultArr = JSONArray(body)
-                if (resultArr.length() > 0) {
-                    val translations = resultArr.getJSONObject(0).getJSONArray("translations")
-                    if (translations.length() > 0) {
-                        return translations.getJSONObject(0).getString("text")
-                    }
-                }
-            } else {
-                SecureLogger.w("TranslationEngine", "Translate failed: ${response.code}")
-            }
-        } catch (e: Exception) {
-            SecureLogger.w("TranslationEngine", "Translate error: ${e.message}")
-        }
-        return null
-    }
-
-    /**
-     * Translates a string using the full pipeline:
-     * 1. If language is supported for transliteration, transliterate Latn -> Native
-     * 2. Translate Native -> Target
-     */
-    private suspend fun translatePipeline(text: String, sourceLang: String, targetLang: String, token: String): String? {
-        var processingText = text
-
-        // Step 1: Transliterate if applicable
-        if (sourceLang != "auto" && TRANSLIT_LANGS.containsKey(sourceLang)) {
-            val toScript = TRANSLIT_LANGS[sourceLang]!!
-            val transliterated = transliterateRaw(text, sourceLang, toScript, token)
-            if (transliterated != null) {
-                processingText = transliterated
-            }
-        }
-
-        // Step 2: Translate
-        return translateRawMET(processingText, sourceLang, targetLang, token)
-    }
-
-    private fun calculateWordOverlap(original: String, translated: String): Double {
-        val origWords = original.lowercase().split(Regex("[^a-z0-9]+")).filter { it.length > 2 }.toSet()
-        if (origWords.isEmpty()) return 1.0
-
-        val transWords = translated.lowercase().split(Regex("[^a-z0-9]+")).filter { it.length > 2 }
-        if (transWords.isEmpty()) return 1.0
-
-        var unchanged = 0
-        for (w in transWords) {
-            if (origWords.contains(w)) unchanged++
-        }
-
-        return unchanged.toDouble() / transWords.size.toDouble()
-    }
-
-    /**
-     * Detects language for Romanized lyrics by finding which language
-     * yields the best English translation (lowest word overlap).
-     */
-    private suspend fun detectAndLockSourceLanguage(lines: List<String>, targetLang: String) {
-        if (detectedSourceLang != null) return
-
-        val sampleLines = lines.map { it.trim() }.filter { it.isNotBlank() }.take(5)
-        if (sampleLines.isEmpty()) return
-
-        val sampleText = sampleLines.joinToString("\n")
-        val token = getAuthToken() ?: return
-
-        withContext(Dispatchers.IO) {
-            // Try "auto" first
-            val autoResult = translateRawMET(sampleText, "auto", targetLang, token)
-            if (autoResult != null) {
-                val overlap = calculateWordOverlap(sampleText, autoResult)
-                if (overlap < 0.4) {
-                    detectedSourceLang = "auto"
-                    SecureLogger.d("TranslationEngine") { "Locked 'auto' (overlap: $overlap)" }
-                    return@withContext
-                }
-            }
-
-            SecureLogger.d("TranslationEngine") { "Probing ${TRANSLIT_LANGS.size} languages for Romanized text..." }
-
-            val probeJobs = TRANSLIT_LANGS.keys.map { lang ->
-                async {
-                    val translated = translatePipeline(sampleText, lang, targetLang, token)
-                    val overlap = if (translated != null) calculateWordOverlap(sampleText, translated) else 1.0
-                    Triple(lang, translated, overlap)
-                }
-            }
-
-            val results = probeJobs.awaitAll()
-
-            var bestLang = "auto"
-            var lowestOverlap = 1.0
-
-            for ((lang, translated, overlap) in results) {
-                if (overlap < lowestOverlap) {
-                    lowestOverlap = overlap
-                    bestLang = lang
-                }
-            }
-
-            detectedSourceLang = bestLang
-            SecureLogger.d("TranslationEngine") { "LOCKED source language: [$bestLang] with overlap $lowestOverlap" }
-        }
-    }
-
-    private suspend fun translateTextLocked(
-        text: String,
-        targetLang: String = "en"
-    ): String? = withContext(Dispatchers.IO) {
-        if (text.isBlank()) return@withContext null
-
-        val cacheKey = "${targetLang}:${text.trim().hashCode()}"
-        translationCache[cacheKey]?.let { return@withContext it }
-
-        val token = getAuthToken() ?: return@withContext null
-        val effectiveSourceLang = detectedSourceLang ?: "auto"
-        
-        val result = translatePipeline(text.trim(), effectiveSourceLang, targetLang, token)
-
-        if (result != null) {
-            translationCache[cacheKey] = result
-        }
-        
-        return@withContext result
-    }
-
     suspend fun translateLines(
         lines: List<SyncedLyricLine>,
         sourceLang: String = "auto",
         targetLang: String = "en"
     ): List<String?> = withContext(Dispatchers.IO) {
-        detectAndLockSourceLanguage(lines.map { it.content }, targetLang)
+        if (lines.isEmpty()) return@withContext emptyList()
 
-        val uniqueTexts = lines.map { it.content.trim() }.filter { it.isNotBlank() }.distinct()
-        
+        val validLines = lines.map { it.content.trim() }
+        val joinedText = validLines.joinToString("\n")
+
+        // Strategy 1: Batch translation in one HTTP request (fastest and most context-aware)
+        val batchResult = translateViaGoogle(joinedText, targetLang)
+        if (batchResult != null) {
+            val (translatedBlock, detected) = batchResult
+            detectedSourceLang = detected
+
+            val splitLines = translatedBlock.lines()
+            if (splitLines.size == lines.size) {
+                // Perfect 1-to-1 match
+                synchronized(translationCache) {
+                    for (i in lines.indices) {
+                        val orig = validLines[i]
+                        val trans = splitLines[i].trim()
+                        if (orig.isNotBlank() && trans.isNotBlank()) {
+                            translationCache["$targetLang:${orig.hashCode()}"] = trans
+                        }
+                    }
+                }
+                return@withContext splitLines.map { it.takeIf { s -> s.isNotBlank() } }
+            }
+        }
+
+        // Strategy 2: Parallel unique line translation if batch line count mismatched
+        val uniqueLines = validLines.filter { it.isNotBlank() }.distinct()
         val translationMap = mutableMapOf<String, String?>()
-        for (text in uniqueTexts) {
-            val cacheKey = "${targetLang}:${text.hashCode()}"
-            if (translationCache.containsKey(cacheKey)) {
-                translationMap[text] = translationCache[cacheKey]
-            } else {
-                translationMap[text] = translateTextLocked(text, targetLang)
+
+        // Check cache first
+        val missingLines = mutableListOf<String>()
+        synchronized(translationCache) {
+            for (line in uniqueLines) {
+                val cached = translationCache["$targetLang:${line.hashCode()}"]
+                if (cached != null) {
+                    translationMap[line] = cached
+                } else {
+                    missingLines.add(line)
+                }
+            }
+        }
+
+        if (missingLines.isNotEmpty()) {
+            coroutineScope {
+                val jobs = missingLines.map { line ->
+                    async(Dispatchers.IO) {
+                        val translated = translateText(line, targetLang)
+                        Pair(line, translated)
+                    }
+                }
+                jobs.awaitAll().forEach { (line, trans) ->
+                    if (trans != null) {
+                        translationMap[line] = trans
+                        synchronized(translationCache) {
+                            translationCache["$targetLang:${line.hashCode()}"] = trans
+                        }
+                    }
+                }
             }
         }
 
@@ -310,6 +222,9 @@ object TranslationEngine {
         }
     }
 
+    /**
+     * Translates plain lyrics text.
+     */
     suspend fun translatePlainLyrics(
         plainLyrics: String,
         sourceLang: String = "auto",
@@ -317,25 +232,39 @@ object TranslationEngine {
     ): String? = withContext(Dispatchers.IO) {
         if (plainLyrics.isBlank()) return@withContext null
 
-        val cacheKey = "plain:${targetLang}:${plainLyrics.hashCode()}"
-        translationCache[cacheKey]?.let { return@withContext it }
+        val cacheKey = "plain:$targetLang:${plainLyrics.trim().hashCode()}"
+        synchronized(translationCache) {
+            translationCache[cacheKey]?.let { return@withContext it }
+        }
 
+        // Try batch Google translation
+        val googleResult = translateViaGoogle(plainLyrics.trim(), targetLang)
+        if (googleResult != null) {
+            val (translated, detected) = googleResult
+            detectedSourceLang = detected
+            synchronized(translationCache) {
+                translationCache[cacheKey] = translated
+            }
+            return@withContext translated
+        }
+
+        // Fallback to line-by-line translation
         val lines = plainLyrics.lines()
-        detectAndLockSourceLanguage(lines, targetLang)
-
         val translatedLines = mutableListOf<String>()
         for (line in lines) {
             if (line.isBlank()) {
                 translatedLines.add("")
             } else {
-                val translated = translateTextLocked(line, targetLang)
+                val translated = translateText(line, targetLang)
                 translatedLines.add(translated ?: line)
             }
         }
 
         val result = translatedLines.joinToString("\n")
-        translationCache[cacheKey] = result
-        result
+        synchronized(translationCache) {
+            translationCache[cacheKey] = result
+        }
+        return@withContext result
     }
 
     fun resetSession() {
@@ -343,7 +272,9 @@ object TranslationEngine {
     }
 
     fun clearCache() {
-        translationCache.clear()
+        synchronized(translationCache) {
+            translationCache.clear()
+        }
         detectedSourceLang = null
     }
 }

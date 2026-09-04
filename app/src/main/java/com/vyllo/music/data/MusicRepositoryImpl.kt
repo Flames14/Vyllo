@@ -2,6 +2,7 @@ package com.vyllo.music.data
 
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.domain.model.MusicItemType
 import com.vyllo.music.domain.model.LyricsResponse
 import com.vyllo.music.data.download.*
 import com.vyllo.music.data.manager.PlaybackQueueManager
@@ -14,7 +15,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.schabi.newpipe.extractor.stream.AudioStream
@@ -44,6 +49,31 @@ class MusicRepositoryImpl @Inject constructor(
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
+
+    /**
+     * Cached suggestion pool per anchor track so repeated calls (prefetch, autoplay,
+     * Up Next UI) share the same result instead of refetching everything each time.
+     */
+    private val relatedPoolCache = ConcurrentHashMap<String, RelatedPool>()
+
+    private val relatedDemotePattern = Regex(
+        "\\b(lyrics|live|cover|remix|sped|slowed|reverb|karaoke|instrumental|mashup|reaction|loop|\\d+ hour|with lyrics|official lyric)\\b",
+        RegexOption.IGNORE_CASE
+    )
+
+    private class RelatedPool(
+        val anchorUrl: String,
+        val items: MutableList<MusicItem>,
+        val seenKeys: MutableSet<String>,
+        val fetchedAt: Long = System.currentTimeMillis(),
+        var expansionRound: Int = 0
+    )
+
+    companion object {
+        private const val RELATED_POOL_TTL_MS = 15 * 60 * 1000L
+        private const val RELATED_MAX_ITEMS = 200
+        private const val EXPANSION_QUERIES_PER_ROUND = 2
+    }
 
     override suspend fun getSuggestions(query: String): List<String> = suggestionDataSource.getSuggestions(query)
 
@@ -187,15 +217,319 @@ class MusicRepositoryImpl @Inject constructor(
 
     override suspend fun getLocalStreamUrl(url: String): String? = downloadRepository.getLocalStreamUrl(url)
 
-    override suspend fun getRelatedSongs(url: String): List<MusicItem> {
-        return try {
+    override suspend fun getRelatedSongs(url: String, force: Boolean): List<MusicItem> = withContext(Dispatchers.IO) {
+        try {
+            if (force) {
+                relatedPoolCache.remove(url)
+            } else {
+                relatedPoolCache[url]?.let { pool ->
+                    if (System.currentTimeMillis() - pool.fetchedAt < RELATED_POOL_TTL_MS) {
+                        return@withContext synchronized(pool) { pool.items.toList() }
+                    }
+                    relatedPoolCache.remove(url)
+                }
+            }
+
             val info = youtubeDataSource.getOrFetchStreamInfo(url, false)
-            info.relatedItems.mapNotNull { item ->
+            val currentTitle = info.name?.trim().orEmpty()
+            val currentUploader = info.uploaderName?.trim().orEmpty()
+            val anchorDurationSecs = info.duration
+
+            // 1) YouTube's own related items (auto-mix, similar videos, etc.)
+            val relatedItems = info.relatedItems.mapNotNull { item ->
                 if (item is org.schabi.newpipe.extractor.stream.StreamInfoItem) {
-                    MusicItem(item.name ?: "", item.url ?: "", item.uploaderName ?: "", item.thumbnails?.firstOrNull()?.url ?: "")
+                    val bestThumbnail = item.thumbnails?.maxByOrNull { it.width * it.height }?.url
+                        ?: item.thumbnails?.lastOrNull()?.url
+                        ?: item.thumbnails?.firstOrNull()?.url
+                        ?: ""
+                    MusicItem(
+                        title = item.name ?: "",
+                        url = item.url ?: "",
+                        uploader = item.uploaderName ?: "",
+                        thumbnailUrl = bestThumbnail,
+                        type = MusicItemType.SONG,
+                        durationSecs = item.duration
+                    )
                 } else null
             }
-        } catch (e: Exception) { emptyList() }
+
+            // 2) Targeted searches built from the current track's artist/style so the
+            //    suggestions actually match the user's listening taste.
+            val searchResults = fetchRelatedSearchResults(
+                initialRelatedQueries(currentUploader, currentTitle)
+            )
+
+            val pool = buildRelatedPool(
+                anchorUrl = url,
+                currentTitle = currentTitle,
+                currentUploader = currentUploader,
+                anchorDurationSecs = anchorDurationSecs,
+                searchResults = searchResults,
+                relatedItems = relatedItems
+            )
+            relatedPoolCache[url] = pool
+
+            SecureLogger.d("MusicRepositoryImpl") {
+                "Related songs: ${pool.items.size} (search=${searchResults.size}, youtube=${relatedItems.size}) for url=$url"
+            }
+            pool.items.toList()
+        } catch (e: Exception) {
+            SecureLogger.e("MusicRepositoryImpl", "getRelatedSongs failed", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun getMoreRelatedSongs(url: String): List<MusicItem> = withContext(Dispatchers.IO) {
+        val pool = relatedPoolCache[url]
+        if (pool == null || System.currentTimeMillis() - pool.fetchedAt >= RELATED_POOL_TTL_MS) {
+            // Pool missing or stale — rebuild it from scratch.
+            return@withContext getRelatedSongs(url)
+        }
+        try {
+            val info = youtubeDataSource.getOrFetchStreamInfo(url, false)
+            val currentTitle = info.name?.trim().orEmpty()
+            val currentUploader = info.uploaderName?.trim().orEmpty()
+            val anchorDurationSecs = info.duration
+
+            val queries = synchronized(pool) {
+                val q = expansionQueries(currentUploader, currentTitle, pool.expansionRound)
+                if (q.isNotEmpty()) pool.expansionRound++
+                q
+            }
+            if (queries.isEmpty()) {
+                SecureLogger.d("MusicRepositoryImpl") { "Related pool fully expanded for $url" }
+                return@withContext emptyList()
+            }
+
+            val newResults = fetchRelatedSearchResults(queries)
+            val added = mutableListOf<MusicItem>()
+            synchronized(pool) {
+                newResults.forEach { item ->
+                    if (isGoodCandidate(item, currentTitle, currentUploader, url) &&
+                        pool.seenKeys.add(normalizedTrackKey(item))
+                    ) {
+                        val score = scoreCandidate(item, currentUploader, anchorDurationSecs)
+                        added.add(item)
+                        val insertAt = pool.items.indexOfFirst {
+                            scoreCandidate(it, currentUploader, anchorDurationSecs) < score
+                        }
+                        if (insertAt == -1) pool.items.add(item) else pool.items.add(insertAt, item)
+                    }
+                }
+                if (pool.items.size > RELATED_MAX_ITEMS) {
+                    pool.items.subList(RELATED_MAX_ITEMS, pool.items.size).clear()
+                }
+            }
+            SecureLogger.d("MusicRepositoryImpl") {
+                "Related expansion: +${added.size} for $url (total ${pool.items.size})"
+            }
+            added
+        } catch (e: Exception) {
+            SecureLogger.e("MusicRepositoryImpl", "getMoreRelatedSongs failed", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun getArtistSongs(artist: String): List<MusicItem> = withContext(Dispatchers.IO) {
+        val cleanArtist = artist.replace(" - Topic", "").trim()
+        if (cleanArtist.isBlank()) return@withContext emptyList()
+        try {
+            val results = youtubeDataSource.searchMusic("$cleanArtist top songs tracks", maintainSession = false)
+            results.filter { it.type == MusicItemType.SONG }
+        } catch (e: Exception) {
+            SecureLogger.w("MusicRepositoryImpl", "getArtistSongs failed for $cleanArtist", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun getDiscoverSimilarSongs(title: String, artist: String): List<MusicItem> = withContext(Dispatchers.IO) {
+        val cleanArtist = artist.replace(" - Topic", "").trim()
+        try {
+            val queries = listOf(
+                "songs like $title",
+                "artists similar to $cleanArtist music",
+                "trending music similar to $cleanArtist"
+            )
+            val results = fetchRelatedSearchResults(queries)
+            val cleanLower = cleanArtist.lowercase()
+            results.filter { it.type == MusicItemType.SONG && !it.uploader.lowercase().contains(cleanLower) }
+        } catch (e: Exception) {
+            SecureLogger.w("MusicRepositoryImpl", "getDiscoverSimilarSongs failed", e)
+            emptyList()
+        }
+    }
+
+    private suspend fun fetchRelatedSearchResults(queries: List<String>): List<MusicItem> = coroutineScope {
+        queries.map { query ->
+            async {
+                try {
+                    youtubeDataSource.searchMusic(query, maintainSession = false)
+                } catch (e: Exception) {
+                    SecureLogger.w("MusicRepositoryImpl", "Related search failed: $query", e)
+                    emptyList()
+                }
+            }
+        }.awaitAll().flatten()
+    }
+
+    private fun initialRelatedQueries(uploader: String, title: String): List<String> = buildList {
+        val cleanUploader = uploader.replace(" - Topic", "").trim()
+        if (cleanUploader.isNotBlank()) {
+            add("songs like $cleanUploader hits")
+            add("artists similar to $cleanUploader music")
+            add("$cleanUploader radio mix")
+            add("best of $cleanUploader and similar")
+        }
+        if (title.isNotBlank()) {
+            add("$title song mix")
+            add("music like $title")
+            add("$title radio playlist")
+        }
+    }.shuffled().take(4)
+
+    private fun expansionQueries(uploader: String, title: String, round: Int): List<String> {
+        val cleanUploader = uploader.replace(" - Topic", "").trim()
+        val templates = buildList {
+            if (cleanUploader.isNotBlank()) {
+                add("similar to $cleanUploader radio")
+                add("best songs like $cleanUploader")
+                add("$cleanUploader playlist mix")
+            }
+            if (title.isNotBlank()) {
+                add("$title similar songs")
+                add("$title playlist mix")
+            }
+        }
+        if (templates.isEmpty()) return emptyList()
+        val start = (round * EXPANSION_QUERIES_PER_ROUND).coerceAtMost(templates.size)
+        return templates.drop(start).take(EXPANSION_QUERIES_PER_ROUND)
+    }
+
+    private fun buildRelatedPool(
+        anchorUrl: String,
+        currentTitle: String,
+        currentUploader: String,
+        anchorDurationSecs: Long,
+        searchResults: List<MusicItem>,
+        relatedItems: List<MusicItem>
+    ): RelatedPool {
+        val cleanAnchorUploader = currentUploader.replace(" - Topic", "").trim().lowercase()
+
+        val sameArtistList = mutableListOf<MusicItem>()
+        val relatedArtistList = mutableListOf<MusicItem>()
+        val seenTrackKeys = mutableSetOf<String>()
+
+        // Combine YouTube's dynamic related items and search recommendations
+        val allCandidates = (relatedItems + searchResults).filter {
+            isGoodCandidate(it, currentTitle, currentUploader, anchorUrl)
+        }
+
+        allCandidates.forEach { item ->
+            val key = normalizedTrackKey(item)
+            if (seenTrackKeys.add(key)) {
+                val itemUploader = item.uploader.replace(" - Topic", "").trim().lowercase()
+                val isSameArtist = cleanAnchorUploader.isNotBlank() && (
+                    itemUploader == cleanAnchorUploader ||
+                    itemUploader.contains(cleanAnchorUploader) ||
+                    item.title.lowercase().contains(cleanAnchorUploader)
+                )
+
+                if (isSameArtist) {
+                    sameArtistList.add(item)
+                } else {
+                    relatedArtistList.add(item)
+                }
+            }
+        }
+
+        // Interleave for rich variety with dynamic shuffle so each generated mix is fresh and non-repetitive:
+        val shuffledSameArtist = sameArtistList.shuffled()
+        val shuffledRelatedArtist = relatedArtistList.shuffled()
+
+        val pool = RelatedPool(anchorUrl = anchorUrl, items = mutableListOf(), seenKeys = seenTrackKeys)
+        var sameIdx = 0
+        var relIdx = 0
+
+        while (sameIdx < shuffledSameArtist.size || relIdx < shuffledRelatedArtist.size) {
+            // Add 1 from same artist
+            if (sameIdx < shuffledSameArtist.size) {
+                pool.items.add(shuffledSameArtist[sameIdx++])
+            }
+            // Add up to 3 from related artists for rich diversity
+            for (i in 0 until 3) {
+                if (relIdx < shuffledRelatedArtist.size) {
+                    pool.items.add(shuffledRelatedArtist[relIdx++])
+                }
+            }
+        }
+
+        return pool
+    }
+
+    private fun isGoodCandidate(
+        item: MusicItem,
+        currentTitle: String,
+        currentUploader: String,
+        anchorUrl: String
+    ): Boolean {
+        if (item.type != MusicItemType.SONG) return false
+        if (item.url.isBlank() || item.title.isBlank()) return false
+        if (item.url == anchorUrl) return false
+        val isSameTrack = item.title.equals(currentTitle, ignoreCase = true) &&
+            item.uploader.equals(currentUploader, ignoreCase = true)
+        if (isSameTrack) return false
+        // Skip Shorts and long-form (podcasts/livestreams); keep unknown durations.
+        return item.durationSecs == 0L || item.durationSecs in 30..900
+    }
+
+    /**
+     * Heuristic score: strong boost for same artist, mild boost for similar
+     * duration, and demotion for variant uploads (lyrics/live/cover/remix...).
+     */
+    private fun scoreCandidate(
+        item: MusicItem,
+        currentUploader: String,
+        anchorDurationSecs: Long
+    ): Double {
+        var score = 0.0
+        val titleLower = item.title.lowercase()
+        val uploaderLower = item.uploader.lowercase()
+        val anchorUploader = currentUploader.lowercase()
+
+        if (uploaderLower == anchorUploader) {
+            score += 4.0
+        } else if (anchorUploader.isNotBlank() && uploaderLower.contains(anchorUploader)) {
+            score += 3.0
+        } else if (anchorUploader.isNotBlank() && titleLower.contains(anchorUploader)) {
+            score += 2.0
+        }
+
+        if (anchorDurationSecs in 60..600 && item.durationSecs in 60..600) {
+            val diff = kotlin.math.abs(item.durationSecs - anchorDurationSecs)
+            if (diff < 30) score += 1.5
+            else if (diff < 90) score += 0.75
+        }
+
+        if (relatedDemotePattern.containsMatchIn(item.title)) {
+            score -= 1.0
+        }
+        return score
+    }
+
+    /**
+     * Normalized (title, uploader) key so different uploads of the same song
+     * (official audio, lyric video, live, sped-up...) collapse into one entry.
+     */
+    private fun normalizedTrackKey(item: MusicItem): String {
+        val cleanTitle = item.title.lowercase()
+            .replace(Regex("[(\\[][^)\\]}]*[)\\]}]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        val cleanUploader = item.uploader.lowercase()
+            .replace(" - topic", "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        return "$cleanTitle|$cleanUploader"
     }
 
     // Playlist Methods
@@ -236,43 +570,80 @@ class MusicRepositoryImpl @Inject constructor(
             .filterKeys { it.startsWith("artist_") }
             .mapNotNull { (key, value) -> (value as? Int)?.let { key to it } }
             .sortedByDescending { it.second }
-            .take(5)
+            .take(10)
             .map { it.first.removePrefix("artist_") }
+            .shuffled() // Shuffle so user sees variety across refreshes
 
         val allItems = mutableListOf<MusicItem>()
 
-        // Fetch Quick Picks based on multiple top artists (8 items)
+        // Dynamic time-of-day contextual music seed
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val contextualSeed = when (hour) {
+            in 5..11 -> listOf("morning acoustic songs", "fresh morning pop hits")
+            in 12..17 -> listOf("feel good upbeat music", "lofi chill beats")
+            in 18..22 -> listOf("evening vibes chill music", "top hits official audio")
+            else -> listOf("late night drive songs", "deep sleep relaxing music")
+        }.random()
+
+        // 1. Personalized Artist Mix (Quick Picks)
         if (topArtists.isNotEmpty()) {
-            val artist1 = topArtists.random()
-            allItems.addAll(youtubeDataSource.searchMusic("Mix of $artist1", maintainSession = false).take(8))
+            val selectedArtist = topArtists.first()
+            allItems.addAll(cleanSongList(youtubeDataSource.searchMusic("$selectedArtist radio", maintainSession = false)).take(12))
         } else {
-            allItems.addAll(youtubeDataSource.getTrendingMusic().take(8))
+            allItems.addAll(cleanSongList(youtubeDataSource.searchMusic("top music hits 2026", maintainSession = false)).take(12))
         }
 
-        // Fetch Mixed For You from another random top artist (6 items)
+        // 2. Mixed For You (Secondary Artist or Genre Discovery)
         if (topArtists.size > 1) {
-            val otherArtists = topArtists.filter { name -> allItems.none { it.uploader.contains(name, ignoreCase = true) } }
-            val artist2 = if (otherArtists.isNotEmpty()) otherArtists.random() else topArtists.first()
-            allItems.addAll(youtubeDataSource.searchMusic("Recommended for $artist2", maintainSession = false).take(6))
+            val secondArtist = topArtists[1]
+            allItems.addAll(cleanSongList(youtubeDataSource.searchMusic("$secondArtist mix", maintainSession = false)).take(10))
         } else {
-            allItems.addAll(youtubeDataSource.searchMusic("New suggested music", maintainSession = false).take(6))
+            allItems.addAll(cleanSongList(youtubeDataSource.searchMusic(contextualSeed, maintainSession = false)).take(10))
         }
 
-        // New Releases (8 items)
-        allItems.addAll(youtubeDataSource.searchMusic("Official new music releases", maintainSession = false).take(8))
+        // 3. Time-of-Day Contextual Discovery
+        allItems.addAll(cleanSongList(youtubeDataSource.searchMusic(contextualSeed, maintainSession = false)).take(10))
 
-        // Trending Now (8 items)
-        allItems.addAll(youtubeDataSource.getTrendingMusic().take(8))
+        // 4. Global Trending Music
+        allItems.addAll(cleanSongList(youtubeDataSource.getTrendingMusic()).take(12))
 
-        // Ensure we have a distinct list and enough items for pagination
         val finalItems = allItems.distinctBy { it.url }.toMutableList()
 
-        // Finally, for "load more" pagination, fetch items from a general or first artist recommendation
-        val paginationQuery = if (topArtists.isNotEmpty()) "Recommended music mix ${topArtists.first()}" else "Top latest music videos"
-        val paginatedResults = youtubeDataSource.fetchItemsWithPagination(paginationQuery)
-
+        // 5. Pagination Seed
+        val paginationQuery = if (topArtists.isNotEmpty()) "songs like ${topArtists.first()}" else "global top 50 music"
+        val paginatedResults = cleanSongList(youtubeDataSource.fetchItemsWithPagination(paginationQuery))
         finalItems.addAll(paginatedResults)
-        return finalItems.distinctBy { it.url }
+
+        return finalItems.distinctBy { it.url }.let { capPerArtist(it, 2) }
+    }
+
+    /**
+     * Caps how many suggestions a single artist may occupy so the home feed
+     * stays diverse instead of being flooded by one artist's search results.
+     */
+    private fun capPerArtist(items: List<MusicItem>, maxPerArtist: Int): List<MusicItem> {
+        val counts = HashMap<String, Int>()
+        return items.filter { item ->
+            val key = item.uploader.lowercase().replace(" - topic", "").trim()
+            val current = counts[key] ?: 0
+            if (current < maxPerArtist) {
+                counts[key] = current + 1
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    private fun cleanSongList(items: List<MusicItem>): List<MusicItem> {
+        return items
+            .filter {
+                it.type == MusicItemType.SONG &&
+                    it.url.isNotBlank() &&
+                    it.title.isNotBlank() &&
+                    (it.durationSecs == 0L || it.durationSecs in 30..900)
+            }
+            .distinctBy { it.url }
     }
 
     override suspend fun loadMoreRecommendations(): List<MusicItem> =
@@ -641,5 +1012,26 @@ class MusicRepositoryImpl @Inject constructor(
             extractedLanguage = extLanguage,
             extractedMusic = extMusic
         )
+    }
+
+    override suspend fun getVideoStats(url: String): VideoStats? = withContext(Dispatchers.IO) {
+        try {
+            val info = youtubeDataSource.getOrFetchStreamInfo(url, false)
+            val likeCount = info.likeCount
+            val viewCount = info.viewCount
+            var commentCount = -1L
+            try {
+                val commentsInfo = org.schabi.newpipe.extractor.comments.CommentsInfo.getInfo(
+                    org.schabi.newpipe.extractor.ServiceList.YouTube,
+                    if (url.startsWith("http")) url else "https://www.youtube.com/watch?v=$url"
+                )
+                commentCount = commentsInfo.commentsCount.toLong()
+            } catch (_: Exception) {}
+
+            VideoStats(likeCount = likeCount, viewCount = viewCount, commentCount = commentCount)
+        } catch (e: Exception) {
+            SecureLogger.w("MusicRepositoryImpl", "Failed to fetch video stats: ${e.message}")
+            null
+        }
     }
 }

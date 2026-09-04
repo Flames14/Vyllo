@@ -14,7 +14,10 @@ interface IMusicRepository {
     suspend fun getTrendingMusic(): List<MusicItem>
     suspend fun getStreamUrl(url: String, force: Boolean = false, isVideo: Boolean = false): String?
     suspend fun getLocalStreamUrl(url: String): String?
-    suspend fun getRelatedSongs(url: String): List<MusicItem>
+    suspend fun getRelatedSongs(url: String, force: Boolean = false): List<MusicItem>
+    suspend fun getMoreRelatedSongs(url: String): List<MusicItem>
+    suspend fun getArtistSongs(artist: String): List<MusicItem>
+    suspend fun getDiscoverSimilarSongs(title: String, artist: String): List<MusicItem>
     
     // Playlist Methods
     fun getAllPlaylists(): Flow<List<PlaylistEntity>>
@@ -47,4 +50,11 @@ interface IMusicRepository {
     fun isLiquidScrollEnabled(): Boolean
     
     suspend fun getLyrics(title: String, artist: String, duration: Long, url: String): LyricsResponse?
+    suspend fun getVideoStats(url: String): VideoStats?
 }
+
+data class VideoStats(
+    val likeCount: Long = -1L,
+    val viewCount: Long = -1L,
+    val commentCount: Long = -1L
+)

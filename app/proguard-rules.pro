@@ -1,7 +1,6 @@
 # ===================================================================
 # Vyllo Music Player - Advanced ProGuard/R8 Security Rules
-# ===================================================================
-# Senior-Level Hardening Configuration
+# Production Security & Hardening Configuration
 # ===================================================================
 
 # -------------------------------------------------------------------
@@ -92,42 +91,18 @@
 -dontwarn org.mozilla.javascript.tools.**
 
 # -------------------------------------------------------------------
-# OkHttp & Networking
+# Networking (Consumer rules applied automatically from AAR)
 # -------------------------------------------------------------------
--keep class okhttp3.** { *; }
--keep interface okhttp3.** { *; }
--keep class okhttp3.internal.** { *; }
 -dontwarn okhttp3.**
 -dontwarn okio.**
 
 # -------------------------------------------------------------------
-# Coil Image Loading
+# Media3 / ExoPlayer (Specific reflection points)
 # -------------------------------------------------------------------
--keep class coil.** { *; }
--keep interface coil.** { *; }
--keep class coil.compose.** { *; }
-
-# -------------------------------------------------------------------
-# Media3 / ExoPlayer
-# -------------------------------------------------------------------
--keep class androidx.media3.** { *; }
--keep interface androidx.media3.** { *; }
+-keepclassmembers class androidx.media3.session.** {
+    public <methods>;
+}
 -dontwarn androidx.media3.**
-
-# -------------------------------------------------------------------
-# Compose
-# -------------------------------------------------------------------
--keep class androidx.compose.** { *; }
--keep interface androidx.compose.** { *; }
--keep class androidx.compose.compiler.** { *; }
-
-# -------------------------------------------------------------------
-# Kotlin
-# -------------------------------------------------------------------
--keep class kotlin.** { *; }
--keep interface kotlin.** { *; }
--keep class kotlinx.** { *; }
--keep interface kotlinx.** { *; }
 
 # Keep Kotlin Metadata
 -keepclassmembers class **$WhenMappings {

@@ -43,6 +43,7 @@ import com.vyllo.music.presentation.components.*
 import com.vyllo.music.ui.components.*
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 
 // =========================================================================
 // YTM SEARCH SCREEN
@@ -106,7 +107,8 @@ fun YTMSearchScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 4.dp, end = 16.dp, top = 48.dp, bottom = 8.dp),
+                .statusBarsPadding()
+                .padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
@@ -138,7 +140,12 @@ fun YTMSearchScreen(
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onBackground),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { viewModel.performSearch(viewModel.searchQuery) }),
-                        modifier = Modifier.weight(1f).focusRequester(focusRequester),
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(focusRequester)
+                            .onFocusChanged { state -> 
+                                if (state.isFocused) viewModel.onSearchFieldFocused() 
+                            },
                         decorationBox = { innerTextField ->
                             if (viewModel.searchQuery.isEmpty()) {
                                 Text("Search songs, albums, artists", color = MaterialTheme.colorScheme.onBackground.copy(0.4f))
@@ -191,7 +198,7 @@ fun YTMSearchScreen(
             }
         }
         
-        // Content
+        // Content: Live Suggestions & Search History or Results
         if (!viewModel.isSearching) {
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -214,15 +221,37 @@ fun YTMSearchScreen(
                             }
                         }
                     }
-                    items(viewModel.searchHistory) { historyItem ->
-                        HistorySuggestionRow(historyItem) { viewModel.performSearch(historyItem) }
-                    }
-                } else if (viewModel.suggestions.isNotEmpty()) {
                     items(
-                        items = viewModel.suggestions,
-                        key = { it }
+                        items = viewModel.searchHistory,
+                        key = { "history_$it" },
+                        contentType = { "history_row" }
+                    ) { historyItem ->
+                        HistorySuggestionRow(
+                            text = historyItem, 
+                            onClick = { viewModel.performSearch(historyItem) },
+                            onInsert = { viewModel.insertSuggestion(historyItem) }
+                        )
+                    }
+                } else if (viewModel.suggestions.isNotEmpty() || viewModel.searchQuery.isNotEmpty()) {
+                    // YouTube Music style: direct search prompt for current input if not blank
+                    if (viewModel.searchQuery.isNotBlank()) {
+                        item(key = "search_exact_query") {
+                            PremiumSuggestionRow(
+                                text = viewModel.searchQuery,
+                                onClick = { viewModel.performSearch(viewModel.searchQuery) }
+                            )
+                        }
+                    }
+                    items(
+                        items = viewModel.suggestions.filter { !it.equals(viewModel.searchQuery, ignoreCase = true) },
+                        key = { "suggestion_$it" },
+                        contentType = { "suggestion_row" }
                     ) { suggestion ->
-                        PremiumSuggestionRow(suggestion) { viewModel.performSearch(suggestion) }
+                        PremiumSuggestionRow(
+                            text = suggestion, 
+                            onClick = { viewModel.performSearch(suggestion) },
+                            onInsert = { viewModel.insertSuggestion(suggestion) }
+                        )
                     }
                 }
             }
@@ -230,7 +259,7 @@ fun YTMSearchScreen(
             // Search Results
             LazyColumn(
                 state = scrollState,
-                contentPadding = PaddingValues(bottom = if (currentPlayingItem != null) 140.dp else 16.dp)
+                contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 itemsIndexed(
                     items = viewModel.searchResults,
@@ -247,7 +276,7 @@ fun YTMSearchScreen(
                 }
                 
                 if (viewModel.isLoadingMore || viewModel.isLoading) {
-                    item {
+                    item(key = "search_loading", contentType = "loader") {
                         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
                         }

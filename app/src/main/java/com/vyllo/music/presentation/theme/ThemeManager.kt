@@ -58,6 +58,13 @@ object ThemeManager {
         }
     }
 
+    /**
+     * Check if a color is perceptually dark (relative luminance < 0.5).
+     */
+    fun isDarkColor(color: Color): Boolean {
+        return (color.red * 0.299f + color.green * 0.587f + color.blue * 0.114f) < 0.5f
+    }
+
     // ==================== Dark Themes ====================
 
     /**
@@ -207,17 +214,32 @@ object ThemeManager {
     // ==================== Light Theme ====================
 
     /**
-     * Light theme with YT Music Red accent.
+     * Professional YouTube Music Light Theme.
+     * Clean, crisp, high-contrast palette with signature YouTube Red accents.
      */
     private fun lightScheme(): ColorScheme = lightColorScheme(
-        primary = Color(0xFFE91E63),
+        primary = Color(0xFFFF0000), // YouTube Red
         onPrimary = Color.White,
-        background = Color.White,
-        onBackground = Color.Black,
-        surface = Color(0xFFF5F5F5),
-        onSurface = Color.Black,
-        surfaceVariant = Color(0xFFEEEEEE),
-        onSurfaceVariant = Color.Black.copy(alpha = 0.7f)
+        primaryContainer = Color(0xFFFFEAEA),
+        onPrimaryContainer = Color(0xFF900000),
+        secondary = Color(0xFF606060),
+        onSecondary = Color.White,
+        secondaryContainer = Color(0xFFF2F2F2),
+        onSecondaryContainer = Color(0xFF0F0F0F),
+        tertiary = Color(0xFF0288D1),
+        onTertiary = Color.White,
+        tertiaryContainer = Color(0xFFE1F5FE),
+        onTertiaryContainer = Color(0xFF01579B),
+        background = Color(0xFFFFFFFF),
+        onBackground = Color(0xFF0F0F0F),
+        surface = Color(0xFFFFFFFF),
+        onSurface = Color(0xFF0F0F0F),
+        surfaceVariant = Color(0xFFF2F2F2),
+        onSurfaceVariant = Color(0xFF606060),
+        outline = Color(0xFFE5E5E5),
+        outlineVariant = Color(0xFFEEEEEE),
+        inverseSurface = Color(0xFF1E1E1E),
+        inverseOnSurface = Color(0xFFF5F5F5)
     )
 
     // ==================== Design System Tokens ====================

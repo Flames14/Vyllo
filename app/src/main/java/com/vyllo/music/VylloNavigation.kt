@@ -2,6 +2,8 @@ package com.vyllo.music
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem
 import com.vyllo.music.core.security.SecurityMonitor
 import com.vyllo.music.core.security.SecureLogger
@@ -59,6 +62,7 @@ fun VylloNavigation(
     playerViewModel: PlayerViewModel,
     settingsViewModel: SettingsViewModel,
     onPlay: (MusicItem) -> Unit,
+    onPlayFromQueue: (MusicItem) -> Unit = onPlay,
     onNext: (MusicItem?) -> Unit,
     onPrev: (MusicItem?) -> Unit
 ) {
@@ -118,6 +122,9 @@ fun VylloNavigation(
 
     val context = LocalContext.current
     val controller = playbackManager.getController()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
 
     // Sync playing state with the controller immediately and on future updates.
     DisposableEffect(controller) {
@@ -129,8 +136,17 @@ fun VylloNavigation(
                 isPlaying = controller?.isPlaying == true
             }
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                // Just toast the error for now, maybe add a proper UI alert later?
-                Toast.makeText(context, "Playback error: ${error.message}", Toast.LENGTH_LONG).show()
+                scope.launch {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "Playback error. Tap Retry to reconnect.",
+                        actionLabel = "Retry",
+                        duration = SnackbarDuration.Short
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        controller?.prepare()
+                        controller?.play()
+                    }
+                }
             }
         }
         controller?.addListener(listener)
@@ -154,26 +170,54 @@ fun VylloNavigation(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        CompositionLocalProvider(LocalLibraryViewModel provides libraryViewModel) {
+    CompositionLocalProvider(LocalLibraryViewModel provides libraryViewModel) {
+        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             Scaffold(
                 containerColor = Color.Transparent,
                 contentWindowInsets = WindowInsets(0,0,0,0),
+                snackbarHost = {
+                    SnackbarHost(hostState = snackbarHostState)
+                },
                 bottomBar = {
                     if (!isPlayerExpanded) {
-                        YTMBottomNavBar(
-                            selectedTab = if (showSearchScreen) 1 else if (homeViewModel.selectedNavTab == 0) 0 else homeViewModel.selectedNavTab + 1,
-                            onTabSelected = { 
-                                if (it == 1) {
-                                    showSearchScreen = true
-                                } else {
-                                    showSearchScreen = false
-                                    homeViewModel.selectedNavTab = if (it == 0) 0 else it - 1
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.background)
+                        ) {
+                            if (playerUiState.currentPlayingItem != null) {
+                                PremiumPlayerContainer(
+                                    musicItem = playerUiState.currentPlayingItem,
+                                    isPlaying = isPlaying,
+                                    isLoading = playerUiState.isLoadingPlayer,
+                                    controller = controller,
+                                    relatedSongs = playerUiState.relatedSongs,
+                                    isAutoplayEnabled = playerUiState.autoplayEnabled,
+                                    onTogglePlay = { if (isPlaying) controller?.pause() else controller?.play() },
+                                    onNext = { onNext(playerUiState.currentPlayingItem) },
+                                    onPrev = { onPrev(playerUiState.currentPlayingItem) },
+                                    onExpand = { isPlayerExpanded = true },
+                                    onCollapse = { isPlayerExpanded = false },
+                                    isExpanded = false,
+                                    onAutoplayToggle = { playerViewModel.autoplayEnabled = it },
+                                    onPlayRelated = { item -> homeViewModel.addToRecentlyPlayed(item); onPlayFromQueue(item) },
+                                    viewModel = playerViewModel
+                                )
+                            }
+                            YTMBottomNavBar(
+                                selectedTab = if (showSearchScreen) 1 else if (homeViewModel.selectedNavTab == 0) 0 else homeViewModel.selectedNavTab + 1,
+                                onTabSelected = { 
+                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                                    if (it == 1) {
+                                        showSearchScreen = true
+                                    } else {
+                                        showSearchScreen = false
+                                        homeViewModel.selectedNavTab = if (it == 0) 0 else it - 1
+                                    }
+                                    showRecognitionScreen = false
                                 }
-                                showRecognitionScreen = false
-                            },
-                            hasActivePlayer = playerUiState.currentPlayingItem != null
-                        )
+                            )
+                        }
                     }
                 }
             ) { paddingValues ->
@@ -270,6 +314,43 @@ fun VylloNavigation(
                         }
                     }
 
+                    val exportLauncher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.CreateDocument("application/json")
+                    ) { uri ->
+                        if (uri != null) {
+                            settingsViewModel.exportBackup { json ->
+                                try {
+                                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                                        out.write(json.toByteArray(Charsets.UTF_8))
+                                    }
+                                    Toast.makeText(context, context.getString(R.string.backup_export_success), Toast.LENGTH_SHORT).show()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, context.getString(R.string.backup_export_error), Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }
+
+                    val importLauncher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.OpenDocument()
+                    ) { uri ->
+                        if (uri != null) {
+                            try {
+                                val json = context.contentResolver.openInputStream(uri)?.use { input ->
+                                    input.bufferedReader().readText()
+                                }
+                                if (!json.isNullOrBlank()) {
+                                    settingsViewModel.importBackup(json) { success ->
+                                        val msg = if (success) R.string.backup_import_success else R.string.backup_import_error
+                                        Toast.makeText(context, context.getString(msg), Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(context, context.getString(R.string.backup_import_error), Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+
                     // Global Dialogs
                     if (settingsViewModel.showSettings) {
                        SettingsDialog(
@@ -284,6 +365,10 @@ fun VylloNavigation(
                            onThemeModeChange = { settingsViewModel.updateThemeMode(it) },
                            isLiquidScrollEnabled = settingsViewModel.isLiquidScrollEnabled,
                            onLiquidScrollChange = { settingsViewModel.toggleLiquidScroll(it) },
+                           isHighRefreshRateEnabled = settingsViewModel.isHighRefreshRateEnabled,
+                           onHighRefreshRateChange = { settingsViewModel.toggleHighRefreshRate(it) },
+                           onExportBackupClick = { exportLauncher.launch("vyllo_backup_${System.currentTimeMillis()}.json") },
+                           onImportBackupClick = { importLauncher.launch(arrayOf("application/json", "text/*")) },
                            onCheckUpdateClick = { updateViewModel.checkForUpdates() }
                        )
                     }
@@ -300,36 +385,27 @@ fun VylloNavigation(
                            onDismiss = { libraryViewModel.showPlaylistAddDialog = false }
                        )
                     }
-
-                    // Player Component
-                    if (playerUiState.currentPlayingItem != null) {
-                        if(isPlayerExpanded) {
-                             // Dim background when player is full screen
-                             Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.8f)).clickable(enabled=false){})
-                        }
-
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-                            PremiumPlayerContainer(
-                                musicItem = playerUiState.currentPlayingItem,
-                                isPlaying = isPlaying,
-                                isLoading = playerUiState.isLoadingPlayer,
-                                controller = controller,
-                                relatedSongs = playerUiState.relatedSongs,
-                                isAutoplayEnabled = playerUiState.autoplayEnabled,
-                                onTogglePlay = { if (isPlaying) controller?.pause() else controller?.play() },
-                                onNext = { onNext(playerUiState.currentPlayingItem) },
-                                onPrev = { onPrev(playerUiState.currentPlayingItem) },
-                                onExpand = { isPlayerExpanded = true },
-                                onCollapse = { isPlayerExpanded = false },
-                                isExpanded = isPlayerExpanded,
-                                onAutoplayToggle = { playerViewModel.autoplayEnabled = it },
-                                onPlayRelated = { item -> homeViewModel.addToRecentlyPlayed(item); onPlay(item) },
-                                viewModel = playerViewModel
-                            )
-                        }
-                    }
                 }
             }
+        }
+
+        // FullScreen Player Overlay (renders over everything when expanded)
+        if (isPlayerExpanded && playerUiState.currentPlayingItem != null) {
+            PremiumFullScreenPlayer(
+                item = playerUiState.currentPlayingItem!!,
+                isPlaying = isPlaying,
+                isLoading = playerUiState.isLoadingPlayer,
+                controller = controller,
+                relatedSongs = playerUiState.relatedSongs,
+                isAutoplayEnabled = playerUiState.autoplayEnabled,
+                onTogglePlay = { if (isPlaying) controller?.pause() else controller?.play() },
+                onNext = { onNext(playerUiState.currentPlayingItem) },
+                onPrev = { onPrev(playerUiState.currentPlayingItem) },
+                onCollapse = { isPlayerExpanded = false },
+                onAutoplayToggle = { playerViewModel.autoplayEnabled = it },
+                onPlayRelated = { item -> homeViewModel.addToRecentlyPlayed(item); onPlayFromQueue(item) },
+                viewModel = playerViewModel
+            )
         }
     }
 }

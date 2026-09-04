@@ -11,11 +11,20 @@ class InputSanitizerTest {
 
     @Test
     fun `sanitizeSearchQuery removes dangerous characters`() {
-        val input = "test<script>alert('xss')</script>"
+        val input = "test<script>alert('xss')</script>; | dangerous $"
         val result = InputSanitizer.sanitizeSearchQuery(input)
         assertFalse(result.contains("<"))
         assertFalse(result.contains(">"))
-        assertFalse(result.contains("'"))
+        assertFalse(result.contains(";"))
+        assertFalse(result.contains("|"))
+        assertFalse(result.contains("$"))
+    }
+
+    @Test
+    fun `sanitizeSearchQuery preserves music title punctuation`() {
+        val input = "Simon & Garfunkel - (Don't) Stop Believin'"
+        val result = InputSanitizer.sanitizeSearchQuery(input)
+        assertEquals("Simon & Garfunkel - (Don't) Stop Believin'", result)
     }
 
     @Test

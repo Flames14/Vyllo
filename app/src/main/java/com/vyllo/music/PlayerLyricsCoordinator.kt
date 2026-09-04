@@ -31,7 +31,7 @@ class PlayerLyricsCoordinator @Inject constructor(
     fun fetchLyrics(
         scope: CoroutineScope,
         currentState: () -> PlayerUiState,
-        updateState: (PlayerUiState) -> Unit,
+        updateState: ((PlayerUiState) -> PlayerUiState) -> Unit,
         item: MusicItem,
         durationSecs: Long,
         onTranslateCurrentLyrics: () -> Unit
@@ -40,28 +40,28 @@ class PlayerLyricsCoordinator @Inject constructor(
 
         currentLyricsUrl = item.url
         lastFetchedDuration = durationSecs
-        resetLyricsState(currentState, updateState)
+        resetLyricsState(updateState)
 
         lyricsJob?.cancel()
         lyricsJob = scope.launch(Dispatchers.IO) {
             try {
                 val result = getLyricsUseCase(item, durationSecs)
-                updateState(
-                    currentState().copy(
+                updateState {
+                    it.copy(
                         lyricsResponse = result,
                         syncedLyricsLines = result?.syncedLines ?: emptyList(),
                         lyricsLoading = false,
                         detectedLyricsLangCode = detectLangCode(result?.languages)
                     )
-                )
+                }
 
                 if (currentState().isTranslationEnabled) {
                     onTranslateCurrentLyrics()
                 }
             } catch (e: Exception) {
                 SecureLogger.e("PlayerViewModel", "Lyrics fetch error: ${e.message}", e)
-                updateState(
-                    currentState().copy(
+                updateState {
+                    it.copy(
                         lyricsResponse = LyricsResponse(
                             success = false,
                             strategy = "ERROR",
@@ -70,72 +70,68 @@ class PlayerLyricsCoordinator @Inject constructor(
                         syncedLyricsLines = emptyList(),
                         lyricsLoading = false
                     )
-                )
+                }
             }
         }
     }
 
     fun searchForLyrics(
         scope: CoroutineScope,
-        currentState: () -> PlayerUiState,
-        updateState: (PlayerUiState) -> Unit,
+        updateState: ((PlayerUiState) -> PlayerUiState) -> Unit,
         query: String
     ) {
         if (query.isBlank()) return
-        updateState(currentState().copy(lyricsSearching = true))
+        updateState { it.copy(lyricsSearching = true) }
         lyricsSearchJob?.cancel()
         lyricsSearchJob = scope.launch(Dispatchers.IO) {
             val results = lyricsEngine.searchLyrics(query)
-            updateState(currentState().copy(lyricsSearchResults = results, lyricsSearching = false))
+            updateState { it.copy(lyricsSearchResults = results, lyricsSearching = false) }
         }
     }
 
     fun clearLyricsSearchResults(
-        currentState: () -> PlayerUiState,
-        updateState: (PlayerUiState) -> Unit
+        updateState: ((PlayerUiState) -> PlayerUiState) -> Unit
     ) {
-        updateState(
-            currentState().copy(
+        updateState {
+            it.copy(
                 lyricsSearchQuery = "",
                 lyricsSearchResults = emptyList(),
                 lyricsSearching = false
             )
-        )
+        }
         lyricsSearchJob?.cancel()
     }
 
     fun translateCurrentLyrics(
         scope: CoroutineScope,
         currentState: () -> PlayerUiState,
-        updateState: (PlayerUiState) -> Unit
+        updateState: ((PlayerUiState) -> PlayerUiState) -> Unit
     ) {
         translationJob?.cancel()
-        updateState(currentState().copy(isTranslating = true))
+        updateState { it.copy(isTranslating = true) }
         translationJob = scope.launch {
             val state = currentState()
             if (state.syncedLyricsLines.isNotEmpty()) {
                 val translated = translateLyricsUseCase.translateLines(state.syncedLyricsLines)
-                updateState(currentState().copy(translatedLyricsLines = translated, isTranslating = false))
+                updateState { it.copy(translatedLyricsLines = translated, isTranslating = false) }
             } else {
                 val plain = state.lyricsResponse?.plainLyrics
                 if (!plain.isNullOrBlank()) {
                     val translated = translateLyricsUseCase.translatePlain(plain)
-                    updateState(currentState().copy(translatedPlainLyrics = translated, isTranslating = false))
+                    updateState { it.copy(translatedPlainLyrics = translated, isTranslating = false) }
                 } else {
-                    updateState(currentState().copy(isTranslating = false))
+                    updateState { it.copy(isTranslating = false) }
                 }
             }
         }
     }
 
     fun selectAlternativeLyrics(
-        currentState: () -> PlayerUiState,
-        updateState: (PlayerUiState) -> Unit,
+        updateState: ((PlayerUiState) -> PlayerUiState) -> Unit,
         result: LyricsResult
     ) {
         val parsedLines = LyricsEngine.parseSyncedLyrics(result.syncedLyrics)
-        val state = currentState()
-        updateState(
+        updateState { state ->
             state.copy(
                 syncedLyricsLines = parsedLines,
                 currentLyricIndex = -1,
@@ -153,18 +149,16 @@ class PlayerLyricsCoordinator @Inject constructor(
                     )
                 )
             )
-        )
+        }
 
         currentLyricsUrl?.let { repository.saveLyricsPreference(it, result.id) }
     }
 
     private fun resetLyricsState(
-        currentState: () -> PlayerUiState,
-        updateState: (PlayerUiState) -> Unit
+        updateState: ((PlayerUiState) -> PlayerUiState) -> Unit
     ) {
-        val state = currentState()
-        updateState(
-            state.copy(
+        updateState {
+            it.copy(
                 lyricsResponse = null,
                 syncedLyricsLines = emptyList(),
                 currentLyricIndex = -1,
@@ -177,7 +171,7 @@ class PlayerLyricsCoordinator @Inject constructor(
                 isTranslating = false,
                 detectedLyricsLangCode = null
             )
-        )
+        }
         translationJob?.cancel()
         TranslationEngine.resetSession()
     }

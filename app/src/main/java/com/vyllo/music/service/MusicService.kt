@@ -241,7 +241,24 @@ class MusicService : MediaSessionService() {
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 SecureLogger.d("MusicService", "MediaItem transition: reason=$reason, mediaId=${mediaItem?.mediaId}")
-                player?.let { playbackQueueOrchestrator.enqueueNextTrackIfNeeded(serviceScope, it, mediaItem) }
+                val currentMediaId = mediaItem?.mediaId
+                if (!currentMediaId.isNullOrBlank()) {
+                    val queue = playbackQueueManager.getQueueSnapshot()
+                    val currentIndex = queue.indexOfFirst { it.url == currentMediaId }
+                    if (currentIndex >= 0) {
+                        playbackQueueManager.setCurrentIndexSafe(currentIndex)
+                    } else {
+                        val meta = mediaItem.mediaMetadata
+                        val directItem = MusicItem(
+                            title = meta.title?.toString() ?: "Unknown",
+                            uploader = meta.artist?.toString() ?: "Unknown",
+                            thumbnailUrl = meta.artworkUri?.toString() ?: "",
+                            url = currentMediaId
+                        )
+                        playbackQueueManager.setCurrentPlayingItemDirectly(directItem)
+                    }
+                }
+                playbackQueueOrchestrator.prefetchUpcomingStreams(serviceScope)
             }
 
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
@@ -256,11 +273,7 @@ class MusicService : MediaSessionService() {
 
         serviceScope.launch {
             playbackQueueManager.queueVersion.collectLatest {
-                val activeMediaItem = player?.currentMediaItem
-                if (activeMediaItem != null) {
-                    SecureLogger.d("MusicService", "Queue changed, ensuring upcoming tracks are queued")
-                    player?.let { playbackQueueOrchestrator.enqueueNextTrackIfNeeded(serviceScope, it, activeMediaItem) }
-                }
+                playbackQueueOrchestrator.prefetchUpcomingStreams(serviceScope)
             }
         }
 
@@ -270,13 +283,28 @@ class MusicService : MediaSessionService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val sessionCallback = object : MediaSession.Callback {
+            override fun onPlayerCommandRequest(
+                session: MediaSession,
+                controllerInfo: MediaSession.ControllerInfo,
+                playerCommand: Int
+            ): Int {
+                if (playerCommand == Player.COMMAND_SEEK_TO_NEXT) {
+                    playbackQueueOrchestrator.playNextTrack(serviceScope, player)
+                    return SessionResult.RESULT_SUCCESS
+                } else if (playerCommand == Player.COMMAND_SEEK_TO_PREVIOUS) {
+                    playbackQueueOrchestrator.playPreviousTrack(serviceScope, player)
+                    return SessionResult.RESULT_SUCCESS
+                }
+                return super.onPlayerCommandRequest(session, controllerInfo, playerCommand)
+            }
+        }
+
         // Initialize MediaSession
         mediaSession = MediaSession.Builder(this, player!!)
             .setSessionActivity(pendingIntent)
+            .setCallback(sessionCallback)
             .build()
-            
-        // Acquire wake locks immediately on service creation for reliable background playback
-        wakeLockManager.acquire()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -284,12 +312,16 @@ class MusicService : MediaSessionService() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        val player = mediaSession?.player
-        if (player != null && !player.playWhenReady) {
-            // Only stop if not playing — if music is active, keep the service alive
-            stopSelf()
+        try {
+            mediaSession?.player?.run {
+                playWhenReady = false
+                stop()
+            }
+            androidx.core.app.ServiceCompat.stopForeground(this, androidx.core.app.ServiceCompat.STOP_FOREGROUND_REMOVE)
+        } catch (e: Exception) {
+            SecureLogger.w("MusicService", "Error stopping service on task removed: ${e.message}")
         }
-        // If playing, keep the service running for background playback
+        stopSelf()
         super.onTaskRemoved(rootIntent)
     }
 

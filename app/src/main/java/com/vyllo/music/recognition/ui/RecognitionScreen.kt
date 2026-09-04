@@ -27,6 +27,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.compose.ui.res.stringResource
+import com.vyllo.music.R
 import com.vyllo.music.recognition.domain.model.RecognitionStatus
 import com.vyllo.music.recognition.presentation.RecognitionViewModel
 import androidx.compose.material.icons.filled.PlayArrow
@@ -79,12 +81,12 @@ fun RecognitionScreen(
         ) {
             Text(
                 text = when (status) {
-                    is RecognitionStatus.Idle -> "Tap to Recognize"
-                    is RecognitionStatus.Listening -> "Listening..."
-                    is RecognitionStatus.Processing -> "Identifying..."
-                    is RecognitionStatus.Success -> "Found Match!"
-                    is RecognitionStatus.NoMatch -> "No Match Found"
-                    is RecognitionStatus.Error -> "Error"
+                    is RecognitionStatus.Idle -> stringResource(R.string.recognition_tap_to_recognize)
+                    is RecognitionStatus.Listening -> stringResource(R.string.recognition_listening)
+                    is RecognitionStatus.Processing -> stringResource(R.string.recognition_processing)
+                    is RecognitionStatus.Success -> stringResource(R.string.recognition_found)
+                    is RecognitionStatus.NoMatch -> stringResource(R.string.recognition_no_match)
+                    is RecognitionStatus.Error -> stringResource(R.string.recognition_error)
                 },
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -135,12 +137,12 @@ fun RecognitionScreen(
                         onClick = { viewModel.startRecognition() },
                         modifier = Modifier.padding(top = 16.dp)
                     ) {
-                        Text("Try Again")
+                        Text(stringResource(R.string.recognition_try_again))
                     }
                 }
                 else -> {
                     Text(
-                        text = "Identify the music playing around you",
+                        text = stringResource(R.string.recognition_subtitle),
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                         textAlign = TextAlign.Center
                     )
@@ -155,7 +157,8 @@ fun RecognitionScreen(
             },
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(top = 16.dp)
+                .statusBarsPadding()
+                .padding(start = 8.dp, top = 8.dp)
         ) {
             Icon(Icons.Default.Close, contentDescription = "Close")
         }
@@ -288,7 +291,7 @@ fun SongResultCard(
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Play Song", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.recognition_play_song), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }

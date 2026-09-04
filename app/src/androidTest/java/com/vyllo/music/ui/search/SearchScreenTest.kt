@@ -92,7 +92,8 @@ private class FakeMusicRepository(
     override suspend fun getTrendingMusic(): List<MusicItem> = emptyList()
     override suspend fun getStreamUrl(url: String, force: Boolean, isVideo: Boolean): String? = null
     override suspend fun getLocalStreamUrl(url: String): String? = null
-    override suspend fun getRelatedSongs(url: String): List<MusicItem> = emptyList()
+    override suspend fun getRelatedSongs(url: String, force: Boolean): List<MusicItem> = emptyList()
+    override suspend fun getMoreRelatedSongs(url: String): List<MusicItem> = emptyList()
     override fun getAllPlaylists(): Flow<List<PlaylistEntity>> = emptyFlow()
     override suspend fun createPlaylist(name: String) = Unit
     override suspend fun deletePlaylist(playlist: PlaylistEntity) = Unit

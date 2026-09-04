@@ -44,7 +44,7 @@ fun YTMExploreScreen(
         state = scrollState,
         flingBehavior = liquidFlingBehavior,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = if (currentPlayingItem != null) 140.dp else 16.dp)
+        contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         // YTM Header with refresh
         item {
@@ -58,13 +58,17 @@ fun YTMExploreScreen(
         }
 
         // Explore Categories
-        item {
+        item(key = "explore_categories_row", contentType = "category_row") {
             LazyRow(
                 modifier = Modifier.padding(vertical = 16.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(uiState.exploreCategories.size) { index ->
+                items(
+                    count = uiState.exploreCategories.size,
+                    key = { index -> uiState.exploreCategories[index] },
+                    contentType = { "category_pill" }
+                ) { index ->
                     val category = uiState.exploreCategories[index]
                     val isSelected = uiState.selectedExploreCategory == category
                     Box(
@@ -89,20 +93,24 @@ fun YTMExploreScreen(
         }
 
         // Trending Section
-        item {
+        item(key = "trending_header", contentType = "header") {
             val title = if (uiState.selectedExploreCategory == null) "Trending Now" else "${uiState.selectedExploreCategory}"
             YTMSectionHeader(title = title)
             Spacer(modifier = Modifier.height(8.dp))
         }
 
         if (uiState.isLoadingExplore) {
-            item {
+            item(key = "loading_indicator", contentType = "loader") {
                 Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
         } else {
-            items(uiState.exploreTrendingItems) { item ->
+            items(
+                items = uiState.exploreTrendingItems,
+                key = { it.url },
+                contentType = { "song_row" }
+            ) { item ->
                 YTMSongRow(
                     item = item,
                     isPlaying = currentPlayingItem?.title == item.title,

@@ -40,29 +40,33 @@ class VolumeBoostAudioProcessor : BaseAudioProcessor() {
 
         val actualMultiplier = volumeMultiplier
         
-        if (actualMultiplier == 1.0f) {
+        if (actualMultiplier <= 1.0f) {
             for (i in 0 until numSamples) {
                 outputBuffer.putShort(cachedSamples[i])
             }
         } else {
+            // Studio-grade soft-knee tanh compressor & true-peak limiter
+            val kneeThreshold = 0.70f
+            val headroom = 1.0f - kneeThreshold
+            val peakLimit = 0.985f // -0.15 dBFS true-peak guard against DAC clipping
+            val scale = 32767.0f
+
             for (i in 0 until numSamples) {
-                val original = cachedSamples[i].toInt()
-                
-                val f = original / 32768f
-                val fBoosted = f * actualMultiplier
-                
-                // Fast approximation for soft clipping: x / (1 + |x|)
-                val fOut = fBoosted / (1.0f + kotlin.math.abs(fBoosted))
-                
-                var boosted = (fOut * 32768f).toInt()
-                
-                if (boosted > Short.MAX_VALUE) {
-                    boosted = Short.MAX_VALUE.toInt()
-                } else if (boosted < Short.MIN_VALUE) {
-                    boosted = Short.MIN_VALUE.toInt()
+                val sample = cachedSamples[i].toFloat() / scale
+                val boosted = sample * actualMultiplier
+                val absBoosted = kotlin.math.abs(boosted)
+
+                val outSample = if (absBoosted <= kneeThreshold) {
+                    boosted
+                } else {
+                    val delta = absBoosted - kneeThreshold
+                    val saturated = kneeThreshold + headroom * kotlin.math.tanh(delta / headroom.toDouble()).toFloat()
+                    val sign = if (boosted >= 0f) 1.0f else -1.0f
+                    sign * saturated * peakLimit
                 }
-                
-                outputBuffer.putShort(boosted.toShort())
+
+                val finalShort = (outSample * scale).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                outputBuffer.putShort(finalShort.toShort())
             }
         }
 
