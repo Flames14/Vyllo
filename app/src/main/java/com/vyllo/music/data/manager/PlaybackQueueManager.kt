@@ -146,7 +146,7 @@ class PlaybackQueueManager @Inject constructor() {
     
     fun indexOf(item: MusicItem): Int {
         return synchronized(lock) {
-            currentQueue.indexOf(item)
+            currentQueue.indexOfFirst { it.url == item.url }
         }
     }
     
@@ -159,6 +159,28 @@ class PlaybackQueueManager @Inject constructor() {
     fun getQueueSnapshot(): List<MusicItem> {
         return synchronized(lock) {
             currentQueue.toList()
+        }
+    }
+
+    fun getUpcomingSnapshot(): List<MusicItem> {
+        return synchronized(lock) {
+            val nextIndex = currentIndex + 1
+            if (nextIndex in currentQueue.indices) {
+                currentQueue.subList(nextIndex, currentQueue.size).toList()
+            } else {
+                emptyList()
+            }
+        }
+    }
+
+    fun setCurrentPlayingItemDirectly(item: MusicItem) {
+        synchronized(lock) {
+            val idx = currentQueue.indexOfFirst { it.url == item.url }
+            if (idx >= 0) {
+                currentIndex = idx
+            } else {
+                _currentPlayingItem.value = item
+            }
         }
     }
     
@@ -177,7 +199,9 @@ class PlaybackQueueManager @Inject constructor() {
             val kept = currentQueue.take(keepCount)
             currentQueue.clear()
             currentQueue.addAll(kept)
-            currentQueue.addAll(items)
+            val keptUrls = kept.map { it.url }.toSet()
+            val distinctUpcoming = items.filter { !keptUrls.contains(it.url) }
+            currentQueue.addAll(distinctUpcoming)
             notifyQueueStructureChangedLocked()
         }
     }

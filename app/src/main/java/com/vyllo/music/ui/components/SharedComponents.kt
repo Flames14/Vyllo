@@ -25,9 +25,11 @@ import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
 import java.util.Calendar
 
@@ -44,7 +46,7 @@ fun MeshGradientBackground(modifier: Modifier = Modifier) {
 @Composable
 fun AuroraShader(modifier: Modifier) {
     val time = remember { mutableFloatStateOf(0f) }
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.vyllo.music.presentation.theme.ThemeManager.isDarkColor(MaterialTheme.colorScheme.background)
     
     LaunchedEffect(Unit) {
         while (true) {
@@ -104,7 +106,7 @@ fun FallbackMeshGradient(modifier: Modifier) {
         animationSpec = infiniteRepeatable(tween(15000, easing = LinearEasing), RepeatMode.Reverse), label = "b2"
     )
     
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.vyllo.music.presentation.theme.ThemeManager.isDarkColor(MaterialTheme.colorScheme.background)
     val bg = MaterialTheme.colorScheme.background
     val blob1 = if(isDark) Color(0xFF202020) else Color(0xFFE0E0E0)
     val blob2 = if(isDark) Color(0xFF303030) else Color(0xFFD0D0D0)
@@ -249,38 +251,104 @@ fun HeroRecommendationCard(item: MusicItem, isPlaying: Boolean, onClick: () -> U
 }
 
 @Composable
-fun PremiumSuggestionRow(text: String, onClick: () -> Unit) {
+fun PremiumSuggestionRow(
+    text: String, 
+    onClick: () -> Unit,
+    onInsert: (() -> Unit)? = null
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(vertical = 12.dp, horizontal = 12.dp),
+            .padding(vertical = 10.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onBackground.copy(0.08f)), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onBackground.copy(0.5f), modifier = Modifier.size(18.dp))
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.onBackground.copy(0.07f)), 
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Rounded.Search, 
+                contentDescription = null, 
+                tint = MaterialTheme.colorScheme.onBackground.copy(0.6f), 
+                modifier = Modifier.size(18.dp)
+            )
         }
         Spacer(Modifier.width(16.dp))
-        Text(text, color = MaterialTheme.colorScheme.onBackground.copy(0.9f), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text = text, 
+            color = MaterialTheme.colorScheme.onBackground, 
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        if (onInsert != null) {
+            IconButton(
+                onClick = onInsert,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.NorthWest,
+                    contentDescription = "Insert into search",
+                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
     }
 }
 
 @Composable
-fun HistorySuggestionRow(text: String, onClick: () -> Unit) {
+fun HistorySuggestionRow(
+    text: String, 
+    onClick: () -> Unit,
+    onInsert: (() -> Unit)? = null
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(vertical = 12.dp, horizontal = 12.dp),
+            .padding(vertical = 10.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onBackground.copy(0.08f)), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.History, null, tint = MaterialTheme.colorScheme.onBackground.copy(0.5f), modifier = Modifier.size(18.dp))
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.onBackground.copy(0.07f)), 
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Rounded.History, 
+                contentDescription = null, 
+                tint = MaterialTheme.colorScheme.onBackground.copy(0.6f), 
+                modifier = Modifier.size(18.dp)
+            )
         }
         Spacer(Modifier.width(16.dp))
-        Text(text, color = MaterialTheme.colorScheme.onBackground.copy(0.9f), style = MaterialTheme.typography.bodyLarge)
+        Text(
+            text = text, 
+            color = MaterialTheme.colorScheme.onBackground, 
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        if (onInsert != null) {
+            IconButton(
+                onClick = onInsert,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.NorthWest,
+                    contentDescription = "Insert into search",
+                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
     }
 }
 
@@ -290,8 +358,8 @@ fun rememberLiquidFlingBehavior(enabled: Boolean): FlingBehavior {
 
     val flingSpec = remember {
         exponentialDecay<Float>(
-            frictionMultiplier = 0.35f,   
-            absVelocityThreshold = 0.1f    
+            frictionMultiplier = 0.6f,   
+            absVelocityThreshold = 0.5f    
         )
     }
     return remember(flingSpec) {
@@ -332,18 +400,28 @@ fun SettingsDialog(
     onThemeModeChange: (String) -> Unit,
     isLiquidScrollEnabled: Boolean = false,
     onLiquidScrollChange: (Boolean) -> Unit = {},
+    isHighRefreshRateEnabled: Boolean = true,
+    onHighRefreshRateChange: (Boolean) -> Unit = {},
+    onExportBackupClick: () -> Unit = {},
+    onImportBackupClick: () -> Unit = {},
     onCheckUpdateClick: () -> Unit = {}
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Settings", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+            Text(
+                stringResource(R.string.settings_title),
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+            )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        "App Theme",
+                        stringResource(R.string.settings_theme_mode),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -379,7 +457,7 @@ fun SettingsDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Background Playback",
+                            stringResource(R.string.settings_background_playback),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
@@ -401,7 +479,7 @@ fun SettingsDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Keep Audio Playing",
+                            stringResource(R.string.settings_keep_audio_playing),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
@@ -423,7 +501,7 @@ fun SettingsDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Floating Player",
+                            stringResource(R.string.settings_floating_player),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
@@ -445,7 +523,7 @@ fun SettingsDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Liquid Smooth Scroll",
+                            stringResource(R.string.settings_liquid_scroll),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
@@ -458,6 +536,70 @@ fun SettingsDialog(
                         checked = isLiquidScrollEnabled,
                         onCheckedChange = onLiquidScrollChange
                     )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "High Refresh Rate (90Hz/120Hz)",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            if (isHighRefreshRateEnabled) "Max display smoothness" else "Battery saver (60Hz lock)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
+                        )
+                    }
+                    Switch(
+                        checked = isHighRefreshRateEnabled,
+                        onCheckedChange = onHighRefreshRateChange
+                    )
+                }
+
+                // Backup & Restore Section
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        stringResource(R.string.backup_title),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onExportBackupClick() }
+                        ) {
+                            Text(
+                                stringResource(R.string.backup_export),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onImportBackupClick() }
+                        ) {
+                            Text(
+                                stringResource(R.string.backup_import),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
                 }
 
                 val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
@@ -518,7 +660,7 @@ fun SettingsDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Done")
+                Text(stringResource(R.string.common_close))
             }
         },
         containerColor = MaterialTheme.colorScheme.surface,

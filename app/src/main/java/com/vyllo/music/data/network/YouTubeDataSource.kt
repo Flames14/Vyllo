@@ -45,6 +45,7 @@ class YouTubeDataSource @Inject constructor(
         val fetchedAt: Long = System.currentTimeMillis()
     )
 
+    private val streamInfoCacheLock = Any()
     private val streamInfoCache = object : LinkedHashMap<String, CachedStreamInfo>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CachedStreamInfo>?): Boolean {
             return size > 50
@@ -175,8 +176,10 @@ class YouTubeDataSource @Inject constructor(
 
     suspend fun getOrFetchStreamInfo(url: String, force: Boolean): StreamInfo = withContext(extractorDispatcher) {
         if (!force) {
-            val cached = streamInfoCache[url]
-            if (cached != null && (System.currentTimeMillis() - cached.fetchedAt) < CACHE_TTL_MS) {
+            val cached = synchronized(streamInfoCacheLock) {
+                streamInfoCache[url]?.takeIf { (System.currentTimeMillis() - it.fetchedAt) < CACHE_TTL_MS }
+            }
+            if (cached != null) {
                 return@withContext cached.info
             }
         }
@@ -188,7 +191,9 @@ class YouTubeDataSource @Inject constructor(
                 val extractor = ServiceList.YouTube.getStreamExtractor(url)
                 runInterruptible { extractor.fetchPage() }
                 val info = StreamInfo.getInfo(extractor)
-                streamInfoCache[url] = CachedStreamInfo(info)
+                synchronized(streamInfoCacheLock) {
+                    streamInfoCache[url] = CachedStreamInfo(info)
+                }
                 return@withContext info
             } catch (e: Exception) {
                 lastException = e
@@ -207,21 +212,33 @@ class YouTubeDataSource @Inject constructor(
     private fun mapItems(items: List<org.schabi.newpipe.extractor.InfoItem>): List<MusicItem> {
         return items.mapNotNull { item ->
             when (item) {
-                is StreamInfoItem -> MusicItem(
-                    title = item.name ?: "Unknown",
-                    url = item.url ?: "",
-                    uploader = item.uploaderName ?: "Unknown",
-                    thumbnailUrl = item.thumbnails?.firstOrNull()?.url ?: "",
-                    type = MusicItemType.SONG,
-                    durationSecs = item.duration
-                )
-                is PlaylistInfoItem -> MusicItem(
-                    title = item.name ?: "Unknown",
-                    url = item.url ?: "",
-                    uploader = item.uploaderName ?: "YouTube Music",
-                    thumbnailUrl = item.thumbnails?.firstOrNull()?.url ?: "",
-                    type = MusicItemType.PLAYLIST
-                )
+                is StreamInfoItem -> {
+                    val bestThumbnail = item.thumbnails?.maxByOrNull { it.width * it.height }?.url
+                        ?: item.thumbnails?.lastOrNull()?.url
+                        ?: item.thumbnails?.firstOrNull()?.url
+                        ?: ""
+                    MusicItem(
+                        title = item.name ?: "Unknown",
+                        url = item.url ?: "",
+                        uploader = item.uploaderName ?: "Unknown",
+                        thumbnailUrl = bestThumbnail,
+                        type = MusicItemType.SONG,
+                        durationSecs = item.duration
+                    )
+                }
+                is PlaylistInfoItem -> {
+                    val bestThumbnail = item.thumbnails?.maxByOrNull { it.width * it.height }?.url
+                        ?: item.thumbnails?.lastOrNull()?.url
+                        ?: item.thumbnails?.firstOrNull()?.url
+                        ?: ""
+                    MusicItem(
+                        title = item.name ?: "Unknown",
+                        url = item.url ?: "",
+                        uploader = item.uploaderName ?: "YouTube Music",
+                        thumbnailUrl = bestThumbnail,
+                        type = MusicItemType.PLAYLIST
+                    )
+                }
                 else -> null
             }
         }

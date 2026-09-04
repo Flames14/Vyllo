@@ -35,24 +35,21 @@ object SecureCacheManager {
     }
 
     private fun createSecureCache(context: Context): SimpleCache {
-        // Create cache directory with randomized name for security
-        val cacheDir = File(context.cacheDir, "media_${generateRandomSuffix()}")
-        
+        val cacheDir = File(context.cacheDir, "media_cache")
         if (!cacheDir.exists()) {
             cacheDir.mkdirs()
-            
-            // Set restrictive permissions (Android 10+)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                try {
-                    cacheDir.setReadable(false, false) // Not world-readable
-                    cacheDir.setWritable(false, false) // Not world-writable
-                } catch (e: Exception) {
-                    Log.d(TAG, "Could not set restrictive permissions: ${e.message}")
-                }
-            }
         }
 
-        Log.d(TAG, "Secure cache created at: ${cacheDir.absolutePath}")
+        // Clean up any legacy randomized cache directories
+        try {
+            context.cacheDir.listFiles()?.forEach { file ->
+                if (file.isDirectory && file.name.startsWith("media_") && file.name != "media_cache") {
+                    file.deleteRecursively()
+                }
+            }
+        } catch (ignored: Exception) { }
+
+        Log.d(TAG, "Media cache initialized at: ${cacheDir.absolutePath}")
 
         return SimpleCache(
             cacheDir,

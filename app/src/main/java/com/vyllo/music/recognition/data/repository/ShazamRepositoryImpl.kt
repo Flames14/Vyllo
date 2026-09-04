@@ -120,8 +120,15 @@ class ShazamRepositoryImpl @Inject constructor(
             audioRecord.stop()
             Log.d(TAG, "Recording finished. Max amplitude: $maxAmplitude")
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Log.e(TAG, "Audio recording failed", e)
             return null
         } finally {
+            try {
+                if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                    audioRecord.stop()
+                }
+            } catch (_: Exception) {}
             audioRecord.release()
         }
 

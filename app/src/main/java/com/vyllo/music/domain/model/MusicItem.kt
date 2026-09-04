@@ -44,26 +44,28 @@ data class MusicItem(
         durationSecs = 0L
     )
 
-    fun getUniversalShareUrl(): String? {
+    fun getUniversalShareUrl(): String {
         val normalizedUrl = url.trim()
-        if (normalizedUrl.isBlank()) return null
+        if (normalizedUrl.isBlank()) return "https://music.youtube.com"
 
-        val parsedUri = Uri.parse(normalizedUrl)
-        val videoIdFromQuery = parsedUri.getQueryParameter("v")
-            ?.takeIf(::isLikelyYouTubeId)
-        if (videoIdFromQuery != null) {
-            return "https://www.youtube.com/watch?v=$videoIdFromQuery"
+        if (normalizedUrl.startsWith("http://") || normalizedUrl.startsWith("https://")) {
+            try {
+                val parsedUri = Uri.parse(normalizedUrl)
+                val videoId = parsedUri.getQueryParameter("v")
+                    ?: if (parsedUri.host?.contains("youtu.be", ignoreCase = true) == true) parsedUri.pathSegments.firstOrNull() else null
+                if (videoId != null && videoId.isNotBlank() && isLikelyYouTubeId(videoId)) {
+                    return "https://www.youtube.com/watch?v=$videoId"
+                }
+            } catch (_: Exception) {}
+            return normalizedUrl
         }
 
-        val pathSegments = parsedUri.pathSegments.orEmpty()
-        val candidate = when {
-            parsedUri.host?.contains("youtu.be", ignoreCase = true) == true -> pathSegments.firstOrNull()
-            parsedUri.host?.contains("youtube.com", ignoreCase = true) == true && pathSegments.firstOrNull() == "shorts" -> pathSegments.getOrNull(1)
-            normalizedUrl.startsWith("http", ignoreCase = true) -> null
-            else -> normalizedUrl.substringAfterLast("/")
-        }?.takeIf(::isLikelyYouTubeId)
-
-        return candidate?.let { "https://www.youtube.com/watch?v=$it" }
+        val candidate = normalizedUrl.substringAfterLast("/").substringAfter("v=")
+        return if (isLikelyYouTubeId(candidate)) {
+            "https://www.youtube.com/watch?v=$candidate"
+        } else {
+            "https://www.youtube.com/watch?v=$normalizedUrl"
+        }
     }
 
     private fun isLikelyYouTubeId(candidate: String): Boolean {
@@ -71,18 +73,54 @@ data class MusicItem(
     }
 
     /**
-     * Attempts to get the highest resolution thumbnail from a standard YouTube thumbnail URL.
-     * Often 'hqdefault.jpg' or 'mqdefault.jpg' can be upgraded to 'maxresdefault.jpg'.
+     * Attempts to get the highest resolution thumbnail from YouTube or Google CDN thumbnail URLs.
      */
     fun getHighResThumbnailUrl(): String {
+        return getThumbnailCandidates().firstOrNull() ?: thumbnailUrl
+    }
+
+    /**
+     * Returns an ordered list of thumbnail URL candidates from highest to lowest resolution.
+     * Useful for player fallback ladders if maxres 404s.
+     */
+    fun getThumbnailCandidates(): List<String> {
+        if (thumbnailUrl.isBlank()) return emptyList()
+
+        // 1. Google CDN / YouTube Music artwork (lh3.googleusercontent.com, yt3.ggpht.com)
+        if (thumbnailUrl.contains("googleusercontent.com") || thumbnailUrl.contains("ggpht.com")) {
+            val highResGoogle = when {
+                thumbnailUrl.contains(Regex("=w\\d+-h\\d+")) ->
+                    thumbnailUrl.replace(Regex("=w\\d+-h\\d+[^?&]*"), "=w1080-h1080-l90-rj")
+                thumbnailUrl.contains(Regex("=s\\d+")) ->
+                    thumbnailUrl.replace(Regex("=s\\d+[^?&]*"), "=s1080")
+                else -> thumbnailUrl
+            }
+            return if (highResGoogle != thumbnailUrl) listOf(highResGoogle, thumbnailUrl) else listOf(thumbnailUrl)
+        }
+
+        // 2. Standard YouTube video thumbnail (i.ytimg.com/vi/)
         if (thumbnailUrl.contains("ytimg.com/vi/")) {
-            // Replace standard resolutions with maximum resolution
-            return thumbnailUrl
+            val maxRes = thumbnailUrl
                 .replace("hqdefault.jpg", "maxresdefault.jpg")
                 .replace("mqdefault.jpg", "maxresdefault.jpg")
                 .replace("sddefault.jpg", "maxresdefault.jpg")
                 .replace("default.jpg", "maxresdefault.jpg")
+
+            val sdRes = thumbnailUrl
+                .replace("maxresdefault.jpg", "sddefault.jpg")
+                .replace("hqdefault.jpg", "sddefault.jpg")
+                .replace("mqdefault.jpg", "sddefault.jpg")
+                .replace("default.jpg", "sddefault.jpg")
+
+            val hqRes = thumbnailUrl
+                .replace("maxresdefault.jpg", "hqdefault.jpg")
+                .replace("sddefault.jpg", "hqdefault.jpg")
+                .replace("mqdefault.jpg", "hqdefault.jpg")
+                .replace("default.jpg", "hqdefault.jpg")
+
+            return listOf(maxRes, sdRes, hqRes, thumbnailUrl).distinct()
         }
-        return thumbnailUrl
+
+        return listOf(thumbnailUrl)
     }
 }

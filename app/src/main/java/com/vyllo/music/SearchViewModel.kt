@@ -69,17 +69,35 @@ class SearchViewModel @Inject constructor(
 
     fun onQueryChanged(newQuery: String) {
         searchQuery = newQuery
+        // When typing/editing, always switch back to suggestion mode so suggestions appear immediately
+        isSearching = false
         if (newQuery.isBlank()) {
             suggestions = emptyList()
-            isSearching = false
             return
         }
 
         suggestionJob?.cancel()
         suggestionJob = viewModelScope.launch {
-            delay(50) // Debounce for suggestions
-            suggestions = repository.getSuggestions(newQuery)
+            delay(180) // Fast & power-optimized debounce
+            val results = repository.getSuggestions(newQuery)
+            if (searchQuery == newQuery) {
+                suggestions = results
+            }
         }
+    }
+
+    fun onSearchFieldFocused() {
+        if (isSearching) {
+            isSearching = false
+            if (searchQuery.isNotBlank()) {
+                onQueryChanged(searchQuery)
+            }
+        }
+    }
+
+    fun insertSuggestion(suggestion: String) {
+        searchQuery = suggestion
+        onQueryChanged(suggestion)
     }
 
     fun performSearch(rawQuery: String) {

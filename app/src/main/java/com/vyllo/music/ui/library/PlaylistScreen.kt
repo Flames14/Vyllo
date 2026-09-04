@@ -30,7 +30,10 @@ fun YTMPlaylistScreen(
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = 48.dp, bottom = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
@@ -46,10 +49,10 @@ fun YTMPlaylistScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 100.dp)
+            contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             if (viewModel.currentPlaylistSongs.isEmpty()) {
-                item {
+                item(key = "empty_playlist_message", contentType = "empty") {
                     Box(modifier = Modifier.fillMaxWidth().height(400.dp), contentAlignment = Alignment.Center) {
                         Text(
                             "No songs in this playlist",
@@ -58,7 +61,11 @@ fun YTMPlaylistScreen(
                     }
                 }
             } else {
-                items(viewModel.currentPlaylistSongs) { song ->
+                items(
+                    items = viewModel.currentPlaylistSongs,
+                    key = { "playlist_song_${it.playlistId}_${it.url}" },
+                    contentType = { "song_row" }
+                ) { song ->
                     val musicItem = MusicItem(song.title, song.url, song.uploader, song.thumbnailUrl)
                     YTMSongRow(
                         item = musicItem,

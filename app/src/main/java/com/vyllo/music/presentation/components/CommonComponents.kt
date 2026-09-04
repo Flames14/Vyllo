@@ -61,7 +61,8 @@ fun YTMHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 12.dp, top = 56.dp, bottom = 12.dp),
+            .statusBarsPadding()
+            .padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -116,32 +117,50 @@ fun YTMFilterChip(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val bgColor = if (isSelected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-    val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimary
-        else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+    val isDark = com.vyllo.music.presentation.theme.ThemeManager.isDarkColor(MaterialTheme.colorScheme.background)
+    val bgColor = when {
+        isSelected -> MaterialTheme.colorScheme.primary
+        isDark -> Color.White.copy(alpha = 0.08f)
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val textColor = when {
+        isSelected -> MaterialTheme.colorScheme.onPrimary
+        isDark -> Color.White.copy(alpha = 0.85f)
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val borderColor = when {
+        isSelected -> Color.Transparent
+        isDark -> Color.White.copy(alpha = 0.12f)
+        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+    }
     
     Box(
         modifier = Modifier
-            .height(36.dp)
-            .graphicsLayer { 
-                clip = true 
-                shape = RoundedCornerShape(12.dp)
-            }
-            .background(bgColor)
-            .then(
-                if (!isSelected) Modifier.border(1.dp, MaterialTheme.colorScheme.onBackground.copy(0.1f), RoundedCornerShape(12.dp))
-                else Modifier
-            )
-            .bounceClick { onClick() }
-            .padding(horizontal = 16.dp),
+            .heightIn(min = 48.dp)
+            .bounceClick { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-            color = textColor
-        )
+        Box(
+            modifier = Modifier
+                .height(34.dp)
+                .graphicsLayer { 
+                    clip = true 
+                    shape = RoundedCornerShape(10.dp)
+                }
+                .background(bgColor)
+                .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+                .padding(horizontal = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                    letterSpacing = 0.2.sp
+                ),
+                color = textColor
+            )
+        }
     }
 }
 
@@ -329,8 +348,7 @@ fun CreatePlaylistDialog(
 @Composable
 fun YTMBottomNavBar(
     selectedTab: Int,
-    onTabSelected: (Int) -> Unit,
-    hasActivePlayer: Boolean
+    onTabSelected: (Int) -> Unit
 ) {
     val tabs = listOf(
         Pair("Home", Icons.Rounded.Home),
@@ -339,14 +357,19 @@ fun YTMBottomNavBar(
         Pair("Library", Icons.Rounded.LibraryMusic)
     )
     
-    NavigationBar(
-        modifier = Modifier
-            .height(if (hasActivePlayer) 132.dp else 60.dp)
-            .padding(bottom = if (hasActivePlayer) 72.dp else 0.dp),
-        containerColor = MaterialTheme.colorScheme.background.copy(0.98f),
-        contentColor = MaterialTheme.colorScheme.onBackground,
-        tonalElevation = 0.dp
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
+            thickness = 0.5.dp
+        )
+        NavigationBar(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding(),
+            containerColor = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.onBackground,
+            tonalElevation = 0.dp
+        ) {
         tabs.forEachIndexed { index, (label, icon) ->
             val isSelected = selectedTab == index
             NavigationBarItem(
@@ -378,6 +401,7 @@ fun YTMBottomNavBar(
             )
         }
     }
+}
 }
 
 @Composable

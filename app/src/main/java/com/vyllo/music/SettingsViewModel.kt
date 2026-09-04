@@ -2,13 +2,17 @@ package com.vyllo.music
 
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.vyllo.music.data.manager.BackupRestoreManager
 import com.vyllo.music.data.manager.PreferenceManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val preferenceManager: PreferenceManager
+    private val preferenceManager: PreferenceManager,
+    private val backupRestoreManager: BackupRestoreManager
 ) : ViewModel() {
 
     var showSettings by mutableStateOf(false)
@@ -17,6 +21,9 @@ class SettingsViewModel @Inject constructor(
     var isKeepAudioPlayingEnabled by mutableStateOf(preferenceManager.isKeepAudioPlayingEnabled)
     var themeMode by mutableStateOf(preferenceManager.themeMode)
     var isLiquidScrollEnabled by mutableStateOf(preferenceManager.isLiquidScrollEnabled)
+    var isHighRefreshRateEnabled by mutableStateOf(preferenceManager.isHighRefreshRateEnabled)
+
+    var backupStatusMessage by mutableStateOf<String?>(null)
 
     fun toggleFloatingPlayer(enabled: Boolean) {
         isFloatingEnabled = enabled
@@ -41,5 +48,39 @@ class SettingsViewModel @Inject constructor(
     fun toggleLiquidScroll(enabled: Boolean) {
         isLiquidScrollEnabled = enabled
         preferenceManager.isLiquidScrollEnabled = enabled
+    }
+
+    fun toggleHighRefreshRate(enabled: Boolean) {
+        isHighRefreshRateEnabled = enabled
+        preferenceManager.isHighRefreshRateEnabled = enabled
+    }
+
+    fun exportBackup(onExportReady: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val json = backupRestoreManager.exportBackupJson()
+                onExportReady(json)
+            } catch (e: Exception) {
+                backupStatusMessage = "Export failed: ${e.message}"
+            }
+        }
+    }
+
+    fun importBackup(jsonString: String, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val result = backupRestoreManager.restoreBackupJson(jsonString)
+            if (result.isSuccess) {
+                // Refresh local ViewModel states from restored preferences
+                themeMode = preferenceManager.themeMode
+                isFloatingEnabled = preferenceManager.isFloatingPlayerEnabled
+                isBackgroundPlaybackEnabled = preferenceManager.isBackgroundPlaybackEnabled
+                isKeepAudioPlayingEnabled = preferenceManager.isKeepAudioPlayingEnabled
+                isLiquidScrollEnabled = preferenceManager.isLiquidScrollEnabled
+                isHighRefreshRateEnabled = preferenceManager.isHighRefreshRateEnabled
+                onComplete(true)
+            } else {
+                onComplete(false)
+            }
+        }
     }
 }

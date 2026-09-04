@@ -13,7 +13,12 @@ import com.vyllo.music.data.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.DownloadManager
 import com.vyllo.music.domain.usecase.DownloadMusicUseCase
 import com.vyllo.music.domain.usecase.ManagePlaylistUseCase
+import com.vyllo.music.data.network.YouTubeRemotePlaylist
+import com.vyllo.music.data.oauth.YouTubeOAuthManager
+import com.vyllo.music.data.repository.SyncProgress
+import com.vyllo.music.data.repository.YouTubeSyncRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -24,6 +29,8 @@ class LibraryViewModel @Inject constructor(
     private val downloadMusicUseCase: DownloadMusicUseCase,
     private val playbackQueueManager: PlaybackQueueManager,
     private val downloadManager: DownloadManager,
+    val youtubeOAuthManager: YouTubeOAuthManager,
+    val youtubeSyncRepository: YouTubeSyncRepository,
     application: Application
 ) : AndroidViewModel(application) {
 
@@ -31,9 +38,18 @@ class LibraryViewModel @Inject constructor(
 
     var allPlaylists by mutableStateOf<List<PlaylistEntity>>(emptyList())
     var currentPlaylistSongs by mutableStateOf<List<PlaylistSongEntity>>(emptyList())
+    private var playlistSongsJob: kotlinx.coroutines.Job? = null
     var showPlaylistAddDialog by mutableStateOf(false)
     var songToAddToPlaylist by mutableStateOf<MusicItem?>(null)
     var selectedLocalPlaylist by mutableStateOf<PlaylistEntity?>(null)
+
+    // YouTube Sync States
+    val isGoogleConnected: StateFlow<Boolean> = youtubeOAuthManager.isAuthorized
+    val userEmail: StateFlow<String?> = youtubeOAuthManager.userEmail
+    var remoteYouTubePlaylists by mutableStateOf<List<YouTubeRemotePlaylist>>(emptyList())
+    var isLoadingRemotePlaylists by mutableStateOf(false)
+    var syncProgressState by mutableStateOf<SyncProgress?>(null)
+    var showYouTubeSyncSheet by mutableStateOf(false)
 
     var downloadedSongs by mutableStateOf<List<DownloadEntity>>(emptyList())
     val downloadProgress get() = downloadManager.downloadProgress
@@ -100,7 +116,8 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun loadPlaylistSongs(playlistId: Long) {
-        viewModelScope.launch {
+        playlistSongsJob?.cancel()
+        playlistSongsJob = viewModelScope.launch {
             managePlaylistUseCase.getSongsInPlaylist(playlistId).collectLatest { songs ->
                 currentPlaylistSongs = songs
             }
@@ -124,5 +141,66 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             downloadMusicUseCase.deleteDownload(url)
         }
+    }
+
+    // ==========================================
+    // YOUTUBE PLAYLIST SYNC METHODS
+    // ==========================================
+
+    val hasGoogleClientId: StateFlow<Boolean> = youtubeOAuthManager.hasConfiguredClientId
+
+    fun getGoogleClientId(): String? = youtubeOAuthManager.getClientId()
+
+    fun setGoogleClientId(clientId: String?) {
+        youtubeOAuthManager.setCustomClientId(clientId)
+    }
+
+    fun getGoogleAuthUri(): android.net.Uri? {
+        return youtubeOAuthManager.createAuthorizationUri()
+    }
+
+    fun handleGoogleAuthRedirect(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val result = youtubeOAuthManager.handleAuthorizationResponse(uri)
+            if (result.isSuccess) {
+                loadRemoteYouTubePlaylists()
+            }
+        }
+    }
+
+    fun disconnectGoogle() {
+        youtubeOAuthManager.signOut()
+        remoteYouTubePlaylists = emptyList()
+    }
+
+    fun loadRemoteYouTubePlaylists() {
+        viewModelScope.launch {
+            isLoadingRemotePlaylists = true
+            val result = youtubeSyncRepository.getUserPlaylists()
+            if (result.isSuccess) {
+                remoteYouTubePlaylists = result.getOrNull() ?: emptyList()
+            }
+            isLoadingRemotePlaylists = false
+        }
+    }
+
+    fun syncYouTubePlaylist(remotePlaylist: YouTubeRemotePlaylist) {
+        viewModelScope.launch {
+            youtubeSyncRepository.syncRemotePlaylist(remotePlaylist).collect { progress ->
+                syncProgressState = progress
+            }
+        }
+    }
+
+    fun importPlaylistByUrl(urlOrId: String) {
+        viewModelScope.launch {
+            youtubeSyncRepository.importPlaylistFromUrl(urlOrId).collect { progress ->
+                syncProgressState = progress
+            }
+        }
+    }
+
+    fun clearSyncProgress() {
+        syncProgressState = null
     }
 }

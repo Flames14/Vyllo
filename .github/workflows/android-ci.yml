@@ -94,13 +94,25 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
+    - name: Decode Keystore
+      if: env.RELEASE_KEYSTORE_BASE64 != ''
+      env:
+        RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      run: |
+        echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > app/android
+
     - name: Build release APK
+      env:
+        VYLLO_STOREFILE: ${{ secrets.VYLLO_STOREFILE || 'android' }}
+        VYLLO_STOREPASSWORD: ${{ secrets.VYLLO_STOREPASSWORD }}
+        VYLLO_KEYALIAS: ${{ secrets.VYLLO_KEYALIAS }}
+        VYLLO_KEYPASSWORD: ${{ secrets.VYLLO_KEYPASSWORD }}
       run: ./gradlew assembleRelease
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        files: app/build/outputs/apk/release/app-release.apk
+        files: app/build/outputs/apk/release/*.apk
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

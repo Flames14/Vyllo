@@ -91,7 +91,7 @@
     <string name="alarm_vibration">Vibration</string>
     <string name="alarm_delete_title">Delete alarm?</string>
     <string name="alarm_delete_message">This alarm will be permanently removed.</string>
-    <string name="alarm_cannot_nooze">Cannot snooze: alarm not found</string>
+    <string name="alarm_cannot_snooze">Cannot snooze: alarm not found</string>
 
     <!-- Permissions -->
     <string name="permission_overlay_required">Grant Overlay permission for Floating Player</string>
@@ -169,4 +169,48 @@
     <string name="share_music_message">Listen to %1$s on YouTube: %2$s</string>
     <string name="share_music_chooser">Share music</string>
     <string name="share_music_error">Unable to create a public YouTube link for this track</string>
+
+    <!-- Volume Booster and Presets -->
+    <string name="volume_booster_title">Volume Booster</string>
+    <string name="equalizer_presets">Presets</string>
+
+    <!-- Sleep timer -->
+    <string name="sleep_timer_title">Sleep Timer</string>
+    <string name="sleep_timer_turn_off">Turn Off Timer</string>
+    <string name="sleep_timer_minutes">%1$d minutes</string>
+
+    <!-- Backup & Restore -->
+    <string name="backup_title">Backup &amp; Restore</string>
+    <string name="backup_export">Export Backup</string>
+    <string name="backup_import">Import Backup</string>
+    <string name="backup_export_success">Backup exported successfully</string>
+    <string name="backup_export_error">Failed to export backup</string>
+    <string name="backup_import_success">Backup restored successfully</string>
+    <string name="backup_import_error">Failed to import backup</string>
+
+    <!-- Recognition -->
+    <string name="recognition_title">Music Recognition</string>
+    <string name="recognition_tap_to_recognize">Tap to Recognize</string>
+    <string name="recognition_listening">Listening…</string>
+    <string name="recognition_processing">Identifying…</string>
+    <string name="recognition_found">Found Match!</string>
+    <string name="recognition_no_match">No Match Found</string>
+    <string name="recognition_error">Error identifying music</string>
+    <string name="recognition_try_again">Try Again</string>
+    <string name="recognition_play_song">Play Song</string>
+    <string name="recognition_subtitle">Identify the music playing around you</string>
+
+    <!-- Accessibility Labels -->
+    <string name="accessibility_play">Play</string>
+    <string name="accessibility_pause">Pause</string>
+    <string name="accessibility_skip_next">Next track</string>
+    <string name="accessibility_skip_previous">Previous track</string>
+    <string name="accessibility_repeat">Repeat mode</string>
+    <string name="accessibility_shuffle">Shuffle</string>
+    <string name="accessibility_seek_bar">Playback progress bar</string>
+    <string name="accessibility_close">Close</string>
+    <string name="accessibility_expand">Expand</string>
+    <string name="accessibility_collapse">Collapse</string>
+    <string name="accessibility_volume">Volume control</string>
+    <string name="accessibility_favorite">Toggle favorite</string>
 </resources>

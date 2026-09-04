@@ -10,7 +10,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Senior-Level Security Configuration for Network Layer
+ * Security Configuration for Network Layer
  * 
  * Provides:
  * - Encrypted DNS (DoH): Prevents DNS spoofing and ISP surveillance

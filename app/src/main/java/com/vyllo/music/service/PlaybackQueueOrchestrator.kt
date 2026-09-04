@@ -17,71 +17,51 @@ class PlaybackQueueOrchestrator @Inject constructor(
     private val playbackQueueManager: PlaybackQueueManager,
     private val wakeLockManager: WakeLockManager
 ) {
-    fun enqueueNextTrackIfNeeded(scope: CoroutineScope, player: ExoPlayer, currentMediaItem: MediaItem?) {
-        val currentMediaId = currentMediaItem?.mediaId ?: return
+
+    /**
+     * Warms up the stream URL cache for upcoming tracks in the queue so
+     * track transitions happen with near-instant buffering.
+     * Crucially, this does NOT mutate ExoPlayer's internal playlist directly,
+     * maintaining PlaybackQueueManager as the single source of truth.
+     */
+    fun prefetchUpcomingStreams(scope: CoroutineScope) {
         scope.launch {
-            val queue = playbackQueueManager.getQueueSnapshot()
-            val currentIndex = queue.indexOfFirst { it.url == currentMediaId }
-            if (currentIndex == -1) {
-                SecureLogger.w("MusicService", "Current media ID not found in queue: $currentMediaId")
-                return@launch
-            }
-
-            playbackQueueManager.setCurrentIndexSafe(currentIndex)
-
-            val tracksToPrefetch = 3
-            val currentPlaylistIndex = player.currentMediaItemIndex
-            val itemsAfterCurrent = player.mediaItemCount - currentPlaylistIndex - 1
-            if (itemsAfterCurrent >= tracksToPrefetch) return@launch
-
-            val tracksNeeded = tracksToPrefetch - itemsAfterCurrent
-            val nextIndex = currentIndex + 1
-
-            for (i in 0 until tracksNeeded) {
-                val prefetchIndex = nextIndex + i
-                if (prefetchIndex >= queue.size) {
-                    fetchAndAddRelatedSongs(queue)
-                    continue
-                }
-
-                val nextTrack = queue[prefetchIndex]
-                val alreadyQueued = (0 until player.mediaItemCount).any { idx ->
-                    player.getMediaItemAt(idx).mediaId == nextTrack.url
-                }
-                if (alreadyQueued) continue
-
-                try {
-                    wakeLockManager.acquire()
-                    val streamUrl = repository.getStreamUrl(nextTrack.url, isVideo = false)
-                    if (streamUrl != null) {
-                        player.addMediaItem(nextTrack.toMediaItem(streamUrl))
-                    }
-                } catch (e: Exception) {
-                    SecureLogger.e("MusicService", "Prefetch failed for: ${nextTrack.title}", e)
-                } finally {
-                    wakeLockManager.release()
-                }
+            val upcoming = playbackQueueManager.getUpcomingSnapshot()
+            val nextTrack = upcoming.firstOrNull() ?: return@launch
+            try {
+                wakeLockManager.acquire()
+                repository.getStreamUrl(nextTrack.url, force = false)
+            } catch (e: Exception) {
+                SecureLogger.d("MusicService", "Upcoming stream prefetch ignored: ${e.message}")
+            } finally {
+                wakeLockManager.release()
             }
         }
     }
 
+    /**
+     * Advances to the next track in the queue.
+     * If the end of the queue has been reached, automatically discovers and appends
+     * fresh autoplay recommendations to keep playback running seamlessly.
+     */
     fun playNextTrack(scope: CoroutineScope, player: ExoPlayer?) {
+        val queue = playbackQueueManager.getQueueSnapshot()
         val nextIndex = playbackQueueManager.currentIndex + 1
-        if (nextIndex < playbackQueueManager.currentQueue.size) {
+        if (nextIndex in queue.indices) {
             playTrackAtIndex(scope, player, nextIndex)
             return
         }
 
-        val currentUrl = playbackQueueManager.currentQueue.getOrNull(playbackQueueManager.currentIndex)?.url ?: return
+        val currentUrl = queue.getOrNull(playbackQueueManager.currentIndex)?.url ?: return
         scope.launch {
             try {
                 wakeLockManager.acquire()
-                val related = repository.getRelatedSongs(currentUrl)
-                if (related.isNotEmpty()) {
-                    val addedSongs = playbackQueueManager.appendDistinct(related)
-                    if (addedSongs.isEmpty()) {
-                        playbackQueueManager.addAll(related.take(5))
-                    }
+                var related = repository.getMoreRelatedSongs(currentUrl)
+                if (related.isEmpty()) {
+                    related = repository.getRelatedSongs(currentUrl)
+                }
+                val added = playbackQueueManager.appendDistinct(related)
+                if (added.isNotEmpty()) {
                     playTrackAtIndex(scope, player, playbackQueueManager.currentIndex + 1)
                 }
             } catch (e: Exception) {
@@ -92,17 +72,33 @@ class PlaybackQueueOrchestrator @Inject constructor(
         }
     }
 
+    /**
+     * Plays the previous track in the active queue if available.
+     */
+    fun playPreviousTrack(scope: CoroutineScope, player: ExoPlayer?) {
+        val prevIndex = playbackQueueManager.currentIndex - 1
+        val queue = playbackQueueManager.getQueueSnapshot()
+        if (prevIndex in queue.indices) {
+            playTrackAtIndex(scope, player, prevIndex)
+        }
+    }
+
+    /**
+     * Loads and starts playing the track at the specified index in the queue.
+     * Updates PlaybackQueueManager immediately so UI states (title, artist, artwork)
+     * transition in exact lockstep with audio playback.
+     */
     fun playTrackAtIndex(scope: CoroutineScope, player: ExoPlayer?, index: Int) {
-        if (index >= playbackQueueManager.currentQueue.size) {
-            SecureLogger.w("MusicService", "Index $index out of bounds (size: ${playbackQueueManager.currentQueue.size})")
+        val queue = playbackQueueManager.getQueueSnapshot()
+        if (index !in queue.indices) {
+            SecureLogger.w("MusicService", "Index $index out of bounds (size: ${queue.size})")
             return
         }
 
-        val track = playbackQueueManager.currentQueue[index]
+        val track = queue[index]
         playbackQueueManager.setCurrentIndexSafe(index)
+
         scope.launch {
-            // Senior Developer Fix: Pause playback immediately to stop audio from the previous track
-            // while the new stream URL is being fetched asynchronously.
             player?.pause()
             try {
                 wakeLockManager.acquire()
@@ -110,18 +106,15 @@ class PlaybackQueueOrchestrator @Inject constructor(
                 if (streamUrl != null) {
                     val mediaItem = track.toMediaItem(streamUrl)
                     player?.let { exoPlayer ->
-                        val existingIndex = (0 until exoPlayer.mediaItemCount).indexOfFirst { idx ->
-                            exoPlayer.getMediaItemAt(idx).mediaId == track.url
-                        }
-
-                        if (existingIndex >= 0) {
-                            exoPlayer.seekToDefaultPosition(existingIndex)
-                        } else {
-                            exoPlayer.addMediaItem(mediaItem)
-                            exoPlayer.seekToDefaultPosition(exoPlayer.mediaItemCount - 1)
-                        }
+                        exoPlayer.setMediaItem(mediaItem)
                         exoPlayer.prepare()
                         exoPlayer.playWhenReady = true
+                    }
+                } else {
+                    SecureLogger.w("MusicService", "Stream URL null for ${track.title}, falling back to next track")
+                    val nextIdx = index + 1
+                    if (nextIdx < playbackQueueManager.getQueueSnapshot().size) {
+                        playTrackAtIndex(scope, player, nextIdx)
                     }
                 }
             } catch (e: Exception) {
@@ -129,24 +122,6 @@ class PlaybackQueueOrchestrator @Inject constructor(
             } finally {
                 wakeLockManager.release()
             }
-        }
-    }
-
-    private suspend fun fetchAndAddRelatedSongs(queue: List<MusicItem>) {
-        try {
-            wakeLockManager.acquire()
-            val currentUrl = queue.lastOrNull()?.url ?: return
-            val related = repository.getRelatedSongs(currentUrl)
-            if (related.isNotEmpty()) {
-                val addedSongs = playbackQueueManager.appendDistinct(related)
-                if (addedSongs.isEmpty()) {
-                    playbackQueueManager.addAll(related.take(5))
-                }
-            }
-        } catch (e: Exception) {
-            SecureLogger.e("MusicService", "Related songs fetch failed", e)
-        } finally {
-            wakeLockManager.release()
         }
     }
 

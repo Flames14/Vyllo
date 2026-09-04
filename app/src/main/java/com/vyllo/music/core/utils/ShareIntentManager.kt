@@ -6,6 +6,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.vyllo.music.R
+import com.vyllo.music.domain.model.MusicItem
 import java.io.File
 
 object ShareIntentManager {
@@ -41,14 +42,16 @@ object ShareIntentManager {
     }
 
     /**
-     * Shares an image to WhatsApp Status/Chat.
+     * Shares an image to WhatsApp Status/Chat with full link.
      */
-    fun shareToWhatsApp(context: Context, imageFile: File) {
+    fun shareToWhatsApp(context: Context, imageFile: File, item: MusicItem) {
         val uri = getUriForFile(context, imageFile)
+        val shareUrl = item.getUniversalShareUrl()
+        val text = "🎵 Listening to \"${item.title}\" by ${item.uploader} on Vyllo Music\n🔗 $shareUrl"
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "image/png"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_TEXT, "Listening on Vyllo Music")
+            putExtra(Intent.EXTRA_TEXT, text)
             setPackage("com.whatsapp")
             flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
             clipData = android.content.ClipData.newRawUri("Story Background", uri)
@@ -93,6 +96,42 @@ object ShareIntentManager {
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(context, "Failed to share", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Shares direct song link (without image) universally.
+     */
+    fun shareSongLink(context: Context, item: MusicItem) {
+        val shareUrl = item.getUniversalShareUrl()
+        val text = "🎵 Listening to \"${item.title}\" by ${item.uploader} on Vyllo Music\n\n🔗 Stream here: $shareUrl"
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "Listen to ${item.title} on Vyllo Music")
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        val chooser = Intent.createChooser(intent, "Share Song Link")
+        try {
+            context.startActivity(chooser)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(context, "Failed to share link", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Copies direct song link to clipboard.
+     */
+    fun copySongLink(context: Context, item: MusicItem) {
+        try {
+            val shareUrl = item.getUniversalShareUrl()
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clip = android.content.ClipData.newPlainText("Song Link", shareUrl)
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(context, "Link copied to clipboard! 🔗", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(context, "Failed to copy link", Toast.LENGTH_SHORT).show()
         }
     }
 

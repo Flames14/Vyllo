@@ -2,6 +2,8 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="music_prefs.xml" />
+        <exclude domain="sharedpref" path="vyllo_youtube_oauth_prefs.xml" />
+        <exclude domain="sharedpref" path="encrypted_prefs.xml" />
         <exclude domain="database" path="downloads_db" />
         <exclude domain="database" path="downloads_db-shm" />
         <exclude domain="database" path="downloads_db-wal" />
@@ -10,6 +12,8 @@
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="music_prefs.xml" />
+        <exclude domain="sharedpref" path="vyllo_youtube_oauth_prefs.xml" />
+        <exclude domain="sharedpref" path="encrypted_prefs.xml" />
         <exclude domain="database" path="downloads_db" />
         <exclude domain="database" path="downloads_db-shm" />
         <exclude domain="database" path="downloads_db-wal" />

@@ -29,8 +29,13 @@ class WakeLockManager @Inject constructor(
     }
 
     private val wifiLock: WifiManager.WifiLock by lazy {
+        val mode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+        } else {
+            WifiManager.WIFI_MODE_FULL
+        }
         wifiManager.createWifiLock(
-            WifiManager.WIFI_MODE_FULL_HIGH_PERF,
+            mode,
             "Vyllo::ServiceWifiLock"
         ).apply { setReferenceCounted(false) }
     }

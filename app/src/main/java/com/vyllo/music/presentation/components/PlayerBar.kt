@@ -1,26 +1,16 @@
 package com.vyllo.music.presentation.components
 
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.media3.session.MediaController
 import com.vyllo.music.PlayerViewModel
 import com.vyllo.music.domain.model.MusicItem
-import kotlinx.coroutines.launch
 
 @Composable
 fun PremiumPlayerContainer(
@@ -42,82 +32,47 @@ fun PremiumPlayerContainer(
 ) {
     if (musicItem == null) return
 
-    val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
-    val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
-    
     val playerUiState by viewModel.uiState.collectAsState()
     val isActuallyExpanded = isExpanded || playerUiState.isInPipMode
-    
-    val containerHeight = if (isActuallyExpanded) screenHeight else 64.dp
-    val targetCorner = 0.dp
-    
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (isActuallyExpanded) Modifier.fillMaxSize() 
-                else Modifier.height(containerHeight)
+
+    if (isActuallyExpanded) {
+        PremiumFullScreenPlayer(
+            item = musicItem, 
+            isPlaying = isPlaying,
+            isLoading = isLoading,
+            controller = controller, 
+            relatedSongs = relatedSongs,
+            isAutoplayEnabled = isAutoplayEnabled,
+            onTogglePlay = onTogglePlay, 
+            onNext = onNext, 
+            onPrev = onPrev, 
+            onCollapse = onCollapse,
+            onAutoplayToggle = onAutoplayToggle,
+            onPlayRelated = onPlayRelated,
+            viewModel = viewModel
+        )
+    } else {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .clickable { 
+                    onExpand() 
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                },
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            tonalElevation = 6.dp
+        ) {
+            PremiumMiniPlayer(
+                musicItem = musicItem,
+                isPlaying = isPlaying,
+                isLoading = isLoading,
+                onTogglePlay = onTogglePlay,
+                controller = controller,
+                onNext = onNext,
+                onPrev = onPrev
             )
-            .shadow(
-                elevation = if(isActuallyExpanded) 0.dp else 8.dp, 
-                shape = RoundedCornerShape(targetCorner),
-                spotColor = Color.Black
-            )
-            .clip(RoundedCornerShape(targetCorner))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(enabled = !isActuallyExpanded) { 
-                onExpand() 
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            }
-    ) {
-        if (isActuallyExpanded) {
-             val offsetY = remember { Animatable(0f) }
-             val scope = rememberCoroutineScope()
-             
-             Box(
-                 modifier = Modifier
-                     .fillMaxSize()
-                     .offset { androidx.compose.ui.unit.IntOffset(0, offsetY.value.toInt()) }
-                     .draggable(
-                         enabled = !playerUiState.isInPipMode, // Disable drag in PiP
-                         orientation = Orientation.Vertical,
-                         state = rememberDraggableState { delta ->
-                             scope.launch {
-                                 val newOffset = offsetY.value + delta
-                                 if (newOffset >= 0) offsetY.snapTo(newOffset)
-                             }
-                         },
-                         onDragStopped = { velocity ->
-                             if (offsetY.value > 300f || velocity > 1000f) {
-                                 onCollapse()
-                                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                             } else {
-                                 offsetY.animateTo(0f)
-                             }
-                         }
-                     )
-             ) {
-                ImmersiveBackground(imageUrl = musicItem.thumbnailUrl) {
-                   PremiumFullScreenPlayer(
-                       item = musicItem, 
-                       isPlaying = isPlaying,
-                       isLoading = isLoading,
-                       controller = controller, 
-                       relatedSongs = relatedSongs,
-                       isAutoplayEnabled = isAutoplayEnabled,
-                       onTogglePlay = onTogglePlay, 
-                       onNext = onNext, 
-                       onPrev = onPrev, 
-                       onCollapse = onCollapse,
-                       onAutoplayToggle = onAutoplayToggle,
-                       onPlayRelated = onPlayRelated,
-                       viewModel = viewModel
-                   )
-                }
-             }
-        } else {
-             PremiumMiniPlayer(musicItem, isPlaying, isLoading, onTogglePlay)
         }
     }
 }

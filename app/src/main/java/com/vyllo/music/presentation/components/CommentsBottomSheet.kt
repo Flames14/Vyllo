@@ -104,8 +104,15 @@ fun CommentsBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val count = currentInfo?.commentsCount ?: -1
+                val countText = if (count > 0) {
+                    if (count >= 1_000_000) String.format(java.util.Locale.US, "%.1fM", count / 1_000_000.0).replace(".0M", "M")
+                    else if (count >= 1_000) String.format(java.util.Locale.US, "%.1fK", count / 1_000.0).replace(".0K", "K")
+                    else "$count"
+                } else null
+
                 Text(
-                    text = "Comments",
+                    text = if (countText != null) "Comments ($countText)" else "Comments",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )

@@ -1,18 +1,25 @@
 package com.vyllo.music.presentation.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
@@ -22,10 +29,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.R
+import com.vyllo.music.domain.model.EqualizerPreset
 import com.vyllo.music.domain.model.EqualizerSettings
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,6 +50,7 @@ fun EqualizerBottomSheet(
     onVirtualizerChange: (Int) -> Unit,
     onBandLevelChange: (Int, Int) -> Unit,
     onVolumeBoostChange: (Float) -> Unit,
+    onPresetSelected: (EqualizerPreset) -> Unit = {},
     onReset: () -> Unit
 ) {
     ModalBottomSheet(
@@ -52,7 +64,7 @@ fun EqualizerBottomSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 8.dp)
                 .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -61,9 +73,9 @@ fun EqualizerBottomSheet(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.Icon(
+                        Icon(
                             imageVector = Icons.Rounded.GraphicEq,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.equalizer_title),
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
@@ -80,8 +92,48 @@ fun EqualizerBottomSheet(
                 }
                 Switch(
                     checked = settings.enabled,
-                    onCheckedChange = onEnabledChange
+                    onCheckedChange = onEnabledChange,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Toggle Equalizer"
+                    }
                 )
+            }
+
+            // Presets Horizontal Row
+            Column {
+                Text(
+                    text = "Presets",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    EqualizerSettings.PRESETS.forEach { preset ->
+                        val isSelected = settings.enabled && settings.matchesPreset(preset)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .clickable { onPresetSelected(preset) }
+                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = preset.name,
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                       else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
             }
 
             HorizontalDivider()
@@ -128,7 +180,12 @@ fun EqualizerBottomSheet(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = onReset) {
+                TextButton(
+                    onClick = onReset,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Reset equalizer to flat"
+                    }
+                ) {
                     Text(stringResource(R.string.equalizer_reset))
                 }
             }
@@ -163,7 +220,10 @@ private fun EqualizerStrengthSlider(
             value = value.toFloat(),
             onValueChange = { onValueChange(it.toInt()) },
             valueRange = EqualizerSettings.STRENGTH_MIN.toFloat()..EqualizerSettings.STRENGTH_MAX.toFloat(),
-            enabled = enabled
+            enabled = enabled,
+            modifier = Modifier.semantics {
+                contentDescription = "$title ${(value / 10f).toInt()}%"
+            }
         )
     }
 }
@@ -195,7 +255,10 @@ private fun EqualizerBandSlider(
             value = value.toFloat(),
             onValueChange = { onValueChange(it.toInt()) },
             valueRange = EqualizerSettings.BAND_LEVEL_MIN.toFloat()..EqualizerSettings.BAND_LEVEL_MAX.toFloat(),
-            enabled = enabled
+            enabled = enabled,
+            modifier = Modifier.semantics {
+                contentDescription = "$label frequency ${if (value == 0) "0 dB" else "${value / 100f} dB"}"
+            }
         )
     }
 }
@@ -213,7 +276,7 @@ private fun VolumeBoosterSlider(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Volume Booster",
+                text = stringResource(R.string.volume_booster_title),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
             )
             Text(
@@ -227,7 +290,10 @@ private fun VolumeBoosterSlider(
             onValueChange = onValueChange,
             enabled = enabled,
             valueRange = 1.0f..3.0f,
-            steps = 19
+            steps = 19,
+            modifier = Modifier.semantics {
+                contentDescription = "Volume booster ${(value * 100).toInt()}%"
+            }
         )
     }
 }

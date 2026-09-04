@@ -211,15 +211,20 @@ fun YTMHomeScreen(
         }
     }
 
+    val isScrolling = scrollState.isScrollInProgress
+
     Box(modifier = Modifier.fillMaxSize().nestedScroll(pullToRefreshState.nestedScrollConnection)) {
+        // Living Ambient Dark Aura with 60Hz/120Hz scroll throttling
+        HomeAmbientDarkAura(isScrolling = isScrolling)
+
         LazyColumn(
             state = scrollState,
             flingBehavior = liquidFlingBehavior,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = if (currentPlayingItem != null) 140.dp else 16.dp)
+            contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             // YTM Header
-            item {
+            item(key = "ytm_header", contentType = "header") {
                 YTMHeader(
                     onSettingsClick = onSettingsClick,
                     onRecognizeClick = onRecognizeClick
@@ -227,7 +232,7 @@ fun YTMHomeScreen(
             }
         
         // Filter Chips
-        item {
+        item(key = "filter_chips_row", contentType = "filter_row") {
             LazyRow(
                 modifier = Modifier.padding(vertical = 12.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp),
@@ -235,7 +240,8 @@ fun YTMHomeScreen(
             ) {
                 items(
                     count = filterChips.size,
-                    key = { index -> filterChips[index] }
+                    key = { index -> filterChips[index] },
+                    contentType = { "filter_chip" }
                 ) { index ->
                     YTMFilterChip(
                         text = filterChips[index],
@@ -439,4 +445,117 @@ fun YTMHomeScreen(
         modifier = Modifier.align(Alignment.TopCenter)
     )
 } // End Box
+}
+
+/**
+ * 🌌 Ambient Dynamic Aura / Subtle Living Cosmic Mesh for Home Screen
+ * Dynamically adjusts for both Dark and Light themes with pristine contrast.
+ */
+@Composable
+fun HomeAmbientDarkAura(
+    isScrolling: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val isDark = com.vyllo.music.presentation.theme.ThemeManager.isDarkColor(backgroundColor)
+
+    val infiniteTransition = rememberInfiniteTransition(label = "DarkAuraTransition")
+    val livePhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2 * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(24000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "AuraPhase"
+    )
+
+    var frozenPhase by remember { mutableFloatStateOf(0f) }
+    if (!isScrolling) {
+        frozenPhase = livePhase
+    }
+    val phase = if (isScrolling) frozenPhase else livePhase
+
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val width = size.width
+        val height = size.height
+
+        if (isDark) {
+            // Dark Mode: Deep cosmic black base with rich ambient glows
+            drawRect(Color(0xFF0A0A0E))
+
+            val aura1X = width * (0.8f + 0.1f * kotlin.math.sin(phase))
+            val aura1Y = height * (0.15f + 0.08f * kotlin.math.cos(phase))
+
+            val aura2X = width * (0.15f + 0.1f * kotlin.math.cos(phase * 0.8f))
+            val aura2Y = height * (0.45f + 0.1f * kotlin.math.sin(phase * 0.8f))
+
+            val aura3X = width * (0.75f + 0.15f * kotlin.math.sin(phase * 1.2f))
+            val aura3Y = height * (0.75f + 0.08f * kotlin.math.cos(phase * 1.2f))
+
+            // 1. Violet / Cosmic Purple Glow (Top Right)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFF5B1A8C).copy(alpha = 0.16f), Color.Transparent),
+                    center = Offset(aura1X, aura1Y),
+                    radius = width * 0.85f
+                ),
+                center = Offset(aura1X, aura1Y),
+                radius = width * 0.85f
+            )
+
+            // 2. Deep Emerald / Oceanic Teal Glow (Middle Left)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFF00695C).copy(alpha = 0.13f), Color.Transparent),
+                    center = Offset(aura2X, aura2Y),
+                    radius = width * 0.75f
+                ),
+                center = Offset(aura2X, aura2Y),
+                radius = width * 0.75f
+            )
+
+            // 3. Deep Ruby / Amber Glow (Bottom Right)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFF880E4F).copy(alpha = 0.12f), Color.Transparent),
+                    center = Offset(aura3X, aura3Y),
+                    radius = width * 0.8f
+                ),
+                center = Offset(aura3X, aura3Y),
+                radius = width * 0.8f
+            )
+        } else {
+            // Light Mode: Clean YouTube Music crisp white with ultra-subtle ambient warmth
+            drawRect(backgroundColor)
+
+            val aura1X = width * (0.85f + 0.08f * kotlin.math.sin(phase))
+            val aura1Y = height * (0.12f + 0.06f * kotlin.math.cos(phase))
+
+            val aura2X = width * (0.12f + 0.08f * kotlin.math.cos(phase * 0.8f))
+            val aura2Y = height * (0.42f + 0.08f * kotlin.math.sin(phase * 0.8f))
+
+            // Subtle warm red / coral ambient hint (Top Right)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFFFF0000).copy(alpha = 0.035f), Color.Transparent),
+                    center = Offset(aura1X, aura1Y),
+                    radius = width * 0.8f
+                ),
+                center = Offset(aura1X, aura1Y),
+                radius = width * 0.8f
+            )
+
+            // Subtle cool sky ambient hint (Middle Left)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFF007AFF).copy(alpha = 0.025f), Color.Transparent),
+                    center = Offset(aura2X, aura2Y),
+                    radius = width * 0.7f
+                ),
+                center = Offset(aura2X, aura2Y),
+                radius = width * 0.7f
+            )
+        }
+    }
 }

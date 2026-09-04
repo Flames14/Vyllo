@@ -27,9 +27,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.session.MediaController
+import com.vyllo.music.R
 import com.vyllo.music.PlayerViewModel
 import com.vyllo.music.PlayerUiState
 import com.vyllo.music.core.security.SecureLogger
@@ -58,14 +60,15 @@ private object LyricsColors {
 // MAIN LYRICS TAB CONTENT
 // ============================================================
 @Composable
-fun androidx.compose.foundation.lazy.LazyItemScope.LyricsTabContent(
+fun LyricsViewContent(
     playerUiState: PlayerUiState,
     viewModel: PlayerViewModel,
     controller: MediaController?,
-    onSeek: (Long) -> Unit
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().height(520.dp)
+        modifier = modifier.fillMaxWidth()
     ) {
 
         Row(
@@ -77,13 +80,30 @@ fun androidx.compose.foundation.lazy.LazyItemScope.LyricsTabContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Sync, null, tint = LyricsColors.textInactive, modifier = Modifier.size(16.dp))
+                Icon(
+                    Icons.Rounded.Sync,
+                    contentDescription = null,
+                    tint = LyricsColors.textInactive,
+                    modifier = Modifier.size(16.dp)
+                )
                 Spacer(Modifier.width(8.dp))
-                Text("Lyrics Sync", style = MaterialTheme.typography.labelMedium, color = LyricsColors.textInactive)
+                Text(
+                    stringResource(R.string.player_lyrics_sync),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = LyricsColors.textInactive
+                )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { viewModel.adjustLyricsOffset(-500L) }, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Rounded.RemoveCircleOutline, null, tint = LyricsColors.textSecondary, modifier = Modifier.size(18.dp))
+                IconButton(
+                    onClick = { viewModel.adjustLyricsOffset(-500L) },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.RemoveCircleOutline,
+                        contentDescription = "Decrease lyrics sync offset by 0.5s",
+                        tint = LyricsColors.textSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
                 Text(
                     "${if (viewModel.lyricsOffsetMs >= 0) "+" else ""}${viewModel.lyricsOffsetMs / 1000.0}s",
@@ -91,12 +111,27 @@ fun androidx.compose.foundation.lazy.LazyItemScope.LyricsTabContent(
                     color = if (viewModel.lyricsOffsetMs != 0L) LyricsColors.accent else LyricsColors.textSecondary,
                     modifier = Modifier.padding(horizontal = 4.dp)
                 )
-                IconButton(onClick = { viewModel.adjustLyricsOffset(500L) }, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Rounded.AddCircleOutline, null, tint = LyricsColors.textSecondary, modifier = Modifier.size(18.dp))
+                IconButton(
+                    onClick = { viewModel.adjustLyricsOffset(500L) },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.AddCircleOutline,
+                        contentDescription = "Increase lyrics sync offset by 0.5s",
+                        tint = LyricsColors.textSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
                 if (viewModel.lyricsOffsetMs != 0L) {
-                    TextButton(onClick = { viewModel.lyricsOffsetMs = 0L }, modifier = Modifier.height(28.dp)) {
-                        Text("Reset", style = MaterialTheme.typography.labelSmall, color = LyricsColors.textSecondary)
+                    TextButton(
+                        onClick = { viewModel.lyricsOffsetMs = 0L },
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text(
+                            stringResource(R.string.player_lyrics_reset),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = LyricsColors.textSecondary
+                        )
                     }
                 }
             }
@@ -146,16 +181,15 @@ fun androidx.compose.foundation.lazy.LazyItemScope.LyricsTabContent(
 
                 !hasLyricsResponse && !playerUiState.lyricsLoading -> {
                     // No lyrics response yet (shouldn't happen, but fallback)
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Rounded.MusicNote, null, tint = LyricsColors.textInactive, modifier = Modifier.size(48.dp))
-                        Text("Tap a song to show lyrics", style = MaterialTheme.typography.bodyMedium, color = LyricsColors.textSecondary)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {                        Icon(Icons.Rounded.MusicNote, null, tint = LyricsColors.textInactive, modifier = Modifier.size(48.dp))
+                        Text(stringResource(R.string.player_lyrics_not_found), style = MaterialTheme.typography.bodyMedium, color = LyricsColors.textSecondary)
                         FilledTonalButton(onClick = {
                             SecureLogger.d("LyricsTabContent", "User tapped search button from empty state")
                             viewModel.showLyricsSelector = true
                         }) {
-                            Icon(Icons.Rounded.Search, null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Rounded.Search, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Search for lyrics")
+                            Text(stringResource(R.string.player_lyrics_search_button))
                         }
                     }
                 }
@@ -167,15 +201,21 @@ fun androidx.compose.foundation.lazy.LazyItemScope.LyricsTabContent(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { viewModel.toggleTranslation(!playerUiState.isTranslationEnabled) }) {
-                Icon(Icons.Rounded.Translate, null,
-                    tint = if (playerUiState.isTranslationEnabled) LyricsColors.accent else LyricsColors.textInactive)
+            IconButton(
+                onClick = { viewModel.toggleTranslation(!playerUiState.isTranslationEnabled) },
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    Icons.Rounded.Translate,
+                    contentDescription = "Toggle lyrics translation",
+                    tint = if (playerUiState.isTranslationEnabled) LyricsColors.accent else LyricsColors.textInactive
+                )
             }
             TextButton(onClick = {
                 SecureLogger.d("LyricsTabContent", "User tapped 'Search / Change lyrics' button")
                 viewModel.showLyricsSelector = true
             }) {
-                Text("Search / Change lyrics", color = LyricsColors.textSecondary)
+                Text(stringResource(R.string.player_lyrics_search_button), color = LyricsColors.textSecondary)
             }
             if (playerUiState.isTranslating) {
                 Spacer(Modifier.width(8.dp))
@@ -186,7 +226,6 @@ fun androidx.compose.foundation.lazy.LazyItemScope.LyricsTabContent(
                 )
             }
         }
-
     }
 }
 
@@ -323,15 +362,37 @@ private fun SyncedLyricsDisplay(
     controller: MediaController?,
     onSeek: (Long) -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    val listState = rememberLazyListState()
+
+    // Smoothly auto-scroll to follow active lyric
+    LaunchedEffect(playerUiState.currentLyricIndex) {
+        val targetIdx = playerUiState.currentLyricIndex
+        if (targetIdx in playerUiState.syncedLyricsLines.indices) {
+            val scrollTarget = (targetIdx - 2).coerceAtLeast(0)
+            listState.animateScrollToItem(scrollTarget)
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        contentPadding = PaddingValues(vertical = 40.dp)
     ) {
-        playerUiState.syncedLyricsLines.forEachIndexed { index, line ->
+        itemsIndexed(
+            items = playerUiState.syncedLyricsLines,
+            key = { index, line -> "${line.startTimeMs}_$index" }
+        ) { index, line ->
             val isActive = playerUiState.currentLyricIndex == index
-            val alpha by animateFloatAsState(if (isActive) 1f else 0.35f)
+            val alpha by animateFloatAsState(
+                targetValue = if (isActive) 1f else 0.35f,
+                animationSpec = tween(durationMillis = 300)
+            )
             Column(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
                     .clickable { controller?.seekTo(line.startTimeMs); onSeek(line.startTimeMs) }
                     .padding(vertical = 6.dp, horizontal = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -340,13 +401,14 @@ private fun SyncedLyricsDisplay(
                     line.content,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Medium,
-                        lineHeight = 26.sp
+                        lineHeight = 26.sp,
+                        fontSize = if (isActive) 19.sp else 16.sp
                     ),
-                    color = LyricsColors.textPrimary,
+                    color = if (isActive) LyricsColors.accent else LyricsColors.textPrimary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().alpha(alpha)
                 )
-                if (playerUiState.isTranslationEnabled && !playerUiState.isTranslating && index < playerUiState.translatedLyricsLines.size) {
+                if (playerUiState.isTranslationEnabled && index < playerUiState.translatedLyricsLines.size) {
                     val translated = playerUiState.translatedLyricsLines[index]
                     if (!translated.isNullOrBlank()) {
                         Text(
