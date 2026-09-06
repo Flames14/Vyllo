@@ -119,48 +119,34 @@ fun YTMFilterChip(
 ) {
     val isDark = com.vyllo.music.presentation.theme.ThemeManager.isDarkColor(MaterialTheme.colorScheme.background)
     val bgColor = when {
-        isSelected -> MaterialTheme.colorScheme.primary
-        isDark -> Color.White.copy(alpha = 0.08f)
-        else -> MaterialTheme.colorScheme.surfaceVariant
+        isSelected -> if (isDark) Color.White else Color(0xFF0F0F0F)
+        isDark -> Color.White.copy(alpha = 0.10f)
+        else -> Color(0xFF000000).copy(alpha = 0.06f)
     }
     val textColor = when {
-        isSelected -> MaterialTheme.colorScheme.onPrimary
-        isDark -> Color.White.copy(alpha = 0.85f)
-        else -> MaterialTheme.colorScheme.onSurface
+        isSelected -> if (isDark) Color(0xFF0F0F0F) else Color.White
+        isDark -> Color.White.copy(alpha = 0.9f)
+        else -> Color(0xFF0F0F0F)
     }
-    val borderColor = when {
-        isSelected -> Color.Transparent
-        isDark -> Color.White.copy(alpha = 0.12f)
-        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
-    }
+    val shape = RoundedCornerShape(8.dp)
     
     Box(
         modifier = Modifier
-            .heightIn(min = 48.dp)
-            .bounceClick { onClick() },
+            .height(34.dp)
+            .clip(shape)
+            .background(bgColor)
+            .ytmClickable(onClick = onClick)
+            .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .height(34.dp)
-                .graphicsLayer { 
-                    clip = true 
-                    shape = RoundedCornerShape(10.dp)
-                }
-                .background(bgColor)
-                .border(1.dp, borderColor, RoundedCornerShape(10.dp))
-                .padding(horizontal = 14.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                    letterSpacing = 0.2.sp
-                ),
-                color = textColor
-            )
-        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                letterSpacing = 0.1.sp
+            ),
+            color = textColor
+        )
     }
 }
 
@@ -475,7 +461,8 @@ fun OptimizedHorizontalSection(
     ) {
         items(
             items = items,
-            key = { it.url }
+            key = { it.url },
+            contentType = { if (isLargeCard) "large_card" else "square_card" }
         ) { item ->
             if (isLargeCard) {
                 YTMLargeCard(

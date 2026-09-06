@@ -179,7 +179,8 @@ fun YTMLibraryScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { 
+                        .clip(RoundedCornerShape(8.dp))
+                        .ytmClickable { 
                             viewModel.selectedLocalPlaylist = playlist
                             viewModel.loadPlaylistSongs(playlist.id)
                         }

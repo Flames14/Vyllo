@@ -42,8 +42,9 @@ fun YTMSongRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .bounceClick { if (!isLoading) onClick() }
-            .background(if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.05f) else Color.Transparent)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent)
+            .ytmClickable { if (!isLoading) onClick() }
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -52,6 +53,7 @@ fun YTMSongRow(
             ImageRequest.Builder(context)
                 .data(item.thumbnailUrl)
                 .size(120, 120)
+                .crossfade(false)
                 .build()
         }
         Box(modifier = Modifier.size(52.dp)) {
@@ -126,7 +128,7 @@ fun PremiumSongRow(item: MusicItem, isPlaying: Boolean, index: Int, onClick: () 
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .bounceClick { if (!isLoading) onClick() }
+            .ytmClickable { if (!isLoading) onClick() }
             .background(
                 when {
                     isPlaying -> Color.White.copy(0.05f)
@@ -144,7 +146,7 @@ fun PremiumSongRow(item: MusicItem, isPlaying: Boolean, index: Int, onClick: () 
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(item.thumbnailUrl)
                     .size(128, 128)
-                    .crossfade(true)
+                    .crossfade(false)
                     .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
@@ -204,9 +206,9 @@ fun YTMCompactRow(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-            .bounceClick { if (!isLoading) onClick() }
-            .padding(8.dp),
+            .background(if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent)
+            .ytmClickable { if (!isLoading) onClick() }
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val context = LocalContext.current
@@ -214,6 +216,7 @@ fun YTMCompactRow(
             ImageRequest.Builder(context)
                 .data(item.thumbnailUrl)
                 .size(150, 150)
+                .crossfade(false)
                 .build()
         }
         Box(modifier = Modifier.size(48.dp)) {

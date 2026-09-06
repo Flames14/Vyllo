@@ -70,24 +70,11 @@ fun YTMExploreScreen(
                     contentType = { "category_pill" }
                 ) { index ->
                     val category = uiState.exploreCategories[index]
-                    val isSelected = uiState.selectedExploreCategory == category
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(
-                                if (isSelected) MaterialTheme.colorScheme.onBackground 
-                                else MaterialTheme.colorScheme.surfaceVariant
-                            )
-                            .clickable { viewModel.onExploreCategorySelected(category) }
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        Text(
-                            text = category,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (isSelected) MaterialTheme.colorScheme.background 
-                                   else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                    YTMFilterChip(
+                        text = category,
+                        isSelected = uiState.selectedExploreCategory == category,
+                        onClick = { viewModel.onExploreCategorySelected(category) }
+                    )
                 }
             }
         }

@@ -44,14 +44,14 @@ fun YTMSquareCard(
     Column(
         modifier = Modifier
             .width(140.dp)
-            .height(210.dp)
-            .bounceClick { if (!isLoading) onClick() }
+            .clip(RoundedCornerShape(8.dp))
+            .ytmClickable { if (!isLoading) onClick() }
     ) {
         Box(
             modifier = Modifier
                 .size(140.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.onBackground.copy(0.1f))
+                .background(MaterialTheme.colorScheme.onBackground.copy(0.08f))
         ) {
             val context = LocalContext.current
             val imageRequest = remember(item.thumbnailUrl) {
@@ -100,29 +100,22 @@ fun YTMSquareCard(
         
         Spacer(modifier = Modifier.height(8.dp))
         
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = item.uploader,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onBackground.copy(0.6f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            
-            DownloadButton(item)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = item.uploader,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(0.7f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -142,7 +135,7 @@ fun YTMLargeCard(
             .height(160.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.onBackground.copy(0.1f))
-            .bounceClick { if (!isLoading) onClick() }
+            .ytmClickable { if (!isLoading) onClick() }
     ) {
         val context = LocalContext.current
         val imageRequest = remember(item.thumbnailUrl) {
@@ -246,7 +239,8 @@ fun StaticSquareCard(
     Column(
         modifier = Modifier
             .width(150.dp)
-            .bounceClick { onClick() }
+            .clip(RoundedCornerShape(12.dp))
+            .ytmClickable { onClick() }
     ) {
         Box(
             modifier = Modifier
@@ -312,7 +306,7 @@ fun StaticLargeCard(
             .height(160.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .bounceClick { onClick() }
+            .ytmClickable { onClick() }
     ) {
         AsyncImage(
             model = imageRequest,

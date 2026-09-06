@@ -429,7 +429,8 @@ fun LazyListScope.YTMGridSection(
         ) {
             items(
                 items = rows,
-                key = { colItems -> "${sectionKey}_col_${colItems.firstOrNull()?.url ?: "empty"}" }
+                key = { colItems -> "${sectionKey}_col_${colItems.firstOrNull()?.url ?: "empty"}" },
+                contentType = { "grid_column" }
             ) { columnItems ->
                 Column(
                     modifier = Modifier.width(340.dp), // Standard width for YT Music compact row columns
