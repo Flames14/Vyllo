@@ -352,40 +352,7 @@ fun HistorySuggestionRow(
     }
 }
 
-@Composable
-fun rememberLiquidFlingBehavior(enabled: Boolean): FlingBehavior {
-    if (!enabled) return ScrollableDefaults.flingBehavior()
 
-    val flingSpec = remember {
-        exponentialDecay<Float>(
-            frictionMultiplier = 0.6f,   
-            absVelocityThreshold = 0.5f    
-        )
-    }
-    return remember(flingSpec) {
-        object : FlingBehavior {
-            override suspend fun androidx.compose.foundation.gestures.ScrollScope.performFling(
-                initialVelocity: Float
-            ): Float {
-                if (kotlin.math.abs(initialVelocity) < 50f) return initialVelocity
-                var lastValue = 0f
-                val state = AnimationState(
-                    initialValue = 0f,
-                    initialVelocity = initialVelocity
-                )
-                state.animateDecay(flingSpec) {
-                    val delta = value - lastValue
-                    lastValue = value
-                    val consumed = scrollBy(delta)
-                    if (delta != 0f && kotlin.math.abs(consumed / delta) < 0.5f) {
-                        this.cancelAnimation()
-                    }
-                }
-                return state.velocity
-            }
-        }
-    }
-}
 
 @Composable
 fun SettingsDialog(
@@ -398,8 +365,6 @@ fun SettingsDialog(
     onKeepAudioPlayingChange: (Boolean) -> Unit = {},
     themeMode: String,
     onThemeModeChange: (String) -> Unit,
-    isLiquidScrollEnabled: Boolean = false,
-    onLiquidScrollChange: (Boolean) -> Unit = {},
     isHighRefreshRateEnabled: Boolean = true,
     onHighRefreshRateChange: (Boolean) -> Unit = {},
     onExportBackupClick: () -> Unit = {},
@@ -516,27 +481,6 @@ fun SettingsDialog(
                     )
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_liquid_scroll),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            "iPhone-like buttery smooth scrolling",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                        )
-                    }
-                    Switch(
-                        checked = isLiquidScrollEnabled,
-                        onCheckedChange = onLiquidScrollChange
-                    )
-                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

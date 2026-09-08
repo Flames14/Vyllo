@@ -43,7 +43,6 @@ data class HomeUiState(
     val homeTitle: String = "Recommended For You",
     val isLoading: Boolean = false,
     val isLoadingMoreRecommendations: Boolean = false,
-    val isLiquidScrollEnabled: Boolean = false,
     val isRefreshing: Boolean = false,
     val currentPlayingItem: MusicItem? = null
 )
@@ -69,8 +68,6 @@ class HomeViewModel @Inject constructor(
     var selectedNavTab by mutableIntStateOf(0)
 
     init {
-        _uiState.update { it.copy(isLiquidScrollEnabled = repository.isLiquidScrollEnabled()) }
-
         viewModelScope.launch {
             playbackQueueManager.currentPlayingItem.collectLatest { item ->
                 _uiState.update { it.copy(currentPlayingItem = item) }

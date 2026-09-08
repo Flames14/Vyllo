@@ -60,10 +60,6 @@ class PreferenceManager @Inject constructor(
         get() = preferences.getBoolean("keep_audio_playing_enabled", false)
         set(value) { preferences.edit().putBoolean("keep_audio_playing_enabled", value).apply() }
 
-    var isLiquidScrollEnabled: Boolean
-        get() = preferences.getBoolean("liquid_scroll_enabled", false)
-        set(value) { preferences.edit().putBoolean("liquid_scroll_enabled", value).apply() }
-
     var isHighRefreshRateEnabled: Boolean
         get() = preferences.getBoolean("high_refresh_rate_enabled", true)
         set(value) { preferences.edit().putBoolean("high_refresh_rate_enabled", value).apply() }

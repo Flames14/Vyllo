@@ -363,8 +363,6 @@ fun VylloNavigation(
                            onKeepAudioPlayingChange = { settingsViewModel.toggleKeepAudioPlaying(it) },
                            themeMode = settingsViewModel.themeMode,
                            onThemeModeChange = { settingsViewModel.updateThemeMode(it) },
-                           isLiquidScrollEnabled = settingsViewModel.isLiquidScrollEnabled,
-                           onLiquidScrollChange = { settingsViewModel.toggleLiquidScroll(it) },
                            isHighRefreshRateEnabled = settingsViewModel.isHighRefreshRateEnabled,
                            onHighRefreshRateChange = { settingsViewModel.toggleHighRefreshRate(it) },
                            onExportBackupClick = { exportLauncher.launch("vyllo_backup_${System.currentTimeMillis()}.json") },

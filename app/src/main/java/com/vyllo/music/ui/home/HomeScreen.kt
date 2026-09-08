@@ -154,8 +154,6 @@ fun YTMHomeScreen(
     val filterChips = remember { listOf("All", "Relax", "Energize", "Workout", "Focus", "Commute") }
     val scrollState = rememberLazyListState()
     val context = LocalContext.current
-
-    val liquidFlingBehavior = rememberLiquidFlingBehavior(uiState.isLiquidScrollEnabled)
     
     // Memoize recommendedItems calculation for performance
     val recommendedItems = uiState.quickPicksItems
@@ -212,15 +210,12 @@ fun YTMHomeScreen(
         }
     }
 
-    val isScrolling = scrollState.isScrollInProgress
-
     Box(modifier = Modifier.fillMaxSize().nestedScroll(pullToRefreshState.nestedScrollConnection)) {
-        // Living Ambient Dark Aura with 60Hz/120Hz scroll throttling
-        HomeAmbientDarkAura(isScrolling = isScrolling)
+        // Living Ambient Dark Aura
+        HomeAmbientDarkAura()
 
         LazyColumn(
             state = scrollState,
-            flingBehavior = liquidFlingBehavior,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
@@ -255,10 +250,10 @@ fun YTMHomeScreen(
         
         // Listen Again Section
         if (uiState.listenAgainItems.isNotEmpty()) {
-            item(key = "listen_again_header") {
+            item(key = "listen_again_header", contentType = "header") {
                 YTMSectionHeader(title = stringResource(R.string.section_listen_again))
             }
-            item(key = "listen_again_row") {
+            item(key = "listen_again_row", contentType = "horizontal_section") {
                 OptimizedHorizontalSection(
                     items = uiState.listenAgainItems,
                     currentPlayingItem = currentPlayingItem,
@@ -272,7 +267,7 @@ fun YTMHomeScreen(
         
         // Quick Picks Section
         if (uiState.quickPicksRows.isNotEmpty()) {
-            item(key = "quick_picks_header") {
+            item(key = "quick_picks_header", contentType = "header") {
                 Spacer(modifier = Modifier.height(24.dp))
                 YTMSectionHeader(title = stringResource(R.string.section_quick_picks))
             }
@@ -288,11 +283,11 @@ fun YTMHomeScreen(
         
         // Chill Vibes Section
         if (uiState.chillItems.isNotEmpty()) {
-            item(key = "chill_header") {
+            item(key = "chill_header", contentType = "header") {
                 Spacer(modifier = Modifier.height(24.dp))
                 YTMSectionHeader(title = stringResource(R.string.section_chill_vibes))
             }
-            item(key = "chill_row") {
+            item(key = "chill_row", contentType = "horizontal_section") {
                 OptimizedHorizontalSection(
                     items = uiState.chillItems,
                     currentPlayingItem = currentPlayingItem,
@@ -306,11 +301,11 @@ fun YTMHomeScreen(
         
         // Mixed For You Section (Large Cards)
         if (uiState.mixedForYouItems.isNotEmpty()) {
-            item(key = "mixed_header") {
+            item(key = "mixed_header", contentType = "header") {
                 Spacer(modifier = Modifier.height(24.dp))
                 YTMSectionHeader(title = stringResource(R.string.section_mixed_for_you))
             }
-            item(key = "mixed_row") {
+            item(key = "mixed_row", contentType = "horizontal_section") {
                 OptimizedHorizontalSection(
                     items = uiState.mixedForYouItems,
                     currentPlayingItem = currentPlayingItem,
@@ -324,11 +319,11 @@ fun YTMHomeScreen(
         
         // Workout Music Section
         if (uiState.workoutItems.isNotEmpty()) {
-            item(key = "workout_header") {
+            item(key = "workout_header", contentType = "header") {
                 Spacer(modifier = Modifier.height(24.dp))
                 YTMSectionHeader(title = stringResource(R.string.section_workout))
             }
-            item(key = "workout_row") {
+            item(key = "workout_row", contentType = "horizontal_section") {
                 OptimizedHorizontalSection(
                     items = uiState.workoutItems,
                     currentPlayingItem = currentPlayingItem,
@@ -342,11 +337,11 @@ fun YTMHomeScreen(
         
         // Focus Music Section
         if (uiState.focusItems.isNotEmpty()) {
-            item(key = "focus_header") {
+            item(key = "focus_header", contentType = "header") {
                 Spacer(modifier = Modifier.height(24.dp))
                 YTMSectionHeader(title = stringResource(R.string.section_focus))
             }
-            item(key = "focus_row") {
+            item(key = "focus_row", contentType = "horizontal_section") {
                 OptimizedHorizontalSection(
                     items = uiState.focusItems,
                     currentPlayingItem = currentPlayingItem,
@@ -360,7 +355,7 @@ fun YTMHomeScreen(
         
         // Trending Now Section
         if (uiState.trendingNowRows.isNotEmpty()) {
-            item(key = "trending_header") {
+            item(key = "trending_header", contentType = "header") {
                 Spacer(modifier = Modifier.height(24.dp))
                 YTMSectionHeader(title = "Trending now")
             }
@@ -376,11 +371,11 @@ fun YTMHomeScreen(
         
         // New Releases Section
         if (uiState.newReleasesItems.isNotEmpty()) {
-            item(key = "new_releases_header") {
+            item(key = "new_releases_header", contentType = "header") {
                 Spacer(modifier = Modifier.height(24.dp))
                 YTMSectionHeader(title = stringResource(R.string.section_new_releases))
             }
-            item(key = "new_releases_row") {
+            item(key = "new_releases_row", contentType = "horizontal_section") {
                 OptimizedHorizontalSection(
                     items = uiState.newReleasesItems,
                     currentPlayingItem = currentPlayingItem,
@@ -394,7 +389,7 @@ fun YTMHomeScreen(
         
         // Recommended Section
         if (uiState.quickPicksItems.isNotEmpty()) {
-            item {
+            item(key = "recommended_header", contentType = "header") {
                 Spacer(modifier = Modifier.height(24.dp))
                 YTMSectionHeader(title = "Recommended")
             }
@@ -415,7 +410,7 @@ fun YTMHomeScreen(
         
         // Infinite scroll loading indicator
         if (uiState.isLoadingMoreRecommendations) {
-            item {
+            item(key = "loading_more", contentType = "loading") {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -433,7 +428,7 @@ fun YTMHomeScreen(
 
         // Loading Indicator
         if (uiState.isLoading) {
-            item {
+            item(key = "loading_indicator", contentType = "loading") {
                 Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
                 }
@@ -455,7 +450,6 @@ fun YTMHomeScreen(
  */
 @Composable
 fun HomeAmbientDarkAura(
-    isScrolling: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val backgroundColor = MaterialTheme.colorScheme.background

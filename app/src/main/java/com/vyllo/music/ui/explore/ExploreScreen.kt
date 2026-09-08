@@ -34,7 +34,6 @@ fun YTMExploreScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberLazyListState()
-    val liquidFlingBehavior = rememberLiquidFlingBehavior(uiState.isLiquidScrollEnabled)
 
     LaunchedEffect(Unit) {
         viewModel.loadExploreContent()
@@ -42,12 +41,11 @@ fun YTMExploreScreen(
 
     LazyColumn(
         state = scrollState,
-        flingBehavior = liquidFlingBehavior,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         // YTM Header with refresh
-        item {
+        item(key = "ytm_header", contentType = "header") {
             YTMHeader(
                 onSearchClick = onSearchClick,
                 onSettingsClick = onSettingsClick,

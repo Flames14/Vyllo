@@ -58,7 +58,6 @@
     <string name="settings_background_playback">Background playback</string>
     <string name="settings_keep_audio_playing">Keep audio playing</string>
     <string name="settings_theme_mode">Theme</string>
-    <string name="settings_liquid_scroll">Liquid scrolling</string>
 
     <!-- Player -->
     <string name="player_stream_error">Stream error - please retry</string>

@@ -20,7 +20,6 @@ class SettingsViewModel @Inject constructor(
     var isBackgroundPlaybackEnabled by mutableStateOf(preferenceManager.isBackgroundPlaybackEnabled)
     var isKeepAudioPlayingEnabled by mutableStateOf(preferenceManager.isKeepAudioPlayingEnabled)
     var themeMode by mutableStateOf(preferenceManager.themeMode)
-    var isLiquidScrollEnabled by mutableStateOf(preferenceManager.isLiquidScrollEnabled)
     var isHighRefreshRateEnabled by mutableStateOf(preferenceManager.isHighRefreshRateEnabled)
 
     var backupStatusMessage by mutableStateOf<String?>(null)
@@ -43,11 +42,6 @@ class SettingsViewModel @Inject constructor(
     fun updateThemeMode(newTheme: String) {
         themeMode = newTheme
         preferenceManager.themeMode = newTheme
-    }
-
-    fun toggleLiquidScroll(enabled: Boolean) {
-        isLiquidScrollEnabled = enabled
-        preferenceManager.isLiquidScrollEnabled = enabled
     }
 
     fun toggleHighRefreshRate(enabled: Boolean) {
@@ -75,7 +69,6 @@ class SettingsViewModel @Inject constructor(
                 isFloatingEnabled = preferenceManager.isFloatingPlayerEnabled
                 isBackgroundPlaybackEnabled = preferenceManager.isBackgroundPlaybackEnabled
                 isKeepAudioPlayingEnabled = preferenceManager.isKeepAudioPlayingEnabled
-                isLiquidScrollEnabled = preferenceManager.isLiquidScrollEnabled
                 isHighRefreshRateEnabled = preferenceManager.isHighRefreshRateEnabled
                 onComplete(true)
             } else {

@@ -656,7 +656,6 @@ class MusicRepositoryImpl @Inject constructor(
 
     override fun saveLyricsPreference(videoUrl: String, lrcId: Long) = preferenceManager.saveLyricsPreference(videoUrl, lrcId.toString())
     override fun getSavedLyricsId(videoUrl: String): Long? = preferenceManager.loadLyricsPreference(videoUrl)?.toLongOrNull()
-    override fun isLiquidScrollEnabled(): Boolean = preferenceManager.isLiquidScrollEnabled
 
     private data class DescriptionMetadata(
         val title: String?,

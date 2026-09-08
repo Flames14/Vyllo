@@ -47,7 +47,6 @@ interface IMusicRepository {
     fun clearSearchHistory()
     fun saveLyricsPreference(videoUrl: String, lrcId: Long)
     fun getSavedLyricsId(videoUrl: String): Long?
-    fun isLiquidScrollEnabled(): Boolean
     
     suspend fun getLyrics(title: String, artist: String, duration: Long, url: String): LyricsResponse?
     suspend fun getVideoStats(url: String): VideoStats?
