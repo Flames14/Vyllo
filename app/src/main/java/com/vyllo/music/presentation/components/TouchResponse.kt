@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
@@ -26,11 +27,13 @@ import androidx.compose.ui.platform.LocalHapticFeedback
  * - When a vertical scroll begins, `PressInteraction.Cancel` resets the scale immediately
  *   so gestures never stick or stutter list scrolling.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun Modifier.iosPressClickable(
     enabled: Boolean = true,
     pressScale: Float = 0.97f,
     enableHaptics: Boolean = true,
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit
 ): Modifier {
     val interactionSource = remember { MutableInteractionSource() }
@@ -46,12 +49,31 @@ fun Modifier.iosPressClickable(
         label = "ios_press_scale"
     )
 
-    return this
-        .graphicsLayer {
-            scaleX = scale
-            scaleY = scale
-        }
-        .clickable(
+    val scaledModifier = this.graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+    }
+
+    return if (onLongClick != null) {
+        scaledModifier.combinedClickable(
+            interactionSource = interactionSource,
+            indication = LocalIndication.current,
+            enabled = enabled,
+            onLongClick = {
+                if (enableHaptics) {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                }
+                onLongClick()
+            },
+            onClick = {
+                if (enableHaptics) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
+                onClick()
+            }
+        )
+    } else {
+        scaledModifier.clickable(
             interactionSource = interactionSource,
             indication = LocalIndication.current,
             enabled = enabled,
@@ -62,22 +84,25 @@ fun Modifier.iosPressClickable(
                 onClick()
             }
         )
+    }
 }
 
 /**
- * YouTube Music & Vyllo click modifier with Apple-grade tactile physics.
+ * YouTube Music & Vyllo click modifier with Apple-grade tactile physics and optional long-press.
  */
 @Composable
 fun Modifier.ytmClickable(
     enabled: Boolean = true,
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit
-): Modifier = iosPressClickable(enabled = enabled, onClick = onClick)
+): Modifier = iosPressClickable(enabled = enabled, onLongClick = onLongClick, onClick = onClick)
 
 /**
  * Alias for bounceClick maintaining backward compatibility with existing callers.
  */
 @Composable
 fun Modifier.bounceClick(
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit
-): Modifier = iosPressClickable(onClick = onClick)
+): Modifier = iosPressClickable(onLongClick = onLongClick, onClick = onClick)
 

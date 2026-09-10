@@ -129,6 +129,15 @@ class LibraryViewModel @Inject constructor(
         showPlaylistAddDialog = true
     }
 
+    fun playNext(item: MusicItem) {
+        val nextIdx = (playbackQueueManager.currentIndex + 1).coerceAtLeast(0)
+        playbackQueueManager.addItemAt(nextIdx, item)
+    }
+
+    fun addToQueue(item: MusicItem) {
+        playbackQueueManager.addItem(item)
+    }
+
     fun downloadSong(item: MusicItem) {
         downloadMusicUseCase.downloadSong(item)
     }

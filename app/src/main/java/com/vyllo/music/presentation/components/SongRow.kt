@@ -10,6 +10,9 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,12 +43,18 @@ fun YTMSongRow(
     isLoading: Boolean = false
 ) {
     val libraryViewModel = LocalLibraryViewModel.current
+    var showContextMenu by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent)
-            .ytmClickable { if (!isLoading) onClick() }
+            .ytmClickable(
+                enabled = !isLoading,
+                onLongClick = { showContextMenu = true },
+                onClick = onClick
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -130,6 +139,20 @@ fun YTMSongRow(
                 }
             }
         }
+    }
+
+    if (showContextMenu) {
+        val context = LocalContext.current
+        SongContextMenuSheet(
+            item = item,
+            onDismiss = { showContextMenu = false },
+            onPlayNext = { libraryViewModel.playNext(item) },
+            onAddToQueue = { libraryViewModel.addToQueue(item) },
+            onAddToPlaylist = { libraryViewModel.showPlaylistAddDialog(item) },
+            onDownload = { libraryViewModel.downloadSong(item) },
+            onShare = { com.vyllo.music.core.utils.ShareIntentManager.shareSongLink(context, item) },
+            onRemoveFromPlaylist = onRemoveClick
+        )
     }
 }
 
@@ -224,11 +247,18 @@ fun YTMCompactRow(
     homeViewModel: HomeViewModel? = null,
     isLoading: Boolean = false
 ) {
+    val libraryViewModel = LocalLibraryViewModel.current
+    var showContextMenu by remember { mutableStateOf(false) }
+
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
             .background(if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent)
-            .ytmClickable { if (!isLoading) onClick() }
+            .ytmClickable(
+                enabled = !isLoading,
+                onLongClick = { showContextMenu = true },
+                onClick = onClick
+            )
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -292,5 +322,18 @@ fun YTMCompactRow(
         }
 
         DownloadButton(item)
+    }
+
+    if (showContextMenu) {
+        val context = LocalContext.current
+        SongContextMenuSheet(
+            item = item,
+            onDismiss = { showContextMenu = false },
+            onPlayNext = { libraryViewModel.playNext(item) },
+            onAddToQueue = { libraryViewModel.addToQueue(item) },
+            onAddToPlaylist = { libraryViewModel.showPlaylistAddDialog(item) },
+            onDownload = { libraryViewModel.downloadSong(item) },
+            onShare = { com.vyllo.music.core.utils.ShareIntentManager.shareSongLink(context, item) }
+        )
     }
 }

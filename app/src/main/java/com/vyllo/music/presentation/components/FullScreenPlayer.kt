@@ -99,11 +99,12 @@ fun PremiumFullScreenPlayer(
     val coroutineScope = rememberCoroutineScope()
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
-    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
 
     // Peek bar height & sheet travel distance
-    val peekHeightPx = with(density) { 60.dp.toPx() }
-    val sheetMaxOffset = (screenHeightPx - peekHeightPx).coerceAtLeast(0f)
+    val queueSheetHeightDp = (configuration.screenHeightDp * 0.78f).dp
+    val queueSheetHeightPx = with(density) { queueSheetHeightDp.toPx() }
+    val peekHeightPx = with(density) { 64.dp.toPx() }
+    val sheetMaxOffset = (queueSheetHeightPx - peekHeightPx).coerceAtLeast(0f)
     val sheetOffsetY = remember { Animatable(sheetMaxOffset) }
 
     // 0.0f = collapsed (huge album art), 1.0f = expanded (queue list visible)
@@ -254,7 +255,9 @@ fun PremiumFullScreenPlayer(
                 },
                 onDragStopped = { velocity ->
                     coroutineScope.launch {
-                        if (velocity < -600f || sheetOffsetY.value < sheetMaxOffset * 0.65f) {
+                        if (!isSheetExpanded && velocity > 800f) {
+                            onCollapse()
+                        } else if (velocity < -400f || sheetOffsetY.value < sheetMaxOffset * 0.5f) {
                             sheetOffsetY.animateTo(0f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
                         } else {
                             sheetOffsetY.animateTo(sheetMaxOffset, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
@@ -263,30 +266,11 @@ fun PremiumFullScreenPlayer(
                 }
             )
     ) {
-        // Ambient Blurred Backdrop
-        if (activeArtworkUrl.isNotBlank()) {
-            AsyncImage(
-                model = activeArtworkUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .blur(50.dp)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                Color(0xFF0F0F0F).copy(alpha = 0.5f),
-                                Color(0xFF0F0F0F).copy(alpha = 0.88f),
-                                Color(0xFF0F0F0F)
-                            )
-                        )
-                    )
-            )
-        }
+        // Apple Music (iOS 17/18) Signature Living Fluid Mesh Backdrop
+        AppleFluidBackdrop(
+            artworkUrl = activeArtworkUrl,
+            isPlaying = isPlaying
+        )
 
         if (showEqualizerSheet) {
             EqualizerBottomSheet(
@@ -304,24 +288,46 @@ fun PremiumFullScreenPlayer(
         }
 
         if (showSleepTimerDialog) {
-            AlertDialog(
+            ModalBottomSheet(
                 onDismissRequest = { showSleepTimerDialog = false },
-                containerColor = Color(0xFF1E1E22),
-                title = {
-                    Text(
-                        stringResource(R.string.sleep_timer_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.White
+                containerColor = Color(0xFF1C1C1E),
+                dragHandle = {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 10.dp, bottom = 8.dp)
+                            .size(width = 36.dp, height = 5.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color.White.copy(alpha = 0.28f))
                     )
                 },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(15, 30, 45, 60).forEach { mins ->
-                            Surface(
+                shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .padding(bottom = 32.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.sleep_timer_title),
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White.copy(alpha = 0.06f))
+                    ) {
+                        listOf(15, 30, 45, 60).forEachIndexed { idx, mins ->
+                            if (idx > 0) {
+                                HorizontalDivider(color = Color.White.copy(alpha = 0.08f), thickness = 0.5.dp)
+                            }
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable {
+                                    .iosPressClickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         viewModel.setSleepTimer(
                                             minutes = mins,
@@ -329,51 +335,53 @@ fun PremiumFullScreenPlayer(
                                             onFadeVolume = { fadeRatio -> controller?.volume = fadeRatio }
                                         )
                                         showSleepTimerDialog = false
-                                    },
-                                color = Color.White.copy(alpha = 0.08f)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        stringResource(R.string.sleep_timer_minutes, mins),
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                    Icon(
-                                        Icons.Rounded.Timer,
-                                        contentDescription = null,
-                                        tint = Color.White.copy(0.7f),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                        }
-                        if (playerUiState.isSleepTimerActive) {
-                            TextButton(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    viewModel.cancelSleepTimer(onResetVolume = { controller?.volume = 1.0f })
-                                    showSleepTimerDialog = false
-                                },
-                                modifier = Modifier.fillMaxWidth()
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    stringResource(R.string.sleep_timer_turn_off),
-                                    color = MaterialTheme.colorScheme.error
+                                    stringResource(R.string.sleep_timer_minutes, mins),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                                )
+                                Icon(
+                                    Icons.Rounded.Timer,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         }
                     }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showSleepTimerDialog = false }) {
-                        Text(stringResource(R.string.common_cancel), color = Color.White.copy(0.7f))
+                    if (playerUiState.isSleepTimerActive) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .iosPressClickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    viewModel.cancelSleepTimer(onResetVolume = { controller?.volume = 1.0f })
+                                    showSleepTimerDialog = false
+                                },
+                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(vertical = 14.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    stringResource(R.string.sleep_timer_turn_off),
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                        }
                     }
                 }
-            )
+            }
         }
 
         // ==========================================
@@ -384,7 +392,7 @@ fun PremiumFullScreenPlayer(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(top = 8.dp, bottom = 48.dp, start = 20.dp, end = 20.dp),
+                .padding(top = 8.dp, bottom = 72.dp, start = 20.dp, end = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -1110,31 +1118,65 @@ fun PremiumFullScreenPlayer(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // 7. Apple-Style Audio Output Route Pill (AirPlay style)
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = Color.White.copy(alpha = 0.08f),
-                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f)),
+            // 7. Apple-Style Audio Output Route & Lossless Audio Quality Pills
+            Row(
                 modifier = Modifier
-                    .alpha((1f - (expandProgress * 2.5f)).coerceIn(0f, 1f))
-                    .iosPressClickable { }
+                    .alpha((1f - (expandProgress * 2.5f)).coerceIn(0f, 1f)),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // Route Pill (AirPlay style)
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = Color.White.copy(alpha = 0.08f),
+                    border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f)),
+                    modifier = Modifier.iosPressClickable { }
                 ) {
-                    Icon(
-                        Icons.Rounded.Speaker,
-                        contentDescription = "Audio Output",
-                        tint = Color.White.copy(alpha = 0.75f),
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "Phone Speaker",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Rounded.Speaker,
+                            contentDescription = "Audio Output",
+                            tint = Color.White.copy(alpha = 0.75f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            text = "Phone Speaker",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Apple Lossless Audio Quality Pill
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = Color.White.copy(alpha = 0.08f),
+                    border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f)),
+                    modifier = Modifier.iosPressClickable { }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Rounded.HighQuality,
+                            contentDescription = "Audio Quality",
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "Lossless • 256k",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = Color.White.copy(alpha = 0.85f)
+                        )
+                    }
                 }
             }
         }
@@ -1142,8 +1184,6 @@ fun PremiumFullScreenPlayer(
         // ==========================================
         // 7. SWIPEABLE "UP NEXT" QUEUE DRAWER
         // ==========================================
-        val queueSheetHeightDp = (configuration.screenHeightDp * 0.78f).dp
-
         val sheetDraggableState = rememberDraggableState { delta ->
             coroutineScope.launch {
                 sheetOffsetY.snapTo((sheetOffsetY.value + delta).coerceIn(0f, sheetMaxOffset))
@@ -1158,7 +1198,7 @@ fun PremiumFullScreenPlayer(
                     val target = when {
                         velocity > 400f -> sheetMaxOffset // Effortless fast swipe down -> close!
                         velocity < -400f -> 0f           // Effortless fast swipe up -> open!
-                        sheetOffsetY.value > sheetMaxOffset * 0.25f -> sheetMaxOffset // 25% down -> close smoothly!
+                        sheetOffsetY.value > sheetMaxOffset * 0.35f -> sheetMaxOffset // 35% down -> close smoothly!
                         else -> 0f
                     }
                     sheetOffsetY.animateTo(
@@ -1174,6 +1214,7 @@ fun PremiumFullScreenPlayer(
                 .fillMaxWidth()
                 .height(queueSheetHeightDp)
                 .align(Alignment.BottomCenter)
+                .offset { IntOffset(0, sheetOffsetY.value.toInt()) }
                 .shadow(28.dp, RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp), spotColor = Color.Black.copy(alpha = 0.5f))
                 .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
                 .background(Color(0xFF1E1E22).copy(alpha = 0.96f))

@@ -406,20 +406,14 @@ private fun SyncedLyricsDisplay(
                 ),
                 label = "lyric_scale"
             )
-            val blurRadius by animateDpAsState(
-                targetValue = if (isActive) 0.dp else 1.2.dp,
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                label = "lyric_blur"
-            )
-
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .graphicsLayer {
                         scaleX = lineScale
                         scaleY = lineScale
+                        this.alpha = alpha
                     }
-                    .blur(blurRadius)
                     .iosPressClickable(pressScale = 0.96f) {
                         controller?.seekTo(line.startTimeMs)
                         onSeek(line.startTimeMs)

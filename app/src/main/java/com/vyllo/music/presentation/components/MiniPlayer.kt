@@ -1,5 +1,9 @@
 package com.vyllo.music.presentation.components
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -19,6 +23,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -65,10 +70,23 @@ fun PremiumMiniPlayer(
 
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     val dragOffsetX = remember { androidx.compose.animation.core.Animatable(0f) }
+    val thumbScale = remember { Animatable(1.0f) }
+
+    LaunchedEffect(musicItem.url) {
+        thumbScale.snapTo(0.88f)
+        thumbScale.animateTo(
+            targetValue = 1.0f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        )
+    }
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
+            .height(64.dp)
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragEnd = {
@@ -125,39 +143,53 @@ fun PremiumMiniPlayer(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(46.dp)
+                    .graphicsLayer {
+                        scaleX = thumbScale.value
+                        scaleY = thumbScale.value
+                    }
                     .clip(RoundedCornerShape(10.dp))
             )
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = musicItem.title,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    if (isPlaying) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        AppleEqualizerBars(
-                            isPlaying = isPlaying,
-                            barWidth = 2.5.dp,
-                            barSpacing = 2.dp,
-                            maxBarHeight = 12.dp
+            AnimatedContent(
+                targetState = musicItem,
+                transitionSpec = {
+                    (slideInHorizontally { it / 3 } + fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)))
+                        .togetherWith(slideOutHorizontally { -it / 3 } + fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)))
+                },
+                modifier = Modifier.weight(1f),
+                label = "dynamic_island_track_change"
+            ) { item ->
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = item.title,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
+                        if (isPlaying) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            AppleEqualizerBars(
+                                isPlaying = isPlaying,
+                                barWidth = 2.5.dp,
+                                barSpacing = 2.dp,
+                                maxBarHeight = 12.dp
+                            )
+                        }
                     }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = item.uploader,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(0.65f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = musicItem.uploader,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(0.65f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
 
             IconButton(

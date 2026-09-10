@@ -65,8 +65,9 @@ fun PremiumPlayerContainer(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 5.dp)
-                .shadow(10.dp, RoundedCornerShape(14.dp), spotColor = Color.Black.copy(alpha = 0.35f))
+                .padding(horizontal = 8.dp, vertical = 3.dp)
+                .height(64.dp)
+                .shadow(8.dp, RoundedCornerShape(14.dp), spotColor = Color.Black.copy(alpha = 0.35f))
                 .clip(RoundedCornerShape(14.dp))
                 .iosPressClickable(pressScale = 0.985f) { 
                     onExpand() 
