@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -65,6 +66,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PremiumFullScreenPlayer(
     item: MusicItem,
@@ -401,11 +403,11 @@ fun PremiumFullScreenPlayer(
                     )
                 }
 
-                // Audio / Video Switcher Pill (YouTube Music style)
+                // Audio / Video Switcher Pill (iOS Glass Segmented Control)
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = Color.Black.copy(alpha = 0.55f),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+                    color = Color.Black.copy(alpha = 0.5f),
+                    border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.18f))
                 ) {
                     Row(
                         modifier = Modifier.padding(3.dp),
@@ -415,8 +417,8 @@ fun PremiumFullScreenPlayer(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
-                                .background(if (!viewModel.isVideoMode) Color.White.copy(alpha = 0.25f) else Color.Transparent)
-                                .clickable {
+                                .background(if (!viewModel.isVideoMode) Color.White.copy(alpha = 0.22f) else Color.Transparent)
+                                .iosPressClickable {
                                     if (viewModel.isVideoMode) {
                                         viewModel.toggleVideoMode(currentPosition) { newUrl ->
                                             if (newUrl != null) {
@@ -439,9 +441,9 @@ fun PremiumFullScreenPlayer(
                                     imageVector = Icons.Rounded.Headphones,
                                     contentDescription = "Song Mode",
                                     tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(15.dp)
                                 )
-                                Spacer(Modifier.width(6.dp))
+                                Spacer(Modifier.width(5.dp))
                                 Text(
                                     text = "Song",
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -455,7 +457,7 @@ fun PremiumFullScreenPlayer(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
                                 .background(if (viewModel.isVideoMode) MaterialTheme.colorScheme.primary else Color.Transparent)
-                                .clickable {
+                                .iosPressClickable {
                                     if (!viewModel.isVideoMode) {
                                         viewModel.toggleVideoMode(currentPosition) { newUrl ->
                                             if (newUrl != null) {
@@ -478,9 +480,9 @@ fun PremiumFullScreenPlayer(
                                     imageVector = Icons.Rounded.SmartDisplay,
                                     contentDescription = "Video Mode",
                                     tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(15.dp)
                                 )
-                                Spacer(Modifier.width(6.dp))
+                                Spacer(Modifier.width(5.dp))
                                 Text(
                                     text = "Video",
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -574,7 +576,7 @@ fun PremiumFullScreenPlayer(
             }
 
             val artworkPlayScale by animateFloatAsState(
-                targetValue = if (isPlaying) 1.0f else 0.94f,
+                targetValue = if (isPlaying) 1.0f else 0.88f,
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
                     stiffness = Spring.StiffnessLow
@@ -596,29 +598,51 @@ fun PremiumFullScreenPlayer(
                     .weight(1f)
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .scale((1f - (expandProgress * 0.08f)) * artworkPlayScale)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color.Black)
-                    .shadow(16.dp, RoundedCornerShape(18.dp), spotColor = Color.Black)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onDoubleTap = { offset ->
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                if (offset.x < size.width / 2) {
-                                    val newPos = (currentPosition - 10000L).coerceAtLeast(0L)
-                                    controller?.seekTo(newPos)
-                                    currentPosition = newPos
-                                    seekFeedback = "-10"
-                                } else {
-                                    val newPos = (currentPosition + 10000L).coerceAtMost(duration)
-                                    controller?.seekTo(newPos)
-                                    currentPosition = newPos
-                                    seekFeedback = "+10"
-                                }
-                            }
-                        )
-                    }
+                    .scale((1f - (expandProgress * 0.08f)) * artworkPlayScale),
+                contentAlignment = Alignment.Center
             ) {
+                // Ambient Colored Glow behind Artwork (Apple Music style)
+                if (isPlaying && activeArtworkUrl.isNotBlank() && !viewModel.isVideoMode) {
+                    AsyncImage(
+                        model = coil.request.ImageRequest.Builder(LocalContext.current)
+                            .data(activeArtworkUrl)
+                            .size(180, 180)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize(0.92f)
+                            .blur(36.dp)
+                            .alpha(0.65f)
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(Color.Black)
+                        .shadow(20.dp, RoundedCornerShape(22.dp), spotColor = Color.Black.copy(alpha = 0.6f))
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onDoubleTap = { offset ->
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    if (offset.x < size.width / 2) {
+                                        val newPos = (currentPosition - 10000L).coerceAtLeast(0L)
+                                        controller?.seekTo(newPos)
+                                        currentPosition = newPos
+                                        seekFeedback = "-10"
+                                    } else {
+                                        val newPos = (currentPosition + 10000L).coerceAtMost(duration)
+                                        controller?.seekTo(newPos)
+                                        currentPosition = newPos
+                                        seekFeedback = "+10"
+                                    }
+                                }
+                            )
+                        }
+                ) {
                 if (viewModel.isVideoMode) {
                     VideoSurface(controller = controller, modifier = Modifier.fillMaxSize())
                     VideoPlayerOverlayControls(
@@ -704,8 +728,9 @@ fun PremiumFullScreenPlayer(
                     }
                 }
             }
+        }
 
-            Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
             // 3. Track Title (with chevron >) and Artists
             Column(
@@ -852,7 +877,17 @@ fun PremiumFullScreenPlayer(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // 5. Scrubber & Time Display
+            // 5. Apple-Style Expandable Scrubber & Time Display
+            var isScrubbing by remember { mutableStateOf(false) }
+            val trackHeight by animateDpAsState(
+                targetValue = if (isScrubbing) 7.dp else 4.dp,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                ),
+                label = "scrubber_track_height"
+            )
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -861,18 +896,48 @@ fun PremiumFullScreenPlayer(
                 Slider(
                     value = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f,
                     onValueChange = { newPercent ->
+                        isScrubbing = true
                         val newPos = (newPercent * duration).toLong()
                         controller?.seekTo(newPos)
                         currentPosition = newPos
                     },
                     onValueChangeFinished = {
+                        isScrubbing = false
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     },
                     colors = SliderDefaults.colors(
                         thumbColor = Color.White,
                         activeTrackColor = Color.White,
-                        inactiveTrackColor = Color.White.copy(alpha = 0.25f)
+                        inactiveTrackColor = Color.White.copy(alpha = 0.22f)
                     ),
+                    thumb = {
+                        val thumbScale by animateFloatAsState(
+                            targetValue = if (isScrubbing) 1.25f else 1.0f,
+                            animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                            label = "scrubber_thumb_scale"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(if (isScrubbing) 16.dp else 12.dp)
+                                .graphicsLayer {
+                                    scaleX = thumbScale
+                                    scaleY = thumbScale
+                                }
+                                .shadow(4.dp, CircleShape)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                        )
+                    },
+                    track = { sliderState ->
+                        SliderDefaults.Track(
+                            sliderState = sliderState,
+                            modifier = Modifier.height(trackHeight),
+                            colors = SliderDefaults.colors(
+                                activeTrackColor = Color.White,
+                                inactiveTrackColor = Color.White.copy(alpha = 0.22f)
+                            )
+                        )
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .semantics {
@@ -885,12 +950,12 @@ fun PremiumFullScreenPlayer(
                 ) {
                     Text(
                         formatTime(currentPosition),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                         color = Color.White.copy(0.6f)
                     )
                     Text(
                         formatTime(duration),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                         color = Color.White.copy(0.6f)
                     )
                 }
@@ -956,13 +1021,12 @@ fun PremiumFullScreenPlayer(
                     )
                 }
 
-                // Main Big Play/Pause Circle
+                // Main Big Play/Pause Circle with Apple Damped Spring
                 Surface(
                     modifier = Modifier
-                        .size(66.dp)
+                        .size(68.dp)
                         .clip(CircleShape)
-                        .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        .iosPressClickable(pressScale = 0.90f) {
                             onTogglePlay()
                         }
                         .semantics {
@@ -1043,6 +1107,36 @@ fun PremiumFullScreenPlayer(
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // 7. Apple-Style Audio Output Route Pill (AirPlay style)
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = Color.White.copy(alpha = 0.08f),
+                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f)),
+                modifier = Modifier
+                    .alpha((1f - (expandProgress * 2.5f)).coerceIn(0f, 1f))
+                    .iosPressClickable { }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Rounded.Speaker,
+                        contentDescription = "Audio Output",
+                        tint = Color.White.copy(alpha = 0.75f),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Phone Speaker",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                }
+            }
         }
 
         // ==========================================
@@ -1080,10 +1174,10 @@ fun PremiumFullScreenPlayer(
                 .fillMaxWidth()
                 .height(queueSheetHeightDp)
                 .align(Alignment.BottomCenter)
-                .offset { IntOffset(0, sheetOffsetY.value.toInt()) }
-                .shadow(24.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .background(Color(0xFF1E1E22))
+                .shadow(28.dp, RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp), spotColor = Color.Black.copy(alpha = 0.5f))
+                .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
+                .background(Color(0xFF1E1E22).copy(alpha = 0.96f))
+                .border(BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f)), RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
         ) {
             Column(
                 modifier = Modifier

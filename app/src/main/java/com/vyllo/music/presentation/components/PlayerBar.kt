@@ -1,12 +1,14 @@
 package com.vyllo.music.presentation.components
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.media3.session.MediaController
 import com.vyllo.music.PlayerViewModel
@@ -21,8 +23,8 @@ fun PremiumPlayerContainer(
     relatedSongs: List<MusicItem>,
     isAutoplayEnabled: Boolean,
     onTogglePlay: () -> Unit, 
-    onNext: () -> Unit,
-    onPrev: () -> Unit,
+    onNext: () -> Unit, 
+    onPrev: () -> Unit, 
     onExpand: () -> Unit, 
     onCollapse: () -> Unit, 
     isExpanded: Boolean,
@@ -32,7 +34,6 @@ fun PremiumPlayerContainer(
 ) {
     if (musicItem == null) return
 
-    val haptic = LocalHapticFeedback.current
     val playerUiState by viewModel.uiState.collectAsState()
     val isActuallyExpanded = isExpanded || playerUiState.isInPipMode
 
@@ -53,16 +54,27 @@ fun PremiumPlayerContainer(
             viewModel = viewModel
         )
     } else {
+        val isDark = com.vyllo.music.presentation.theme.ThemeManager.isDarkColor(MaterialTheme.colorScheme.background)
+        val cardColor = if (isDark) {
+            Color(0xFF202024).copy(alpha = 0.94f)
+        } else {
+            Color(0xFFF7F7F9).copy(alpha = 0.96f)
+        }
+        val borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f)
+
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
-                .clickable { 
+                .padding(horizontal = 10.dp, vertical = 5.dp)
+                .shadow(10.dp, RoundedCornerShape(14.dp), spotColor = Color.Black.copy(alpha = 0.35f))
+                .clip(RoundedCornerShape(14.dp))
+                .iosPressClickable(pressScale = 0.985f) { 
                     onExpand() 
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 },
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            tonalElevation = 6.dp
+            shape = RoundedCornerShape(14.dp),
+            color = cardColor,
+            border = BorderStroke(0.5.dp, borderColor),
+            tonalElevation = 0.dp
         ) {
             PremiumMiniPlayer(
                 musicItem = musicItem,

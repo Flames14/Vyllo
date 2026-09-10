@@ -125,18 +125,20 @@ fun YTMFilterChip(
     }
     val textColor = when {
         isSelected -> if (isDark) Color(0xFF0F0F0F) else Color.White
-        isDark -> Color.White.copy(alpha = 0.9f)
+        isDark -> Color.White.copy(alpha = 0.92f)
         else -> Color(0xFF0F0F0F)
     }
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RoundedCornerShape(17.dp)
+    val borderColor = if (isSelected) Color.Transparent else if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f)
     
     Box(
         modifier = Modifier
             .height(34.dp)
             .clip(shape)
             .background(bgColor)
+            .border(0.5.dp, borderColor, shape)
             .ytmClickable(onClick = onClick)
-            .padding(horizontal = 14.dp),
+            .padding(horizontal = 15.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -352,42 +354,56 @@ fun YTMBottomNavBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding(),
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.88f),
             contentColor = MaterialTheme.colorScheme.onBackground,
             tonalElevation = 0.dp
         ) {
-        tabs.forEachIndexed { index, (label, icon) ->
-            val isSelected = selectedTab == index
-            NavigationBarItem(
-                icon = { 
-                    Icon(
-                        imageVector = icon, 
-                        contentDescription = label,
-                        modifier = Modifier.size(if (isSelected) 24.dp else 20.dp)
-                    ) 
-                },
-                label = { 
-                    Text(
-                        label, 
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 10.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
-                    ) 
-                },
-                selected = isSelected,
-                onClick = { onTabSelected(index) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.onBackground,
-                    selectedTextColor = MaterialTheme.colorScheme.onBackground,
-                    unselectedIconColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                    unselectedTextColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                    indicatorColor = Color.Transparent
+            tabs.forEachIndexed { index, (label, icon) ->
+                val isSelected = selectedTab == index
+                val iconScale by androidx.compose.animation.core.animateFloatAsState(
+                    targetValue = if (isSelected) 1.14f else 1.0f,
+                    animationSpec = androidx.compose.animation.core.spring(
+                        dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                        stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                    ),
+                    label = "tab_icon_scale"
                 )
-            )
+                NavigationBarItem(
+                    icon = { 
+                        Icon(
+                            imageVector = icon, 
+                            contentDescription = label,
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    scaleX = iconScale
+                                    scaleY = iconScale
+                                }
+                                .size(if (isSelected) 24.dp else 21.dp)
+                        ) 
+                    },
+                    label = { 
+                        Text(
+                            label, 
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 10.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                letterSpacing = 0.1.sp
+                            )
+                        ) 
+                    },
+                    selected = isSelected,
+                    onClick = { onTabSelected(index) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onBackground,
+                        selectedTextColor = MaterialTheme.colorScheme.onBackground,
+                        unselectedIconColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f),
+                        unselectedTextColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f),
+                        indicatorColor = Color.Transparent
+                    )
+                )
+            }
         }
     }
-}
 }
 
 @Composable

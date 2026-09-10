@@ -1,6 +1,7 @@
 package com.vyllo.music.presentation.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,7 +43,7 @@ fun YTMSongRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent)
             .ytmClickable { if (!isLoading) onClick() }
             .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -63,11 +64,9 @@ fun YTMSongRow(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer { 
-                        clip = true 
-                        shape = RoundedCornerShape(6.dp)
-                        alpha = if (isLoading) 0.5f else 1f
-                    }
+                    .clip(RoundedCornerShape(10.dp))
+                    .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                    .alpha(if (isLoading) 0.5f else 1f)
             )
             if (isLoading) {
                 CircularProgressIndicator(
@@ -81,13 +80,25 @@ fun YTMSongRow(
         Spacer(modifier = Modifier.width(16.dp))
         
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                    color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (isPlaying) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    AppleEqualizerBars(
+                        isPlaying = true,
+                        barColor = MaterialTheme.colorScheme.primary,
+                        barWidth = 2.5.dp,
+                        maxBarHeight = 13.dp
+                    )
+                }
+            }
             Text(
                 text = item.uploader,
                 style = MaterialTheme.typography.bodyMedium,
@@ -163,8 +174,18 @@ fun PremiumSongRow(item: MusicItem, isPlaying: Boolean, index: Int, onClick: () 
                     color = PremiumAccent()
                 )
             } else if (isPlaying) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.5f)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.GraphicEq, null, tint = PremiumAccent(), modifier = Modifier.size(24.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(0.55f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AppleEqualizerBars(
+                        isPlaying = true,
+                        barColor = PremiumAccent(),
+                        barWidth = 3.dp,
+                        maxBarHeight = 18.dp
+                    )
                 }
             } else if (isSelected) {
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.3f)), contentAlignment = Alignment.Center) {
@@ -205,7 +226,7 @@ fun YTMCompactRow(
 ) {
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent)
             .ytmClickable { if (!isLoading) onClick() }
             .padding(horizontal = 8.dp, vertical = 6.dp),
@@ -226,7 +247,8 @@ fun YTMCompactRow(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(6.dp))
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
                     .alpha(if (isLoading) 0.5f else 1f)
             )
             if (isLoading) {
@@ -241,13 +263,25 @@ fun YTMCompactRow(
         Spacer(modifier = Modifier.width(12.dp))
         
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (isPlaying) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    AppleEqualizerBars(
+                        isPlaying = true,
+                        barColor = MaterialTheme.colorScheme.primary,
+                        barWidth = 2.dp,
+                        maxBarHeight = 11.dp
+                    )
+                }
+            }
             Text(
                 text = item.uploader,
                 style = MaterialTheme.typography.bodySmall,

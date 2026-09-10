@@ -1,6 +1,7 @@
 package com.vyllo.music.presentation.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -44,14 +45,15 @@ fun YTMSquareCard(
     Column(
         modifier = Modifier
             .width(140.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(12.dp))
             .ytmClickable { if (!isLoading) onClick() }
     ) {
         Box(
             modifier = Modifier
                 .size(140.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.onBackground.copy(0.08f))
+                .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
         ) {
             val context = LocalContext.current
             val imageRequest = remember(item.thumbnailUrl) {
@@ -85,15 +87,23 @@ fun YTMSquareCard(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(0.5f)),
+                        .background(Color.Black.copy(0.55f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Rounded.GraphicEq,
-                        null,
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(0.4f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AppleEqualizerBars(
+                            isPlaying = true,
+                            barColor = Color.White,
+                            barWidth = 3.dp,
+                            maxBarHeight = 16.dp
+                        )
+                    }
                 }
             }
         }
@@ -133,7 +143,8 @@ fun YTMLargeCard(
         modifier = Modifier
             .width(280.dp)
             .height(160.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.onBackground.copy(0.1f))
             .ytmClickable { if (!isLoading) onClick() }
     ) {
@@ -210,13 +221,18 @@ fun YTMLargeCard(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(8.dp)
+                    .padding(10.dp)
                     .size(32.dp)
                     .clip(CircleShape)
                     .background(Color.Black.copy(0.6f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.GraphicEq, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                AppleEqualizerBars(
+                    isPlaying = true,
+                    barColor = Color.White,
+                    barWidth = 2.5.dp,
+                    maxBarHeight = 14.dp
+                )
             }
         }
     }

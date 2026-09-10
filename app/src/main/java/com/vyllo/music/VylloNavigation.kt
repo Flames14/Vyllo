@@ -183,7 +183,7 @@ fun VylloNavigation(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.background)
+                                .background(Color.Transparent)
                         ) {
                             if (playerUiState.currentPlayingItem != null) {
                                 PremiumPlayerContainer(

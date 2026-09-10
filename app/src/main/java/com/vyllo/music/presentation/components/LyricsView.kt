@@ -1,9 +1,11 @@
 package com.vyllo.music.presentation.components
 
-import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -22,8 +24,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -387,36 +391,71 @@ private fun SyncedLyricsDisplay(
         ) { index, line ->
             val isActive = playerUiState.currentLyricIndex == index
             val alpha by animateFloatAsState(
-                targetValue = if (isActive) 1f else 0.35f,
-                animationSpec = tween(durationMillis = 300)
+                targetValue = if (isActive) 1f else 0.38f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                label = "lyric_alpha"
             )
+            val lineScale by animateFloatAsState(
+                targetValue = if (isActive) 1.04f else 0.97f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                label = "lyric_scale"
+            )
+            val blurRadius by animateDpAsState(
+                targetValue = if (isActive) 0.dp else 1.2.dp,
+                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                label = "lyric_blur"
+            )
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { controller?.seekTo(line.startTimeMs); onSeek(line.startTimeMs) }
-                    .padding(vertical = 6.dp, horizontal = 20.dp),
+                    .graphicsLayer {
+                        scaleX = lineScale
+                        scaleY = lineScale
+                    }
+                    .blur(blurRadius)
+                    .iosPressClickable(pressScale = 0.96f) {
+                        controller?.seekTo(line.startTimeMs)
+                        onSeek(line.startTimeMs)
+                    }
+                    .padding(vertical = 8.dp, horizontal = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     line.content,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.Medium,
-                        lineHeight = 26.sp,
-                        fontSize = if (isActive) 19.sp else 16.sp
+                        fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
+                        lineHeight = 28.sp,
+                        fontSize = if (isActive) 20.sp else 16.sp,
+                        letterSpacing = (-0.3).sp
                     ),
                     color = if (isActive) LyricsColors.accent else LyricsColors.textPrimary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().alpha(alpha)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .alpha(alpha)
                 )
                 if (playerUiState.isTranslationEnabled && index < playerUiState.translatedLyricsLines.size) {
                     val translated = playerUiState.translatedLyricsLines[index]
                     if (!translated.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             translated,
-                            style = MaterialTheme.typography.bodySmall.copy(lineHeight = 20.sp),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                lineHeight = 20.sp,
+                                fontWeight = FontWeight.Normal
+                            ),
                             color = LyricsColors.textSecondary,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().alpha(alpha)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .alpha(alpha)
                         )
                     }
                 }

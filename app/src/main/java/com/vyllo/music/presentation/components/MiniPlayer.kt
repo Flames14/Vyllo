@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,7 +63,8 @@ fun PremiumMiniPlayer(
         }
     }
 
-    var totalDrag by remember { mutableFloatStateOf(0f) }
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+    val dragOffsetX = remember { androidx.compose.animation.core.Animatable(0f) }
 
     Column(
         modifier = Modifier
@@ -70,16 +72,33 @@ fun PremiumMiniPlayer(
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragEnd = {
-                        if (totalDrag < -60f) {
-                            onNext()
-                        } else if (totalDrag > 60f) {
-                            onPrev()
+                        val currentX = dragOffsetX.value
+                        coroutineScope.launch {
+                            if (currentX < -70f) {
+                                onNext()
+                            } else if (currentX > 70f) {
+                                onPrev()
+                            }
+                            dragOffsetX.animateTo(
+                                targetValue = 0f,
+                                animationSpec = androidx.compose.animation.core.spring(
+                                    dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                                    stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                                )
+                            )
                         }
-                        totalDrag = 0f
                     },
-                    onDragCancel = { totalDrag = 0f },
+                    onDragCancel = {
+                        coroutineScope.launch {
+                            dragOffsetX.animateTo(0f)
+                        }
+                    },
                     onHorizontalDrag = { _, dragAmount ->
-                        totalDrag += dragAmount
+                        coroutineScope.launch {
+                            // Apply subtle elastic drag resistance
+                            val newTarget = dragOffsetX.value + (dragAmount * 0.65f)
+                            dragOffsetX.snapTo(newTarget.coerceIn(-180f, 180f))
+                        }
                     }
                 )
             }
@@ -88,14 +107,15 @@ fun PremiumMiniPlayer(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .padding(horizontal = 14.dp),
+                .padding(horizontal = 14.dp)
+                .offset { androidx.compose.ui.unit.IntOffset(dragOffsetX.value.toInt(), 0) },
             verticalAlignment = Alignment.CenterVertically
         ) {
             val context = LocalContext.current
             val miniPlayerImageRequest = remember(musicItem.thumbnailUrl) {
                 ImageRequest.Builder(context)
                     .data(musicItem.thumbnailUrl)
-                    .size(128, 128)
+                    .size(140, 140)
                     .crossfade(true)
                     .build()
             }
@@ -105,19 +125,31 @@ fun PremiumMiniPlayer(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(46.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(10.dp))
             )
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = musicItem.title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = musicItem.title,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (isPlaying) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        AppleEqualizerBars(
+                            isPlaying = isPlaying,
+                            barWidth = 2.5.dp,
+                            barSpacing = 2.dp,
+                            maxBarHeight = 12.dp
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = musicItem.uploader,
@@ -173,10 +205,10 @@ fun PremiumMiniPlayer(
             }
         }
         
-        // YouTube Music style continuous sleek progress bar
+        // Sleek embedded progress bar along bottom of floating card
         LinearProgressIndicator(
             progress = { progress },
-            modifier = Modifier.fillMaxWidth().height(2.dp),
+            modifier = Modifier.fillMaxWidth().height(2.5.dp),
             color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
         )
