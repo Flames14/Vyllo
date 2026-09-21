@@ -73,6 +73,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var playbackQueueManager: PlaybackQueueManager
 
+    @Inject
+    lateinit var homeScrollTuner: com.vyllo.music.presentation.scroll.HomeScrollTuner
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
@@ -101,7 +104,11 @@ class MainActivity : ComponentActivity() {
                 android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
         
-        // Start foreground service for playback
+        // Start the playback service. Plain startService (not
+        // startForegroundService): Media3's MediaSessionService promotes itself
+        // to a foreground service on playback start. A foreground start here
+        // would ANR at launch because nothing is playing yet and therefore no
+        // startForeground() happens within the FGS timeout.
         startService(android.content.Intent(this, MusicService::class.java))
         playbackManager.initialize()
 
@@ -111,13 +118,20 @@ class MainActivity : ComponentActivity() {
             val isDark = ThemeManager.isDarkTheme(settingsViewModel.themeMode, isSystemInDarkTheme())
             val colorScheme = ThemeManager.getColorScheme(settingsViewModel.themeMode, isSystemInDarkTheme())
             
-            MaterialTheme(colorScheme = colorScheme) {
+            MaterialTheme(
+                colorScheme = colorScheme,
+                typography = com.vyllo.music.presentation.theme.VylloTypography,
+                shapes = com.vyllo.music.presentation.theme.VylloShapes
+            ) {
                 val systemUiController = remember(window) { WindowCompat.getInsetsController(window, window.decorView) }
                 LaunchedEffect(isDark) {
                     systemUiController.isAppearanceLightStatusBars = !isDark
                     systemUiController.isAppearanceLightNavigationBars = !isDark
                 }
                 Box(modifier = Modifier.fillMaxSize()) {
+                    val homeScrollState = remember(homeScrollTuner) {
+                        homeScrollTuner.createHomeState()
+                    }
                     VylloNavigation(
                         playbackManager = playbackManager, 
                         homeViewModel = homeViewModel,
@@ -125,6 +139,8 @@ class MainActivity : ComponentActivity() {
                         libraryViewModel = libraryViewModel,
                         playerViewModel = playerViewModel,
                         settingsViewModel = settingsViewModel,
+                        homeScrollTuner = homeScrollTuner,
+                        homeScrollState = homeScrollState,
                         onPlay = { item -> playMusic(item) },
                         onPlayFromQueue = { item -> playMusic(item, fromQueue = true) },
                         onNext = { item -> playNext(item) },
@@ -258,9 +274,20 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        if (!preferenceManager.isBackgroundPlaybackEnabled && playbackManager.isPlaying()) {
-            playbackManager.pause()
+        // Only pause for display-driven stops when background playback is disabled.
+        // Activities stop for many non-background reasons (multi-window, PiP,
+        // always-on-display, dialogs); pausing unconditionally looks exactly like a
+        // track that dies when the screen locks.
+        if (isChangingConfigurations) return
+        if (!isInPictureInPictureModeCompat()) {
+            if (!preferenceManager.isBackgroundPlaybackEnabled && playbackManager.isPlaying()) {
+                playbackManager.pause()
+            }
         }
+    }
+
+    private fun isInPictureInPictureModeCompat(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
     }
 
     override fun onUserLeaveHint() {

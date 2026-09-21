@@ -1,6 +1,7 @@
 package com.vyllo.music.di
 
 import android.content.Context
+import androidx.compose.foundation.lazy.LazyListState
 import com.vyllo.music.core.security.SecurityConfig
 import com.vyllo.music.core.security.SecurePreferenceManager
 import com.vyllo.music.data.manager.PlaybackQueueManager
@@ -9,6 +10,7 @@ import com.vyllo.music.data.manager.DownloadManager
 import com.vyllo.music.domain.manager.PlaybackManager
 import com.vyllo.music.domain.manager.PermissionHandler
 import com.vyllo.music.domain.manager.FloatingPlayerManager
+import com.vyllo.music.presentation.scroll.HomeScrollTuner
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -84,5 +86,21 @@ object AppModule {
     @Singleton
     fun provideDownloadManager(@ApplicationContext context: Context): DownloadManager {
         return DownloadManager(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideHomeScrollTuner(preferenceManager: PreferenceManager): HomeScrollTuner {
+        return HomeScrollTuner(preferenceManager)
+    }
+
+    /**
+     * Home uses one tuned LazyListState for its entire long list. A tuned state
+     * changes fling/render scheduling, not visible sections or business rules.
+     */
+    @Provides
+    @Named("home")
+    fun provideHomeLazyListState(scrollTuner: HomeScrollTuner): LazyListState {
+        return scrollTuner.createHomeState()
     }
 }

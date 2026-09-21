@@ -194,19 +194,19 @@ fun PremiumMiniPlayer(
 
             IconButton(
                 onClick = { libraryViewModel.showPlaylistAddDialog(musicItem) },
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(44.dp)
             ) {
                 Icon(
                     Icons.Rounded.PlaylistAdd,
-                    contentDescription = "Add to Playlist",
+                    contentDescription = "Add to playlist",
                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
 
             IconButton(
                 onClick = onTogglePlay,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
@@ -226,13 +226,13 @@ fun PremiumMiniPlayer(
 
             IconButton(
                 onClick = onNext,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(44.dp)
             ) {
                 Icon(
                     Icons.Rounded.SkipNext,
-                    contentDescription = "Next Track",
+                    contentDescription = "Next track",
                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }

@@ -61,6 +61,8 @@ fun VylloNavigation(
     libraryViewModel: LibraryViewModel,
     playerViewModel: PlayerViewModel,
     settingsViewModel: SettingsViewModel,
+    homeScrollTuner: com.vyllo.music.presentation.scroll.HomeScrollTuner? = null,
+    homeScrollState: androidx.compose.foundation.lazy.LazyListState? = null,
     onPlay: (MusicItem) -> Unit,
     onPlayFromQueue: (MusicItem) -> Unit = onPlay,
     onNext: (MusicItem?) -> Unit,
@@ -263,7 +265,10 @@ fun VylloNavigation(
                                 onSettingsClick = { settingsViewModel.showSettings = true },
                                 onRecognizeClick = { showRecognitionScreen = true },
                                 currentPlayingItem = playerUiState.currentPlayingItem,
-                                loadingItemUrl = playerUiState.loadingItemUrl
+                                loadingItemUrl = playerUiState.loadingItemUrl,
+                                scrollTuner = homeScrollTuner,
+                                homeScrollState = homeScrollState
+                                    ?: androidx.compose.foundation.lazy.rememberLazyListState()
                             )
                             1 -> YTMExploreScreen(
                                 viewModel = homeViewModel,
@@ -353,12 +358,15 @@ fun VylloNavigation(
 
                     // Global Dialogs
                     if (settingsViewModel.showSettings) {
+                       LaunchedEffect(Unit) { settingsViewModel.refreshBatteryAccessState() }
                        SettingsDialog(
                            onDismiss = { settingsViewModel.showSettings = false },
                            isFloatingEnabled = settingsViewModel.isFloatingEnabled,
                            onFloatingEnabledChange = { settingsViewModel.toggleFloatingPlayer(it) },
                            isBackgroundEnabled = settingsViewModel.isBackgroundPlaybackEnabled,
                            onBackgroundEnabledChange = { settingsViewModel.toggleBackgroundPlayback(it) },
+                           isBatteryUnrestricted = settingsViewModel.isBatteryUnrestricted,
+                           onBatteryAccessClick = { settingsViewModel.requestBatteryUnrestricted(context) },
                            isKeepAudioPlayingEnabled = settingsViewModel.isKeepAudioPlayingEnabled,
                            onKeepAudioPlayingChange = { settingsViewModel.toggleKeepAudioPlaying(it) },
                            themeMode = settingsViewModel.themeMode,

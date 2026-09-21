@@ -12,12 +12,15 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val preferenceManager: PreferenceManager,
-    private val backupRestoreManager: BackupRestoreManager
+    private val backupRestoreManager: BackupRestoreManager,
+    private val permissionHandler: com.vyllo.music.domain.manager.PermissionHandler
 ) : ViewModel() {
 
     var showSettings by mutableStateOf(false)
     var isFloatingEnabled by mutableStateOf(preferenceManager.isFloatingPlayerEnabled)
     var isBackgroundPlaybackEnabled by mutableStateOf(preferenceManager.isBackgroundPlaybackEnabled)
+    var isBatteryUnrestricted by mutableStateOf(false)
+        private set
     var isKeepAudioPlayingEnabled by mutableStateOf(preferenceManager.isKeepAudioPlayingEnabled)
     var themeMode by mutableStateOf(preferenceManager.themeMode)
     var isHighRefreshRateEnabled by mutableStateOf(preferenceManager.isHighRefreshRateEnabled)
@@ -32,6 +35,27 @@ class SettingsViewModel @Inject constructor(
     fun toggleBackgroundPlayback(enabled: Boolean) {
         isBackgroundPlaybackEnabled = enabled
         preferenceManager.isBackgroundPlaybackEnabled = enabled
+    }
+
+    fun refreshBatteryAccessState() {
+        isBatteryUnrestricted = permissionHandler.isBatteryOptimizationDisabled()
+    }
+
+    fun requestBatteryUnrestricted(context: android.content.Context) {
+        if (isBatteryUnrestricted) {
+            refreshBatteryAccessState()
+            return
+        }
+        val activity = context.findActivity()
+        if (activity != null) permissionHandler.requestDisableBatteryOptimization(activity)
+    }
+
+    private tailrec fun android.content.Context.findActivity(): android.app.Activity? {
+        return when (this) {
+            is android.app.Activity -> this
+            is android.content.ContextWrapper -> baseContext.findActivity()
+            else -> null
+        }
     }
 
     fun toggleKeepAudioPlaying(enabled: Boolean) {

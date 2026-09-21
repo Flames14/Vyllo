@@ -121,6 +121,8 @@ private class FakeMusicRepository(
     }
     override fun saveLyricsPreference(videoUrl: String, lrcId: Long) = Unit
     override fun getSavedLyricsId(videoUrl: String): Long? = null
-    override fun isLiquidScrollEnabled(): Boolean = false
+    override suspend fun getArtistSongs(artist: String): List<MusicItem> = emptyList()
+    override suspend fun getDiscoverSimilarSongs(title: String, artist: String): List<MusicItem> = emptyList()
+    override suspend fun getVideoStats(url: String): com.vyllo.music.data.VideoStats? = null
     override suspend fun getLyrics(title: String, artist: String, duration: Long, url: String): LyricsResponse? = null
 }

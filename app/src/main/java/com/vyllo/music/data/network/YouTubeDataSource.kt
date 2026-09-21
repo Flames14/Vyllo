@@ -64,7 +64,6 @@ class YouTubeDataSource @Inject constructor(
         if (!isInitialized) {
             synchronized(this) {
                 if (!isInitialized) {
-                    // TODO: Move these to a config file or preferences
                     NewPipe.init(OkHttpDownloader(), Localization.DEFAULT, ContentCountry.DEFAULT)
                     YoutubeStreamExtractor.setFetchIosClient(false)
                     PoTokenProviderImpl.init(context)

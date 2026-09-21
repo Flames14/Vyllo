@@ -64,6 +64,14 @@ class PreferenceManager @Inject constructor(
         get() = preferences.getBoolean("high_refresh_rate_enabled", true)
         set(value) { preferences.edit().putBoolean("high_refresh_rate_enabled", value).apply() }
 
+    var homeScrollPrefetchDistancePx: Int
+        get() = preferences.getInt("home_scroll_prefetch_px", 1200)
+        set(value) { preferences.edit().putInt("home_scroll_prefetch_px", value.coerceIn(600, 2400)).apply() }
+
+    var homeImagePreloadAheadItems: Int
+        get() = preferences.getInt("home_image_preload_ahead", 16)
+        set(value) { preferences.edit().putInt("home_image_preload_ahead", value.coerceIn(8, 48)).apply() }
+
     var isQueueSticky: Boolean
         get() = preferences.getBoolean("queue_sticky_enabled", true)
         set(value) { preferences.edit().putBoolean("queue_sticky_enabled", value).apply() }

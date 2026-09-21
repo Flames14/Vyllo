@@ -58,11 +58,22 @@ class PermissionHandler @Inject constructor(
      * This is optional but recommended for music apps.
      */
     fun requestDisableBatteryOptimization(activity: Activity) {
+        // Check first: when the exemption is already granted, launching the system
+        // settings screen again looks like nothing happened and confuses users.
+        if (isBatteryOptimizationDisabled()) {
+            Toast.makeText(context, "Background playback is already unrestricted", Toast.LENGTH_SHORT).show()
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                data = Uri.parse("package:${context.packageName}")
+            try {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                }
+                activity.startActivity(intent)
+            } catch (e: Exception) {
+                // Some OEM skins reject the direct intent; fall back to the manual page.
+                openBatteryOptimizationSettings(activity)
             }
-            activity.startActivity(intent)
         }
     }
 

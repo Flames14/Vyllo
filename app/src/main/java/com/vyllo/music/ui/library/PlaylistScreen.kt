@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,6 +17,7 @@ import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.data.download.PlaylistEntity
 import com.vyllo.music.*
 import com.vyllo.music.presentation.components.*
+import com.vyllo.music.presentation.theme.VylloSpacing
 
 // =========================================================================
 // YTM PLAYLIST SCREEN
@@ -33,17 +36,28 @@ fun YTMPlaylistScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                .padding(
+                    start = VylloSpacing.xs,
+                    end = VylloSpacing.screenHorizontal,
+                    top = VylloSpacing.sm,
+                    bottom = VylloSpacing.sm
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onBackground)
+                Icon(
+                    Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.onBackground
+                )
             }
             Text(
                 text = playlist.name,
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(start = 8.dp)
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = VylloSpacing.sm)
             )
         }
 
@@ -53,12 +67,13 @@ fun YTMPlaylistScreen(
         ) {
             if (viewModel.currentPlaylistSongs.isEmpty()) {
                 item(key = "empty_playlist_message", contentType = "empty") {
-                    Box(modifier = Modifier.fillMaxWidth().height(400.dp), contentAlignment = Alignment.Center) {
-                        Text(
-                            "No songs in this playlist",
-                            color = MaterialTheme.colorScheme.onBackground.copy(0.5f)
-                        )
-                    }
+                    VylloEmptyState(
+                        icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+                        title = "This playlist is empty",
+                        message = "Add songs with the playlist button on any track.",
+                        actionLabel = "Back to library",
+                        onAction = onBack
+                    )
                 }
             } else {
                 items(

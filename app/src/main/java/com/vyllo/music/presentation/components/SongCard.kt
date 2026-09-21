@@ -55,38 +55,21 @@ fun YTMSquareCard(
                 .background(MaterialTheme.colorScheme.onBackground.copy(0.08f))
                 .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
         ) {
-            val context = LocalContext.current
-            val imageRequest = remember(item.thumbnailUrl) {
-                ImageRequest.Builder(context)
-                    .data(item.thumbnailUrl)
-                    .size(280, 280)
-                    .crossfade(false)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    .build()
-            }
-            AsyncImage(
-                model = imageRequest,
+            VylloArtwork(
+                thumbnailUrl = item.thumbnailUrl,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().alpha(if (isLoading) 0.5f else 1f)
+                modifier = Modifier.fillMaxSize(),
+                cornerRadius = 12.dp,
+                requestSizePx = 280,
+                showLoading = isLoading
             )
-            
-            if (isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(32.dp),
-                        strokeWidth = 2.dp,
-                        color = Color.White
-                    )
-                }
-            } else if (isPlaying) {
+            if (isPlaying && !isLoading) {
+                // Keep the state badge as an overlay on the same shared surface so the
+                // cached image layer itself never changes size or recomposes.
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .matchParentSize()
+                        .clip(RoundedCornerShape(12.dp))
                         .background(Color.Black.copy(0.55f)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -148,21 +131,13 @@ fun YTMLargeCard(
             .background(MaterialTheme.colorScheme.onBackground.copy(0.1f))
             .ytmClickable { if (!isLoading) onClick() }
     ) {
-        val context = LocalContext.current
-        val imageRequest = remember(item.thumbnailUrl) {
-            ImageRequest.Builder(context)
-                .data(item.thumbnailUrl)
-                .size(560, 320)
-                .crossfade(false)
-                .memoryCachePolicy(CachePolicy.ENABLED)
-                .diskCachePolicy(CachePolicy.ENABLED)
-                .build()
-        }
-        AsyncImage(
-            model = imageRequest,
+        VylloArtwork(
+            thumbnailUrl = item.thumbnailUrl,
             contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize().alpha(if (isLoading) 0.5f else 1f)
+            cornerRadius = 12.dp,
+            requestSizePx = 560,
+            modifier = Modifier.fillMaxSize(),
+            showLoading = isLoading
         )
         
         val gradientBrush = remember {
@@ -206,18 +181,7 @@ fun YTMLargeCard(
             }
         }
         
-        if (isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(32.dp),
-                    strokeWidth = 2.dp,
-                    color = Color.White
-                )
-            }
-        } else if (isPlaying) {
+        if (!isLoading && isPlaying) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)

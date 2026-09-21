@@ -32,8 +32,8 @@ android {
         applicationId = "com.vyllo.music"
         minSdk = 24
         targetSdk = 34
-        versionCode = 8
-        versionName = "v2.4"
+        versionCode = 12
+        versionName = "v2.6.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // Security: BuildConfig fields for sensitive URLs (not hardcoded in source)
@@ -72,7 +72,6 @@ android {
         resources.excludes.add("META-INF/ASL2.0")
     }
     
-    // Use debug signing for release builds (for testing only)
     signingConfigs {
         getByName("debug") {
             // Uses default debug keystore
@@ -88,7 +87,6 @@ android {
     
     buildTypes {
         debug {
-            // Enable some optimizations for smoother 120Hz testing
             isDebuggable = true
         }
         release {

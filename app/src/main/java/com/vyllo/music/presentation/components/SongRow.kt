@@ -1,5 +1,7 @@
 package com.vyllo.music.presentation.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -31,6 +34,10 @@ import com.vyllo.music.SearchViewModel
 import com.vyllo.music.LibraryViewModel
 import com.vyllo.music.LocalLibraryViewModel
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.presentation.theme.VylloMotion
+import com.vyllo.music.presentation.theme.VylloRadius
+import com.vyllo.music.presentation.theme.VylloSize
+import com.vyllo.music.presentation.theme.VylloSpacing
 
 @Composable
 fun YTMSongRow(
@@ -58,35 +65,16 @@ fun YTMSongRow(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val context = LocalContext.current
-        val imageRequest = remember(item.thumbnailUrl) {
-            ImageRequest.Builder(context)
-                .data(item.thumbnailUrl)
-                .size(120, 120)
-                .crossfade(false)
-                .build()
-        }
-        Box(modifier = Modifier.size(52.dp)) {
-            AsyncImage(
-                model = imageRequest,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(10.dp))
-                    .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
-                    .alpha(if (isLoading) 0.5f else 1f)
-            )
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp).align(Alignment.Center),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
+        VylloArtwork(
+            thumbnailUrl = item.thumbnailUrl,
+            contentDescription = null,
+            size = 52.dp,
+            cornerRadius = 10.dp,
+            requestSizePx = 160,
+            showLoading = isLoading
+        )
         
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(VylloSpacing.lg))
         
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -112,7 +100,8 @@ fun YTMSongRow(
                 text = item.uploader,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
         

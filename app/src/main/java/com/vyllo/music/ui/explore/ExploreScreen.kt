@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,9 +60,9 @@ fun YTMExploreScreen(
         // Explore Categories
         item(key = "explore_categories_row", contentType = "category_row") {
             LazyRow(
-                modifier = Modifier.padding(vertical = 16.dp),
+                modifier = Modifier.padding(vertical = 8.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(
                     count = uiState.exploreCategories.size,
@@ -78,17 +80,26 @@ fun YTMExploreScreen(
         }
 
         // Trending Section
-        item(key = "trending_header", contentType = "header") {
-            val title = if (uiState.selectedExploreCategory == null) "Trending Now" else "${uiState.selectedExploreCategory}"
-            YTMSectionHeader(title = title)
-            Spacer(modifier = Modifier.height(8.dp))
+        if (uiState.isLoadingExplore || uiState.exploreTrendingItems.isNotEmpty()) {
+            item(key = "trending_header", contentType = "header") {
+                val title = if (uiState.selectedExploreCategory == null) "Trending Now" else "${uiState.selectedExploreCategory}"
+                YTMSectionHeader(title = title)
+            }
         }
 
-        if (uiState.isLoadingExplore) {
-            item(key = "loading_indicator", contentType = "loader") {
-                Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
+        if (uiState.isLoadingExplore && uiState.exploreTrendingItems.isEmpty()) {
+            item(key = "explore_skeleton", contentType = "skeleton") {
+                ListSkeleton(rows = 6)
+            }
+        } else if (uiState.exploreTrendingItems.isEmpty()) {
+            item(key = "explore_empty", contentType = "empty") {
+                VylloEmptyState(
+                    icon = Icons.Rounded.Explore,
+                    title = "Nothing to explore here yet",
+                    message = "No music is available here right now. Try another category or search for a song.",
+                    actionLabel = "Search music",
+                    onAction = onSearchClick
+                )
             }
         } else {
             items(

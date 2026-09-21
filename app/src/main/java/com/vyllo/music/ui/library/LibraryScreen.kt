@@ -26,6 +26,9 @@ import androidx.compose.ui.unit.dp
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.*
 import com.vyllo.music.presentation.components.*
+import com.vyllo.music.presentation.theme.VylloRadius
+import com.vyllo.music.presentation.theme.VylloSize
+import com.vyllo.music.presentation.theme.VylloSpacing
 import com.vyllo.music.ui.alarm.AlarmScreen
 
 // =========================================================================
@@ -79,9 +82,12 @@ fun YTMLibraryScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .clickable { onNavigateToAlarms() },
-                shape = RoundedCornerShape(16.dp),
+                    .padding(
+                        horizontal = VylloSpacing.screenHorizontal,
+                        vertical = VylloSpacing.sm
+                    )
+                    .pressScaleClickable(onClick = onNavigateToAlarms),
+                shape = RoundedCornerShape(VylloRadius.lg),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 )
@@ -89,7 +95,8 @@ fun YTMLibraryScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .heightIn(min = VylloSize.minTouchTarget)
+                        .padding(VylloSpacing.lg),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -101,13 +108,13 @@ fun YTMLibraryScreen(
                             Icons.Rounded.Alarm,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(VylloSize.iconXLarge)
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(VylloSpacing.lg))
                         Column {
                             Text(
                                 text = "Alarms",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
@@ -119,8 +126,9 @@ fun YTMLibraryScreen(
                     }
                     Icon(
                         Icons.AutoMirrored.Rounded.ArrowForward,
-                        contentDescription = "Open",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(VylloSize.iconMedium)
                     )
                 }
             }
@@ -159,16 +167,13 @@ fun YTMLibraryScreen(
 
         if (viewModel.allPlaylists.isEmpty()) {
             item(key = "empty_playlists", contentType = "empty") {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(120.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "No playlists yet",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onBackground.copy(0.4f)
-                    )
-                }
+                VylloEmptyState(
+                    icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+                    title = "No playlists yet",
+                    message = "Group the songs you love into playlists you can play anytime.",
+                    actionLabel = "Create playlist",
+                    onAction = { showCreateDialog = true }
+                )
             }
         } else {
             items(
@@ -227,22 +232,13 @@ fun YTMLibraryScreen(
         
         if (viewModel.downloadedSongs.isEmpty()) {
             item(key = "empty_downloads", contentType = "empty") {
-                Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Rounded.DownloadDone, 
-                            contentDescription = null, 
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onBackground.copy(0.2f)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            "Your offline music will appear here", 
-                            style = MaterialTheme.typography.bodyLarge, 
-                            color = MaterialTheme.colorScheme.onBackground.copy(0.5f)
-                        )
-                    }
-                }
+                VylloEmptyState(
+                    icon = Icons.Rounded.DownloadDone,
+                    title = "No downloads yet",
+                    message = "Songs you download are stored on this device and play without internet.",
+                    actionLabel = "Find music to download",
+                    onAction = onSearchClick
+                )
             }
         } else {
             items(

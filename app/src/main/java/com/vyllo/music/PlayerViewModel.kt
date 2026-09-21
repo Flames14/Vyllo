@@ -1,6 +1,5 @@
 package com.vyllo.music
 
-import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vyllo.music.core.security.SecureLogger
@@ -8,13 +7,17 @@ import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.LyricsResponse
 import com.vyllo.music.domain.model.SyncedLyricLine
 import com.vyllo.music.domain.model.LyricsResult
-import com.vyllo.music.domain.model.LyricsStatus
 import com.vyllo.music.domain.model.EqualizerSettings
 import com.vyllo.music.domain.model.EqualizerPreset
 import com.vyllo.music.data.*
 import com.vyllo.music.data.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.domain.manager.StreamUrlCache
+import com.vyllo.music.domain.manager.player.EqualizerController
+import com.vyllo.music.domain.manager.player.LyricsController
+import com.vyllo.music.domain.manager.player.RelatedController
+import com.vyllo.music.domain.manager.player.SleepTimerController
+import com.vyllo.music.domain.manager.player.StreamResolver
 import com.vyllo.music.domain.usecase.GetStreamUrlUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +26,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.isActive
 import javax.inject.Inject
 
 @androidx.compose.runtime.Immutable
@@ -80,10 +82,13 @@ class PlayerViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
-    private var volumeBoosterJob: kotlinx.coroutines.Job? = null
 
-    /** Anchor track that the current related-songs pool was built for. */
-    private var relatedAnchorUrl: String? = null
+    // Controllers are initialized in init after viewModelScope is available.
+    private lateinit var equalizerController: EqualizerController
+    private lateinit var sleepTimerController: SleepTimerController
+    private lateinit var lyricsController: LyricsController
+    private lateinit var relatedController: RelatedController
+    private lateinit var streamResolver: StreamResolver
 
     // Convenience properties for backward compatibility with Compose UI
     val currentPlayingItem: MusicItem?
@@ -155,6 +160,39 @@ class PlayerViewModel @Inject constructor(
         get() = _uiState.value.commentCountFormatted
 
     init {
+        equalizerController = EqualizerController(
+            preferenceManager = preferenceManager,
+            getState = { _uiState.value },
+            updateState = { transform -> _uiState.update(transform) },
+            scopeProvider = { viewModelScope }
+        )
+        sleepTimerController = SleepTimerController(
+            updateState = { transform -> _uiState.update(transform) },
+            scopeProvider = { viewModelScope }
+        )
+        lyricsController = LyricsController(
+            lyricsCoordinator = lyricsCoordinator,
+            getState = { _uiState.value },
+            updateState = { transform -> _uiState.update(transform) },
+            scopeProvider = { viewModelScope }
+        )
+        relatedController = RelatedController(
+            repository = repository,
+            playbackQueueManager = playbackQueueManager,
+            getState = { _uiState.value },
+            updateState = { transform -> _uiState.update(transform) },
+            scopeProvider = { viewModelScope }
+        )
+        streamResolver = StreamResolver(
+            repository = repository,
+            getStreamUrlUseCase = getStreamUrlUseCase,
+            streamUrlCache = streamUrlCache,
+            thumbnailResolver = thumbnailResolver,
+            getState = { _uiState.value },
+            updateState = { transform -> _uiState.update(transform) },
+            scopeProvider = { viewModelScope }
+        )
+
         _uiState.update { it.copy(
             equalizerSettings = preferenceManager.loadEqualizerSettings(),
             volumeBoostMultiplier = preferenceManager.volumeBoostMultiplier,
@@ -171,15 +209,15 @@ class PlayerViewModel @Inject constructor(
                     commentCountFormatted = null
                 ) }
                 if (item != null) {
-                    resolveThumbnail(item)
-                    loadVideoStats(item)
+                    streamResolver.resolveThumbnail(item)
+                    streamResolver.loadVideoStats(item)
                     val upcoming = playbackQueueManager.getUpcomingSnapshot()
                     if (upcoming.isEmpty() || _uiState.value.relatedSongs.isEmpty()) {
-                        loadRelatedSongs(item, force = true)
+                        relatedController.loadRelatedSongs(item, force = true)
                     } else {
                         _uiState.update { it.copy(relatedSongs = upcoming) }
                         if (upcoming.size < 5) {
-                            loadMoreRelatedSongs()
+                            relatedController.loadMoreRelatedSongs()
                         }
                     }
                 }
@@ -187,279 +225,91 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun formatMetricCount(count: Long): String {
-        return when {
-            count >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", count / 1_000_000.0).replace(".0M", "M")
-            count >= 1_000 -> String.format(java.util.Locale.US, "%.1fK", count / 1_000.0).replace(".0K", "K")
-            count > 0 -> count.toString()
-            else -> ""
-        }
-    }
-
-    private fun loadVideoStats(item: MusicItem) {
-        viewModelScope.launch {
-            try {
-                val stats = repository.getVideoStats(item.url)
-                if (isActive && _uiState.value.currentPlayingItem?.url == item.url && stats != null) {
-                    val formattedLikes = if (stats.likeCount > 0) formatMetricCount(stats.likeCount) else null
-                    val formattedComments = if (stats.commentCount >= 0) formatMetricCount(stats.commentCount) else null
-                    _uiState.update { it.copy(
-                        likeCount = stats.likeCount,
-                        commentCount = stats.commentCount,
-                        likeCountFormatted = formattedLikes,
-                        commentCountFormatted = formattedComments
-                    ) }
-                }
-            } catch (e: Exception) {
-                SecureLogger.w("PlayerViewModel", "Failed to load video stats", e)
-            }
-        }
-    }
-
-    private fun resolveThumbnail(item: MusicItem) {
-        viewModelScope.launch {
-            try {
-                val highRes = thumbnailResolver.resolveHighResThumbnail(
-                    urlOrId = item.url,
-                    fallbackThumbnail = item.thumbnailUrl,
-                    title = item.title,
-                    artist = item.uploader
-                )
-                if (isActive && _uiState.value.currentPlayingItem?.url == item.url) {
-                    _uiState.update { it.copy(resolvedThumbnailUrl = highRes) }
-                }
-            } catch (e: Exception) {
-                SecureLogger.w("PlayerViewModel", "Error resolving thumbnail", e)
-            }
-        }
-    }
+    fun formatMetricCount(count: Long): String = streamResolver.formatMetricCount(count)
 
     fun setPlaybackLoading(isLoading: Boolean, itemUrl: String? = null) {
         _uiState.update { it.copy(isLoadingPlayer = isLoading, loadingItemUrl = itemUrl) }
     }
 
-    fun loadRelatedSongs(item: MusicItem, force: Boolean = false) {
-        relatedAnchorUrl = item.url
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingRelatedTab = true) }
-            val relatedJob = launch {
-                val related = repository.getRelatedSongs(item.url, force = force)
-                val filtered = related.filter { it.url != item.url }
-                playbackQueueManager.replaceUpcomingItems(filtered)
-                val upcoming = playbackQueueManager.getUpcomingSnapshot()
-                _uiState.update { it.copy(relatedSongs = upcoming, isLoadingMoreRelated = false) }
-            }
-            val artistJob = launch {
-                val artistTracks = repository.getArtistSongs(item.uploader)
-                _uiState.update { it.copy(artistSongs = artistTracks) }
-            }
-            val similarJob = launch {
-                val discoveries = repository.getDiscoverSimilarSongs(item.title, item.uploader)
-                _uiState.update { it.copy(discoverSimilarSongs = discoveries) }
-            }
-            relatedJob.join()
-            artistJob.join()
-            similarJob.join()
-            _uiState.update { it.copy(isLoadingRelatedTab = false) }
-        }
-    }
+    fun loadRelatedSongs(item: MusicItem, force: Boolean = false) =
+        relatedController.loadRelatedSongs(item, force)
 
-    /**
-     * Fetches the next batch of suggestions for the current track so the
-     * Up Next list keeps growing as the user scrolls.
-     */
-    fun loadMoreRelatedSongs() {
-        val anchor = relatedAnchorUrl ?: return
-        if (_uiState.value.isLoadingMoreRelated) return
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingMoreRelated = true) }
-            val more = repository.getMoreRelatedSongs(anchor)
-            playbackQueueManager.appendDistinct(more)
-            val upcoming = playbackQueueManager.getUpcomingSnapshot()
-            _uiState.update { state ->
-                state.copy(relatedSongs = upcoming, isLoadingMoreRelated = false)
-            }
-        }
-    }
+    fun loadMoreRelatedSongs() = relatedController.loadMoreRelatedSongs()
 
-    suspend fun resolveStream(item: MusicItem, isVideo: Boolean = false): String? {
-        streamUrlCache.get(item.url, isVideo)?.let {
-            SecureLogger.d("PlayerViewModel") { "Stream URL cache hit: ${item.url}_$isVideo" }
-            return it
-        }
-
-        _uiState.update { it.copy(loadingItemUrl = item.url, isLoadingPlayer = true) }
-        SecureLogger.d("PlayerViewModel") { "Resolving stream: url=${item.url}, isVideo=$isVideo" }
-        val url = getStreamUrlUseCase(item.url, isVideo = isVideo)
-        _uiState.update { it.copy(loadingItemUrl = null, isLoadingPlayer = false) }
-
-        if (url != null) {
-            streamUrlCache.put(item.url, isVideo, url)
-            SecureLogger.d("PlayerViewModel") { "Stream URL resolved" }
-        } else {
-            SecureLogger.w("PlayerViewModel", "Failed to resolve stream URL")
-        }
-        return url
-    }
+    suspend fun resolveStream(item: MusicItem, isVideo: Boolean = false): String? =
+        streamResolver.resolveStream(item, isVideo)
 
     fun toggleVideoMode(currentPosition: Long, onSwitch: (String?) -> Unit) {
-        val item = currentPlayingItem ?: return
-        val targetVideoMode = !isVideoMode
-        SecureLogger.d("PlayerViewModel") { "toggleVideoMode: current=$isVideoMode, target=$targetVideoMode, position=$currentPosition" }
-
-        isVideoMode = targetVideoMode
-
-        viewModelScope.launch {
-            val newUrl = resolveStream(item, isVideo = isVideoMode)
-            if (isActive) {
-                SecureLogger.d("PlayerViewModel") { "toggleVideoMode callback: newUrl resolved" }
-                onSwitch(newUrl)
-            }
-        }
-    }
-
-    fun fetchLyrics(item: MusicItem, durationSecs: Long) {
-        lyricsCoordinator.fetchLyrics(
-            scope = viewModelScope,
-            currentState = { _uiState.value },
-            updateState = { transform -> _uiState.update(transform) },
-            item = item,
-            durationSecs = durationSecs,
-            onTranslateCurrentLyrics = ::translateCurrentLyrics
+        streamResolver.toggleVideoMode(
+            currentItem = currentPlayingItem,
+            isVideoMode = isVideoMode,
+            currentPosition = currentPosition,
+            setVideoMode = { isVideoMode = it },
+            onSwitch = onSwitch
         )
     }
 
-    fun updateLyricsPosition(positionMs: Long) {
-        val index = LyricsEngine.getCurrentLyricLine(syncedLyricsLines, positionMs + lyricsOffsetMs)
-        if (index != currentLyricIndex) {
-            _uiState.update { it.copy(currentLyricIndex = index) }
-        }
-    }
+    fun fetchLyrics(item: MusicItem, durationSecs: Long) =
+        lyricsController.fetchLyrics(item, durationSecs)
 
-    fun adjustLyricsOffset(deltaMs: Long) {
-        _uiState.update { it.copy(lyricsOffsetMs = it.lyricsOffsetMs + deltaMs) }
-    }
+    fun updateLyricsPosition(positionMs: Long) =
+        lyricsController.updatePosition(positionMs)
 
-    fun selectAlternativeLyrics(result: LyricsResult) {
-        lyricsCoordinator.selectAlternativeLyrics(
-            updateState = { transform -> _uiState.update(transform) },
-            result = result
-        )
-    }
+    fun adjustLyricsOffset(deltaMs: Long) =
+        lyricsController.adjustOffset(deltaMs)
 
-    fun searchForLyrics(query: String) {
-        lyricsCoordinator.searchForLyrics(
-            scope = viewModelScope,
-            updateState = { transform -> _uiState.update(transform) },
-            query = query
-        )
-    }
+    fun selectAlternativeLyrics(result: LyricsResult) =
+        lyricsController.selectAlternative(result)
 
-    fun clearLyricsSearchResults() {
-        lyricsCoordinator.clearLyricsSearchResults(
-            updateState = { transform -> _uiState.update(transform) }
-        )
-    }
+    fun searchForLyrics(query: String) =
+        lyricsController.search(query)
 
-    fun translateCurrentLyrics() {
-        lyricsCoordinator.translateCurrentLyrics(
-            scope = viewModelScope,
-            currentState = { _uiState.value },
-            updateState = { transform -> _uiState.update(transform) }
-        )
-    }
+    fun clearLyricsSearchResults() =
+        lyricsController.clearSearchResults()
 
-    fun toggleTranslation(enabled: Boolean) {
-        isTranslationEnabled = enabled
-        if (enabled) {
-            translateCurrentLyrics()
-        }
-    }
+    fun translateCurrentLyrics() =
+        lyricsController.translateCurrentLyrics()
+
+    fun toggleTranslation(enabled: Boolean) =
+        lyricsController.toggleTranslation(enabled)
 
     fun toggleStickyQueue() {
         val next = !_uiState.value.isQueueSticky
         isQueueSticky = next
     }
 
-    fun forceRefreshRelatedSongs() {
-        val item = currentPlayingItem ?: return
-        relatedAnchorUrl = null
-        loadRelatedSongs(item, force = true)
-    }
+    fun forceRefreshRelatedSongs() =
+        relatedController.forceRefreshRelatedSongs(currentPlayingItem)
 
-    fun getNextAutoplayItem(): MusicItem? {
-        if (!autoplayEnabled) return null
-        return playbackQueueManager.nextItem
-    }
+    fun getNextAutoplayItem(): MusicItem? =
+        relatedController.getNextAutoplayItem(autoplayEnabled)
 
-    fun setEqualizerEnabled(enabled: Boolean) {
-        updateEqualizerSettings(equalizerSettings.copy(enabled = enabled))
-    }
+    fun setEqualizerEnabled(enabled: Boolean) =
+        equalizerController.setEqualizerEnabled(enabled)
 
-    fun updateBassBoost(strength: Int) {
-        updateEqualizerSettings(
-            equalizerSettings.copy(
-                bassBoostStrength = strength.coerceIn(EqualizerSettings.STRENGTH_MIN, EqualizerSettings.STRENGTH_MAX)
-            )
-        )
-    }
+    fun updateBassBoost(strength: Int) =
+        equalizerController.updateBassBoost(strength)
 
-    fun updateVirtualizer(strength: Int) {
-        updateEqualizerSettings(
-            equalizerSettings.copy(
-                virtualizerStrength = strength.coerceIn(EqualizerSettings.STRENGTH_MIN, EqualizerSettings.STRENGTH_MAX)
-            )
-        )
-    }
+    fun updateVirtualizer(strength: Int) =
+        equalizerController.updateVirtualizer(strength)
 
-    fun updateEqualizerBand(index: Int, level: Int) {
-        if (index !in equalizerSettings.bands.indices) return
+    fun updateEqualizerBand(index: Int, level: Int) =
+        equalizerController.updateEqualizerBand(index, level)
 
-        val updatedBands = equalizerSettings.bands.mapIndexed { bandIndex, band ->
-            if (bandIndex == index) {
-                band.copy(level = level.coerceIn(EqualizerSettings.BAND_LEVEL_MIN, EqualizerSettings.BAND_LEVEL_MAX))
-            } else {
-                band
-            }
-        }
-        updateEqualizerSettings(equalizerSettings.copy(bands = updatedBands))
-    }
+    fun applyEqualizerPreset(preset: EqualizerPreset) =
+        equalizerController.applyEqualizerPreset(preset)
 
-    fun applyEqualizerPreset(preset: EqualizerPreset) {
-        val updated = preset.applyTo(equalizerSettings).copy(enabled = true)
-        updateEqualizerSettings(updated)
-    }
+    fun resetEqualizer() =
+        equalizerController.resetEqualizer()
 
-    fun resetEqualizer() {
-        updateEqualizerSettings(EqualizerSettings())
-    }
+    fun updateVolumeBoost(multiplier: Float) =
+        equalizerController.updateVolumeBoost(multiplier)
 
-    private fun updateEqualizerSettings(settings: EqualizerSettings) {
-        val sanitized = settings.sanitized()
-        _uiState.update { it.copy(equalizerSettings = sanitized) }
-        preferenceManager.saveEqualizerSettings(sanitized)
-    }
+    fun adjustVolumeBoost(delta: Float) =
+        equalizerController.adjustVolumeBoost(delta)
 
-    fun updateVolumeBoost(multiplier: Float) {
-        val clamped = multiplier.coerceIn(1.0f, 3.0f)
-        preferenceManager.volumeBoostMultiplier = clamped
-        _uiState.update { it.copy(volumeBoostMultiplier = clamped) }
-    }
-
-    fun adjustVolumeBoost(delta: Float) {
-        val current = _uiState.value.volumeBoostMultiplier
-        updateVolumeBoost(current + delta)
-        showVolumeBoosterUI()
-    }
-
-    fun showVolumeBoosterUI() {
-        _uiState.update { it.copy(isVolumeBoosterUIVisible = true) }
-        volumeBoosterJob?.cancel()
-        volumeBoosterJob = viewModelScope.launch {
-            kotlinx.coroutines.delay(3000)
-            _uiState.update { it.copy(isVolumeBoosterUIVisible = false) }
-        }
-    }
+    fun showVolumeBoosterUI() =
+        equalizerController.showVolumeBoosterUI()
 
     fun setPipMode(enabled: Boolean) {
         _uiState.update { it.copy(isInPipMode = enabled) }
@@ -469,39 +319,9 @@ class PlayerViewModel @Inject constructor(
         _uiState.update { it.copy(isFullScreenVideo = enabled) }
     }
 
-    private var sleepTimerJob: kotlinx.coroutines.Job? = null
+    fun setSleepTimer(minutes: Int, onTimerFinished: () -> Unit, onFadeVolume: ((Float) -> Unit)? = null) =
+        sleepTimerController.setSleepTimer(minutes, onTimerFinished, onFadeVolume)
 
-    fun setSleepTimer(minutes: Int, onTimerFinished: () -> Unit, onFadeVolume: ((Float) -> Unit)? = null) {
-        sleepTimerJob?.cancel()
-        if (minutes <= 0) {
-            _uiState.update { it.copy(sleepTimerRemainingSeconds = null, isSleepTimerActive = false) }
-            onFadeVolume?.invoke(1.0f)
-            return
-        }
-
-        val totalSeconds = (minutes * 60).toLong()
-        _uiState.update { it.copy(sleepTimerRemainingSeconds = totalSeconds, isSleepTimerActive = true) }
-        sleepTimerJob = viewModelScope.launch {
-            var remaining = totalSeconds
-            val fadeWindowSeconds = 30L.coerceAtMost(totalSeconds)
-            while (remaining > 0 && isActive) {
-                kotlinx.coroutines.delay(1000)
-                remaining--
-                _uiState.update { it.copy(sleepTimerRemainingSeconds = remaining) }
-                if (remaining <= fadeWindowSeconds && onFadeVolume != null) {
-                    val fadeRatio = (remaining.toFloat() / fadeWindowSeconds).coerceIn(0.0f, 1.0f)
-                    onFadeVolume(fadeRatio)
-                }
-            }
-            _uiState.update { it.copy(sleepTimerRemainingSeconds = null, isSleepTimerActive = false) }
-            onTimerFinished()
-            onFadeVolume?.invoke(1.0f)
-        }
-    }
-
-    fun cancelSleepTimer(onResetVolume: (() -> Unit)? = null) {
-        sleepTimerJob?.cancel()
-        _uiState.update { it.copy(sleepTimerRemainingSeconds = null, isSleepTimerActive = false) }
-        onResetVolume?.invoke()
-    }
+    fun cancelSleepTimer(onResetVolume: (() -> Unit)? = null) =
+        sleepTimerController.cancelSleepTimer(onResetVolume)
 }

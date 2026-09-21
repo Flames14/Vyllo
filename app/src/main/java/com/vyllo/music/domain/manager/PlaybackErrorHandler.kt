@@ -64,4 +64,35 @@ class PlaybackErrorHandler(
         pendingRetryRunnable = null
         consecutiveErrorCount = 0
     }
+
+    /**
+     * Doze-safe error accounting for the foreground service.
+     *
+     * Unlike [handleError] — which schedules its retry with a bare
+     * `Handler.postDelayed` that Doze defers until the screen turns on — this
+     * only counts the error and returns the backoff delay. The service then
+     * performs the retry itself inside a coroutine running under wake locks,
+     * so recovery happens on time with the screen off.
+     *
+     * @return delay in ms before the caller should retry, or null when the
+     * bounded retry budget is exhausted (counter is reset in that case).
+     */
+    fun registerErrorAndGetDelay(error: androidx.media3.common.PlaybackException): Long? {
+        consecutiveErrorCount++
+        SecureLogger.e(TAG, "Playback error #${consecutiveErrorCount}: ${error.message}", error)
+
+        if (consecutiveErrorCount > maxRetries) {
+            SecureLogger.w(TAG, "Max retries ($maxRetries) reached, stopping retry cycle")
+            consecutiveErrorCount = 0
+            onMaxRetriesReached()
+            return null
+        }
+
+        pendingRetryRunnable?.let { handler.removeCallbacks(it) }
+        pendingRetryRunnable = null
+
+        val delayMs = minOf(baseDelayMs * consecutiveErrorCount, maxDelayMs)
+        SecureLogger.d(TAG, "Service-managed retry #${consecutiveErrorCount} in ${delayMs}ms")
+        return delayMs
+    }
 }

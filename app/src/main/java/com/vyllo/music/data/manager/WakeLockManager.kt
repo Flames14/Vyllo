@@ -25,7 +25,7 @@ class WakeLockManager @Inject constructor(
         powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
             "Vyllo::ServiceWakeLock"
-        ).apply { setReferenceCounted(false) }
+        ).apply { setReferenceCounted(true) }
     }
 
     private val wifiLock: WifiManager.WifiLock by lazy {
@@ -37,21 +37,21 @@ class WakeLockManager @Inject constructor(
         wifiManager.createWifiLock(
             mode,
             "Vyllo::ServiceWifiLock"
-        ).apply { setReferenceCounted(false) }
+        ).apply { setReferenceCounted(true) }
     }
 
     /**
      * Acquire both CPU and WiFi wake locks.
-     * Safe to call multiple times — checks held state first.
+     *
+     * NOTE: callers must pair every acquire() with release(), preferably via
+     * [withLocks]. The locks are reference-counted so nested acquire/release
+     * pairs (e.g. a transition that also enqueues the following track) balance
+     * correctly.
      */
-    fun acquire(timeoutMs: Long = 3600000L) {
+    fun acquire(timeoutMs: Long = TRANSITION_TIMEOUT_MS) {
         try {
-            if (!wakeLock.isHeld) {
-                wakeLock.acquire(timeoutMs)
-            }
-            if (!wifiLock.isHeld) {
-                wifiLock.acquire()
-            }
+            wakeLock.acquire(timeoutMs)
+            wifiLock.acquire()
         } catch (e: Exception) {
             SecureLogger.e("WakeLockManager", "Failed to acquire wake locks", e)
         }
@@ -59,7 +59,6 @@ class WakeLockManager @Inject constructor(
 
     /**
      * Release both CPU and WiFi wake locks.
-     * Safe to call multiple times — checks held state first.
      */
     fun release() {
         try {
@@ -78,4 +77,33 @@ class WakeLockManager @Inject constructor(
      * Returns true if both locks are currently held.
      */
     fun isHeld(): Boolean = wakeLock.isHeld && wifiLock.isHeld
+
+    /**
+     * Runs [block] with both locks held, always releasing afterwards.
+     * This is the only safe way to do gap work (track transitions, error
+     * retries) while the screen is off: without a held PARTIAL_WAKE_LOCK +
+     * WifiLock, Doze suspends the process mid-network-request and the next
+     * track only starts when the user turns the screen back on.
+     */
+    suspend fun <T> withLocks(
+        timeoutMs: Long = TRANSITION_TIMEOUT_MS,
+        block: suspend () -> T
+    ): T {
+        acquire(timeoutMs)
+        try {
+            return block()
+        } finally {
+            release()
+        }
+    }
+
+    companion object {
+        /**
+         * How long a transition may hold the locks before the failsafe timeout
+         * drops them. Deliberately generous: a NewPipe resolve plus stream
+         * probes can take tens of seconds on a throttled lock-screen network,
+         * and an early release is exactly what stalls the queue until unlock.
+         */
+        const val TRANSITION_TIMEOUT_MS = 10 * 60 * 1000L
+    }
 }

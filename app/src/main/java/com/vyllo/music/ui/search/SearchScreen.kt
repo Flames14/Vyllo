@@ -16,15 +16,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,6 +41,9 @@ import androidx.core.content.ContextCompat
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.*
 import com.vyllo.music.presentation.components.*
+import com.vyllo.music.presentation.theme.VylloRadius
+import com.vyllo.music.presentation.theme.VylloSize
+import com.vyllo.music.presentation.theme.VylloSpacing
 import com.vyllo.music.ui.components.*
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -108,20 +112,29 @@ fun YTMSearchScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                .padding(
+                    start = VylloSpacing.xs,
+                    end = VylloSpacing.screenHorizontal,
+                    top = VylloSpacing.sm,
+                    bottom = VylloSpacing.sm
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onBackground)
+                Icon(
+                    Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.onBackground
+                )
             }
 
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(24.dp))
+                    .height(VylloSize.toolbar)
+                    .clip(RoundedCornerShape(VylloRadius.pill))
                     .background(MaterialTheme.colorScheme.onBackground.copy(0.08f))
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = VylloSpacing.lg),
                 contentAlignment = Alignment.CenterStart
             ) {
                 Row(
@@ -157,10 +170,10 @@ fun YTMSearchScreen(
                     if (viewModel.searchQuery.isNotEmpty()) {
                         IconButton(
                             onClick = { viewModel.onQueryChanged("") },
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(44.dp)
                         ) {
                             Icon(
-                                Icons.Filled.Close, "Clear",
+                                Icons.Filled.Close, "Clear search",
                                 tint = MaterialTheme.colorScheme.onBackground.copy(0.6f),
                                 modifier = Modifier.size(20.dp)
                             )
@@ -183,10 +196,10 @@ fun YTMSearchScreen(
                                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                 }
                             },
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(44.dp)
                         ) {
                             Icon(
-                                Icons.Rounded.Mic, "Voice Search",
+                                Icons.Rounded.Mic, "Search by voice",
                                 tint = if (viewModel.isListening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(0.6f),
                                 modifier = Modifier.size(22.dp).then(
                                     if (viewModel.isListening) Modifier.graphicsLayer(scaleX = micScale, scaleY = micScale) else Modifier
@@ -253,6 +266,17 @@ fun YTMSearchScreen(
                             onInsert = { viewModel.insertSuggestion(suggestion) }
                         )
                     }
+                } else {
+                    // Idle state: nothing typed, no history, no suggestions.
+                    // Previously this rendered a blank white screen behind the keyboard.
+                    item(key = "search_idle_empty") {
+                        VylloEmptyState(
+                            icon = Icons.Rounded.Search,
+                            title = "Search Vyllo",
+                            message = "Find songs, albums and artists. You can also tap the mic to search by voice — your recent searches will appear here.",
+                            modifier = Modifier.padding(top = VylloSpacing.xxl)
+                        )
+                    }
                 }
             }
         } else {
@@ -261,25 +285,43 @@ fun YTMSearchScreen(
                 state = scrollState,
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                itemsIndexed(
+                if (viewModel.searchResults.isEmpty() &&
+                    (viewModel.isLoading || viewModel.isLoadingMore)
+                ) {
+                    // Skeleton instead of a bare spinner so the layout never jumps.
+                    item(key = "search_skeleton", contentType = "skeleton") {
+                        ListSkeleton(rows = 7)
+                    }
+                } else if (viewModel.searchResults.isEmpty() && !viewModel.isLoading) {
+                    item(key = "search_no_results", contentType = "empty") {
+                        VylloEmptyState(
+                            icon = Icons.Rounded.SearchOff,
+                            title = "No results found",
+                            message = "We couldn't find anything for \u201C${viewModel.searchQuery}\u201D. Check the spelling or try a different search.",
+                            actionLabel = "Clear search",
+                            onAction = { viewModel.onQueryChanged("") },
+                            modifier = Modifier.padding(top = VylloSpacing.xxl)
+                        )
+                    }
+                }
+
+                items(
                     items = viewModel.searchResults,
-                    key = { index, item -> "search_result_${index}_${item.url}" },
-                    contentType = { _, _ -> "song_row" }
-                ) { _, item ->
+                    key = { item -> "search_result_${item.url}" },
+                    contentType = { "song_row" }
+                ) { item ->
                     YTMSongRow(
                         item = item,
-                        isPlaying = currentPlayingItem?.title == item.title,
+                        isPlaying = currentPlayingItem?.url == item.url,
                         onClick = { onPlay(item) },
                         searchViewModel = viewModel,
                         isLoading = loadingItemUrl == item.url
                     )
                 }
                 
-                if (viewModel.isLoadingMore || viewModel.isLoading) {
+                if ((viewModel.isLoadingMore || viewModel.isLoading) && viewModel.searchResults.isNotEmpty()) {
                     item(key = "search_loading", contentType = "loader") {
-                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
-                        }
+                        VylloLoadingIndicator()
                     }
                 }
             }

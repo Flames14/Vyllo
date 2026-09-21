@@ -12,23 +12,20 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.*
-import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import androidx.media3.exoplayer.DefaultRenderersFactory
-import androidx.media3.exoplayer.audio.DefaultAudioSink
-import androidx.media3.exoplayer.audio.AudioSink
-import android.content.Context
 import com.vyllo.music.MainActivity
 import com.vyllo.music.data.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PlaybackAudioEffectsManager
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.data.manager.WakeLockManager
-import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.manager.PlaybackErrorHandler
 import com.vyllo.music.data.IMusicRepository
 import dagger.hilt.android.AndroidEntryPoint
-import com.vyllo.music.core.security.SecureCacheManager
 import com.vyllo.music.core.security.SecureLogger
+import com.vyllo.music.service.audio.AudioSinkFactory
+import com.vyllo.music.service.audio.CacheProvider
+import com.vyllo.music.service.audio.MediaSessionCallback
+import com.vyllo.music.service.audio.PlayerErrorListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,7 +37,7 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MusicService : MediaSessionService() {
-    
+
     @Inject
     lateinit var repository: IMusicRepository
 
@@ -63,7 +60,15 @@ class MusicService : MediaSessionService() {
     private var player: ExoPlayer? = null
 
     private val serviceJob = SupervisorJob()
-    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
+    // Safety net: background queue work must never be able to crash the app.
+    // Any stray exception from a transition/prefetch coroutine is logged here
+    // instead of propagating as an uncaught exception.
+    private val serviceScope = CoroutineScope(
+        Dispatchers.Main + serviceJob +
+            kotlinx.coroutines.CoroutineExceptionHandler { _, throwable ->
+                SecureLogger.e("MusicService", "Background playback task failed", throwable)
+            }
+    )
 
     private val volumeBoostProcessor = VolumeBoostAudioProcessor()
 
@@ -72,6 +77,9 @@ class MusicService : MediaSessionService() {
         maxRetries = 3,
         baseDelayMs = 2_000L,
         maxDelayMs = 10_000L,
+        // Retries are service-managed (see onPlayerError): the coroutine-based
+        // path holds wake locks across the delay so recovery works with the
+        // screen off. This Handler-based fallback is kept only for compat.
         onRetry = { player?.prepare(); player?.play() },
         onMaxRetriesReached = { SecureLogger.w("MusicService", "Playback stalled after max retries") }
     )
@@ -90,15 +98,8 @@ class MusicService : MediaSessionService() {
     }
 
     companion object {
-        @Volatile
-        private var simpleCache: SimpleCache? = null
-
-        fun getSimpleCache(context: android.content.Context): SimpleCache {
-            // Use SecureCacheManager for encrypted cache with randomized directory
-            return simpleCache ?: synchronized(this) {
-                simpleCache ?: SecureCacheManager.getSecureCache(context).also { simpleCache = it }
-            }
-        }
+        fun getSimpleCache(context: android.content.Context): SimpleCache =
+            CacheProvider.getSimpleCache(context)
     }
 
     override fun onCreate() {
@@ -157,7 +158,7 @@ class MusicService : MediaSessionService() {
         // Configure Cache
         val upstreamFactory = androidx.media3.datasource.DefaultDataSource.Factory(this, OkHttpDataSource.Factory(okHttpClient))
         val cacheDataSourceFactory = CacheDataSource.Factory()
-            .setCache(getSimpleCache(this))
+            .setCache(CacheProvider.getSimpleCache(this))
             .setUpstreamDataSourceFactory(upstreamFactory)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
@@ -165,23 +166,13 @@ class MusicService : MediaSessionService() {
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(30000, 60000, 1500, 5000)
             .build()
-        
+
         val keepAudioPlaying = preferenceManager.isKeepAudioPlayingEnabled
 
         preferenceManager.preferences.registerOnSharedPreferenceChangeListener(preferenceListener)
         volumeBoostProcessor.volumeMultiplier = preferenceManager.volumeBoostMultiplier
 
-        val renderersFactory = object : DefaultRenderersFactory(this) {
-            override fun buildAudioSink(
-                context: Context,
-                enableFloatOutput: Boolean,
-                enableAudioTrackPlaybackParams: Boolean
-            ): AudioSink {
-                return DefaultAudioSink.Builder(context)
-                    .setAudioProcessors(arrayOf(volumeBoostProcessor))
-                    .build()
-            }
-        }
+        val renderersFactory = AudioSinkFactory.createRenderersFactory(this, volumeBoostProcessor)
 
         // Initialize Player
         player = ExoPlayer.Builder(this)
@@ -189,91 +180,30 @@ class MusicService : MediaSessionService() {
             .setMediaSourceFactory(DefaultMediaSourceFactory(this).setDataSourceFactory(cacheDataSourceFactory))
             .setLoadControl(loadControl)
             .setAudioAttributes(
-                AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).setUsage(C.USAGE_MEDIA).build(), 
+                AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).setUsage(C.USAGE_MEDIA).build(),
                 !keepAudioPlaying // Re-enable automatic audio focus if keepAudioPlaying is false
             )
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
 
-        player?.addListener(object : Player.Listener {
-            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                playbackErrorHandler.handleError(error)
-            }
+        player?.addListener(
+            PlayerErrorListener(
+                playerProvider = { player },
+                serviceScope = serviceScope,
+                playbackErrorHandler = playbackErrorHandler,
+                playbackQueueOrchestrator = playbackQueueOrchestrator,
+                playbackQueueManager = playbackQueueManager,
+                playbackAudioEffectsManager = playbackAudioEffectsManager
+            )
+        )
 
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                when (playbackState) {
-                    Player.STATE_READY -> {
-                        SecureLogger.d("MusicService", "Playback STATE_READY")
-                        playbackErrorHandler.resetOnSuccess()
-                        if (player?.playWhenReady == true) wakeLockManager.acquire()
-                    }
-                    Player.STATE_ENDED -> {
-                        SecureLogger.d("MusicService", "Playback STATE_ENDED reached")
-                        playbackErrorHandler.resetOnSuccess()
-                        wakeLockManager.release()
-                        // ExoPlayer handles REPEAT_MODE_ONE and REPEAT_MODE_ALL natively,
-                        // so we only manually advance when repeat is OFF
-                        val currentRepeatMode = player?.repeatMode ?: Player.REPEAT_MODE_OFF
-                        if (currentRepeatMode == Player.REPEAT_MODE_OFF) {
-                            playbackQueueOrchestrator.playNextTrack(serviceScope, player)
-                        }
-                    }
-                    Player.STATE_IDLE -> {
-                        SecureLogger.d("MusicService", "Playback STATE_IDLE")
-                        wakeLockManager.release()
-                    }
-                    Player.STATE_BUFFERING -> {
-                        SecureLogger.d("MusicService", "Playback STATE_BUFFERING")
-                        wakeLockManager.acquire()
-                    }
-                }
-            }
-
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (isPlaying) {
-                    wakeLockManager.acquire()
-                } else {
-                    if (player?.playbackState != Player.STATE_BUFFERING) {
-                        wakeLockManager.release()
-                    }
-                }
-            }
-
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                SecureLogger.d("MusicService", "MediaItem transition: reason=$reason, mediaId=${mediaItem?.mediaId}")
-                val currentMediaId = mediaItem?.mediaId
-                if (!currentMediaId.isNullOrBlank()) {
-                    val queue = playbackQueueManager.getQueueSnapshot()
-                    val currentIndex = queue.indexOfFirst { it.url == currentMediaId }
-                    if (currentIndex >= 0) {
-                        playbackQueueManager.setCurrentIndexSafe(currentIndex)
-                    } else {
-                        val meta = mediaItem.mediaMetadata
-                        val directItem = MusicItem(
-                            title = meta.title?.toString() ?: "Unknown",
-                            uploader = meta.artist?.toString() ?: "Unknown",
-                            thumbnailUrl = meta.artworkUri?.toString() ?: "",
-                            url = currentMediaId
-                        )
-                        playbackQueueManager.setCurrentPlayingItemDirectly(directItem)
-                    }
-                }
-                playbackQueueOrchestrator.prefetchUpcomingStreams(serviceScope)
-            }
-
-            override fun onAudioSessionIdChanged(audioSessionId: Int) {
-                if (audioSessionId == AudioManager.ERROR) return
-                playbackAudioEffectsManager.attachToAudioSession(audioSessionId)
-            }
-        })
-        
         // Force 1.0x playback speed to prevent "super fast" playback bugs on some devices/emulators
         player?.playbackParameters = androidx.media3.common.PlaybackParameters(1.0f)
         player?.audioSessionId?.let { playbackAudioEffectsManager.attachToAudioSession(it) }
 
         serviceScope.launch {
             playbackQueueManager.queueVersion.collectLatest {
-                playbackQueueOrchestrator.prefetchUpcomingStreams(serviceScope)
+                playbackQueueOrchestrator.prefetchUpcomingStreams(serviceScope, player)
             }
         }
 
@@ -283,22 +213,11 @@ class MusicService : MediaSessionService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val sessionCallback = object : MediaSession.Callback {
-            override fun onPlayerCommandRequest(
-                session: MediaSession,
-                controllerInfo: MediaSession.ControllerInfo,
-                playerCommand: Int
-            ): Int {
-                if (playerCommand == Player.COMMAND_SEEK_TO_NEXT) {
-                    playbackQueueOrchestrator.playNextTrack(serviceScope, player)
-                    return SessionResult.RESULT_SUCCESS
-                } else if (playerCommand == Player.COMMAND_SEEK_TO_PREVIOUS) {
-                    playbackQueueOrchestrator.playPreviousTrack(serviceScope, player)
-                    return SessionResult.RESULT_SUCCESS
-                }
-                return super.onPlayerCommandRequest(session, controllerInfo, playerCommand)
-            }
-        }
+        val sessionCallback = MediaSessionCallback(
+            playerProvider = { player },
+            serviceScope = serviceScope,
+            playbackQueueOrchestrator = playbackQueueOrchestrator
+        )
 
         // Initialize MediaSession
         mediaSession = MediaSession.Builder(this, player!!)
@@ -312,16 +231,21 @@ class MusicService : MediaSessionService() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        try {
-            mediaSession?.player?.run {
-                playWhenReady = false
-                stop()
+        // Swiping the app away must not kill background audio when the user
+        // explicitly enabled background playback. Only tear down when the
+        // setting is off; otherwise leave the foreground service running.
+        if (!preferenceManager.isBackgroundPlaybackEnabled) {
+            try {
+                mediaSession?.player?.run {
+                    playWhenReady = false
+                    stop()
+                }
+                androidx.core.app.ServiceCompat.stopForeground(this, androidx.core.app.ServiceCompat.STOP_FOREGROUND_REMOVE)
+            } catch (e: Exception) {
+                SecureLogger.w("MusicService", "Error stopping service on task removed: ${e.message}")
             }
-            androidx.core.app.ServiceCompat.stopForeground(this, androidx.core.app.ServiceCompat.STOP_FOREGROUND_REMOVE)
-        } catch (e: Exception) {
-            SecureLogger.w("MusicService", "Error stopping service on task removed: ${e.message}")
+            stopSelf()
         }
-        stopSelf()
         super.onTaskRemoved(rootIntent)
     }
 
@@ -332,7 +256,7 @@ class MusicService : MediaSessionService() {
         playbackAudioEffectsManager.release()
         preferenceManager.preferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
         wakeLockManager.release()
-        
+
         mediaSession?.run {
             player?.release()
             release()
