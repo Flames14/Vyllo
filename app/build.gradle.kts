@@ -131,8 +131,12 @@ android {
     }
 
     lint {
-        checkReleaseBuilds = false
-        abortOnError = false
+        // Fail the build on real errors (catches NewApi / missing permissions / etc.)
+        checkReleaseBuilds = true
+        abortOnError = true
+        // Obsolete/missing-resource noise should not block CI while we clean up strings.
+        disable += "ObsoleteResourceMissing"
+        disable += "MissingTranslation"
     }
 }
 

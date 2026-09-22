@@ -159,7 +159,9 @@ class SearchViewModel @Inject constructor(
                 if (nextItems.isNotEmpty()) {
                     val remainingSlots = MAX_SEARCH_RESULTS - searchResults.size
                     val itemsToAdd = nextItems.take(remainingSlots)
-                    searchResults = searchResults + itemsToAdd
+                    // Deduplicate by URL: SearchScreen keys items on item.url, so
+                    // duplicates cause a Compose LazyColumn IllegalArgumentException.
+                    searchResults = (searchResults + itemsToAdd).distinctBy { it.url }.take(MAX_SEARCH_RESULTS)
                 }
             } catch (e: Exception) {
                 SecureLogger.e(TAG, "Load more failed: ${e.message}")

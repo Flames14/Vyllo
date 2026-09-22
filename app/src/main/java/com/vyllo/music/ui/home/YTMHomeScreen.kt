@@ -67,7 +67,9 @@ fun YTMHomeScreen(
             val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             totalItems > 0 && lastVisible >= totalItems - 3
         }.distinctUntilChanged().collect { atBottom ->
-            if (atBottom && uiState.selectedChip == "All") {
+            // Read chip from the flow inside collect — uiState from the composition
+            // snapshot is stale after LaunchedEffect started (effect never restarts).
+            if (atBottom && viewModel.uiState.value.selectedChip == "All") {
                 viewModel.loadMoreRecommendations()
             }
         }

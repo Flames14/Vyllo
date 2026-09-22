@@ -241,7 +241,12 @@ class HomeViewModel @Inject constructor(
                     val itemsToAdd = moreItems.take(remainingSlots)
 
                     _uiState.update { state ->
-                        state.copy(quickPicksItems = state.quickPicksItems + itemsToAdd)
+                        // distinctBy(url): LazyColumn keys on item.url; a duplicate
+                        // recommendation from the API would crash with "Key was already used".
+                        val merged = (state.quickPicksItems + itemsToAdd)
+                            .distinctBy { it.url }
+                            .take(MAX_RECOMMENDED_ITEMS)
+                        state.copy(quickPicksItems = merged)
                     }
 
                     if (remainingSlots <= 0) {

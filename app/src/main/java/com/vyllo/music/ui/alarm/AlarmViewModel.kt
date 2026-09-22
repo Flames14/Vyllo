@@ -203,18 +203,25 @@ class AlarmViewModel @Inject constructor(
     fun saveAlarm() {
         viewModelScope.launch {
             try {
+                val previous = editingAlarm
                 val alarm = AlarmModel(
-                    id = editingAlarm?.id ?: 0L,
+                    id = previous?.id ?: 0L,
                     hour = selectedHour,
                     minute = selectedMinute,
+                    // Preserve enabled state and bookkeeping fields on edit;
+                    // only new alarms start enabled.
+                    isEnabled = previous?.isEnabled ?: true,
                     label = selectedLabel,
                     repeatDays = selectedRepeatDays,
                     soundType = selectedSoundType,
                     downloadedSongUrl = selectedSongUrl,
                     downloadedSongTitle = selectedSongTitle,
+                    volume = volume,
                     gradualVolume = isGradualVolumeEnabled,
+                    gradualVolumeDurationSecs = previous?.gradualVolumeDurationSecs ?: 30,
+                    snoozeDurationMins = previous?.snoozeDurationMins ?: 5,
                     vibrationEnabled = isVibrationEnabled,
-                    volume = volume
+                    createdAt = previous?.createdAt ?: System.currentTimeMillis()
                 )
 
                 if (editingAlarm == null) {

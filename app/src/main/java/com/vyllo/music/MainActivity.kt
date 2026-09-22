@@ -177,30 +177,27 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupDisplayMode() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val targetDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                display
-            } else {
-                @Suppress("DEPRECATION")
-                windowManager.defaultDisplay
-            } ?: return
+        // Display.getSupportedModes() requires API 30 (R).
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
 
-            val isHighRefresh = preferenceManager.isHighRefreshRateEnabled
-            val modes = targetDisplay.supportedModes
-            val targetMode = if (isHighRefresh) {
-                modes.maxByOrNull { it.refreshRate }
-            } else {
-                // Find 60Hz mode for battery saver, or fallback to lowest refresh rate
-                modes.filter { it.refreshRate in 59.0f..61.0f }.firstOrNull()
-                    ?: modes.minByOrNull { it.refreshRate }
-            }
+        val targetDisplay = display ?: return
+        val isHighRefresh = preferenceManager.isHighRefreshRateEnabled
+        val modes = targetDisplay.supportedModes
+        if (modes.isEmpty()) return
 
-            targetMode?.let { mode ->
-                val params = window.attributes
-                if (params.preferredDisplayModeId != mode.modeId) {
-                    params.preferredDisplayModeId = mode.modeId
-                    window.attributes = params
-                }
+        val targetMode = if (isHighRefresh) {
+            modes.maxByOrNull { it.refreshRate }
+        } else {
+            // Find 60Hz mode for battery saver, or fallback to lowest refresh rate
+            modes.firstOrNull { it.refreshRate in 59.0f..61.0f }
+                ?: modes.minByOrNull { it.refreshRate }
+        }
+
+        targetMode?.let { mode ->
+            val params = window.attributes
+            if (params.preferredDisplayModeId != mode.modeId) {
+                params.preferredDisplayModeId = mode.modeId
+                window.attributes = params
             }
         }
     }
