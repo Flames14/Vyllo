@@ -2,7 +2,7 @@ package com.vyllo.music.domain.manager.player
 
 import com.vyllo.music.PlayerUiState
 import com.vyllo.music.core.security.SecureLogger
-import com.vyllo.music.data.IMusicRepository
+import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.data.network.YouTubeThumbnailResolver
 import com.vyllo.music.domain.manager.StreamUrlCache
 import com.vyllo.music.domain.model.MusicItem
@@ -82,8 +82,11 @@ class StreamResolver(
 
         updateState { it.copy(loadingItemUrl = item.url, isLoadingPlayer = true) }
         SecureLogger.d("PlayerViewModel") { "Resolving stream: url=${item.url}, isVideo=$isVideo" }
-        val url = getStreamUrlUseCase(item.url, isVideo = isVideo)
-        updateState { it.copy(loadingItemUrl = null, isLoadingPlayer = false) }
+        val url = try {
+            getStreamUrlUseCase(item.url, isVideo = isVideo)
+        } finally {
+            updateState { it.copy(loadingItemUrl = null, isLoadingPlayer = false) }
+        }
 
         if (url != null) {
             streamUrlCache.put(item.url, isVideo, url)

@@ -7,6 +7,7 @@ import androidx.media3.common.audio.AudioProcessor.AudioFormat
 import androidx.media3.common.C
 import java.nio.ByteBuffer
 
+@androidx.media3.common.util.UnstableApi
 class VolumeBoostAudioProcessor : BaseAudioProcessor() {
 
     @Volatile

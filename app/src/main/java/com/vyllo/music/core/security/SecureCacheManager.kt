@@ -17,6 +17,7 @@ import java.security.SecureRandom
  * - Restricted file permissions
  * - Secure cache eviction
  */
+@androidx.media3.common.util.UnstableApi
 object SecureCacheManager {
 
     private const val TAG = "SecureCacheManager"

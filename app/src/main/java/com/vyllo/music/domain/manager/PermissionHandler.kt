@@ -107,18 +107,4 @@ class PermissionHandler @Inject constructor(
         return activities.isNotEmpty()
     }
 
-    fun showPermissionRationale(permissionType: PermissionType) {
-        val message = when (permissionType) {
-            PermissionType.OVERLAY -> "Overlay permission is needed for the floating player feature"
-            PermissionType.MICROPHONE -> "Microphone permission is needed for voice search"
-            PermissionType.BATTERY -> "Disable battery optimization to keep music playing when screen is off"
-        }
-        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-    }
-
-    enum class PermissionType {
-        OVERLAY,
-        MICROPHONE,
-        BATTERY
-    }
 }

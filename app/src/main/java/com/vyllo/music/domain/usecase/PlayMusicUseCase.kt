@@ -26,6 +26,14 @@ class PlayMusicUseCase @Inject constructor(
      * @return PlayResult indicating success or failure with error message.
      */
     suspend fun execute(item: MusicItem, isVideo: Boolean = false, keepQueue: Boolean = false): PlayResult {
+        // Ensure the MediaController is connected before mutating playback state.
+        try {
+            playbackManager.awaitConnection()
+        } catch (e: Exception) {
+            SecureLogger.w(TAG, "Controller not ready: ${e.message}")
+            return PlayResult.Failure("Playback service unavailable")
+        }
+
         // Stop current playback immediately so the user hears the change instantly
         playbackManager.stop()
 

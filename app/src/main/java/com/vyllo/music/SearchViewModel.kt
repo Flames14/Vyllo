@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vyllo.music.core.security.InputSanitizer
 import com.vyllo.music.core.security.SecureLogger
-import com.vyllo.music.data.IMusicRepository
+import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.usecase.SearchMusicUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -132,11 +132,17 @@ class SearchViewModel @Inject constructor(
 
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            repository.saveSearchQuery(sanitizedQuery)
-            val results = searchMusicUseCase(sanitizedQuery)
-            searchResults = results.take(MAX_SEARCH_RESULTS)
-            isLoading = false
-            loadSearchHistory()
+            try {
+                repository.saveSearchQuery(sanitizedQuery)
+                val results = searchMusicUseCase(sanitizedQuery)
+                searchResults = results.take(MAX_SEARCH_RESULTS)
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Search failed: ${e.message}")
+                searchResults = emptyList()
+            } finally {
+                isLoading = false
+                loadSearchHistory()
+            }
         }
     }
 

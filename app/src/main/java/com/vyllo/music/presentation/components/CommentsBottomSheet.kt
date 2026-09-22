@@ -58,7 +58,7 @@ fun CommentsBottomSheet(
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.vyllo.music.core.security.SecureLogger.e("Comments", "Failed to load comments", e)
             error = e.localizedMessage ?: "Failed to load comments"
         } finally {
             isLoading = false
@@ -78,7 +78,7 @@ fun CommentsBottomSheet(
                     comments = comments + newItems
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.vyllo.music.core.security.SecureLogger.e("Comments", "Failed to load more comments", e)
             } finally {
                 withContext(Dispatchers.Main) {
                     isLoadingMore = false
@@ -149,7 +149,10 @@ fun CommentsBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(bottom = 32.dp)
                 ) {
-                    items(comments.size) { index ->
+                    items(
+                        count = comments.size,
+                        key = { index -> comments[index].url ?: index }
+                    ) { index ->
                         CommentRow(comments[index])
                         
                         // Load more when getting close to the end

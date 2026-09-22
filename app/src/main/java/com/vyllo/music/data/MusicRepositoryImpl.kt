@@ -1,5 +1,8 @@
 package com.vyllo.music.data
 
+import com.vyllo.music.domain.repository.IMusicRepository
+import com.vyllo.music.domain.repository.VideoStats
+
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.LyricsResponse

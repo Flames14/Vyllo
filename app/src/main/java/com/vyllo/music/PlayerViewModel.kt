@@ -9,6 +9,7 @@ import com.vyllo.music.domain.model.SyncedLyricLine
 import com.vyllo.music.domain.model.LyricsResult
 import com.vyllo.music.domain.model.EqualizerSettings
 import com.vyllo.music.domain.model.EqualizerPreset
+import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.data.*
 import com.vyllo.music.data.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PreferenceManager

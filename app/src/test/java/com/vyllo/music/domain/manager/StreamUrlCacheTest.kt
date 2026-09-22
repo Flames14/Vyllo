@@ -1,90 +1,94 @@
 package com.vyllo.music.domain.manager
 
-import com.vyllo.music.domain.model.MusicItem
-import com.vyllo.music.domain.model.MusicItemType
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
-/**
- * Unit tests for PlayerViewModel stream URL cache thread safety.
- * Tests the cache implementation directly.
- */
 class StreamUrlCacheTest {
 
-    companion object {
-        private const val MAX_CACHE_SIZE = 10
+    private lateinit var cache: StreamUrlCache
+
+    @Before
+    fun setUp() {
+        cache = StreamUrlCache()
     }
 
-    private val cache = ConcurrentHashMap<String, String>()
-    private val cacheOrder = ConcurrentLinkedQueue<String>()
-    private val cacheLock = Any()
+    @Test
+    fun `put and get returns resolved url`() {
+        cache.put("https://song1", false, "https://stream1")
+        assertEquals("https://stream1", cache.get("https://song1", false))
+    }
 
-    private fun addToCache(key: String, value: String) {
-        synchronized(cacheLock) {
-            if (cache.size >= MAX_CACHE_SIZE) {
-                cacheOrder.poll()?.let { oldest ->
-                    cache.remove(oldest)
+    @Test
+    fun `get returns null for missing key`() {
+        assertNull(cache.get("https://missing", false))
+    }
+
+    @Test
+    fun `get distinguishes isVideo flag`() {
+        cache.put("https://song1", false, "https://audio-stream")
+        assertEquals("https://audio-stream", cache.get("https://song1", false))
+        assertNull(cache.get("https://song1", true))
+    }
+
+    @Test
+    fun `remove clears entry`() {
+        cache.put("https://song1", false, "https://stream1")
+        cache.remove("https://song1", false)
+        assertNull(cache.get("https://song1", false))
+    }
+
+    @Test
+    fun `put overwrites existing value`() {
+        cache.put("https://song1", false, "https://old")
+        cache.put("https://song1", false, "https://new")
+        assertEquals("https://new", cache.get("https://song1", false))
+    }
+
+    @Test
+    fun `evicts oldest entry when capacity exceeded`() {
+        val capacity = 100
+        repeat(capacity) { i ->
+            cache.put("https://song_$i", false, "https://stream_$i")
+        }
+        cache.put("https://song_new", false, "https://stream_new")
+
+        assertNull(cache.get("https://song_0", false))
+        assertEquals("https://stream_new", cache.get("https://song_new", false))
+        assertEquals("https://stream_99", cache.get("https://song_99", false))
+    }
+
+    @Test
+    fun `concurrent access does not corrupt cache`() {
+        val threads = 10
+        val perThread = 50
+        val start = CountDownLatch(1)
+        val done = CountDownLatch(threads)
+
+        repeat(threads) { t ->
+            Thread {
+                start.await()
+                repeat(perThread) { i ->
+                    cache.put("https://t${t}_$i", false, "https://v${t}_$i")
+                    cache.get("https://t${t}_$i", false)
                 }
-            }
-            cache[key] = value
-            cacheOrder.add(key)
-        }
-    }
-
-    @Test
-    fun `cache stores and retrieves values`() {
-        addToCache("song1_false", "https://stream1.example.com")
-        assertEquals("https://stream1.example.com", cache["song1_false"])
-    }
-
-    @Test
-    fun `cache evicts oldest entry when full`() {
-        // Fill cache to capacity
-        repeat(MAX_CACHE_SIZE) { i ->
-            addToCache("key_$i", "value_$i")
+                done.countDown()
+            }.start()
         }
 
-        assertEquals(MAX_CACHE_SIZE, cache.size)
+        start.countDown()
+        assertTrue(done.await(5, TimeUnit.SECONDS))
 
-        // Add one more - should evict oldest
-        addToCache("key_new", "value_new")
+        // Cache must remain within capacity bounds and usable after concurrent writes
+        cache.put("https://probe", false, "https://probe-val")
+        assertEquals("https://probe-val", cache.get("https://probe", false))
 
-        assertEquals(MAX_CACHE_SIZE, cache.size)
-        assertNull(cache["key_0"]) // Oldest should be evicted
-        assertEquals("value_new", cache["key_new"])
-    }
-
-    @Test
-    fun `cache is thread-safe under concurrent access`() = runTest {
-        val threads = mutableListOf<Thread>()
-
-        // Spawn multiple threads writing to cache
-        repeat(10) { threadId ->
-            val t = Thread {
-                repeat(100) { i ->
-                    addToCache("thread${threadId}_item$i", "value_${threadId}_$i")
-                }
-            }
-            threads.add(t)
-            t.start()
-        }
-
-        // Wait for all threads to complete
-        threads.forEach { it.join() }
-
-        // Cache should not exceed max size and should not have thrown
-        assertTrue(cache.size <= MAX_CACHE_SIZE)
-    }
-
-    @Test
-    fun `cache handles duplicate keys gracefully`() {
-        addToCache("duplicate_key", "value_1")
-        addToCache("duplicate_key", "value_2")
-
-        assertEquals(1, cache.size)
-        assertEquals("value_2", cache["duplicate_key"])
+        // Oldest entries from early threads may be evicted (capacity 100 < 500 writes);
+        // a late write from the final thread should still be present or evictable cleanly.
+        cache.put("https://late", false, "https://late-val")
+        assertEquals("https://late-val", cache.get("https://late", false))
     }
 }

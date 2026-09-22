@@ -4,7 +4,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vyllo.music.core.security.SecureLogger
-import com.vyllo.music.data.IMusicRepository
+import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.data.manager.PlaybackQueueManager
 import com.vyllo.music.domain.usecase.GetHomeContentUseCase
@@ -91,32 +91,36 @@ class HomeViewModel @Inject constructor(
     fun loadHomeContent() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
+            try {
+                // Fetch dedicated content instead of slicing a single list
+                val trendingTask = async { repository.getTrendingMusic() }
+                val newReleasesTask = async { repository.searchMusic("new music releases", maintainSession = false) }
+                val recommendationsTask = async { getHomeContentUseCase() }
 
-            // Fetch dedicated content instead of slicing a single list
-            val trendingTask = async { repository.getTrendingMusic() }
-            val newReleasesTask = async { repository.searchMusic("new music releases", maintainSession = false) }
-            val recommendationsTask = async { getHomeContentUseCase() }
+                val trending = trendingTask.await()
+                val newReleases = newReleasesTask.await()
+                val recommendations = recommendationsTask.await()
 
-            val trending = trendingTask.await()
-            val newReleases = newReleasesTask.await()
-            val recommendations = recommendationsTask.await()
-            
-            val isHistoryEmpty = _uiState.value.recentlyPlayed.isEmpty()
-            
-            _uiState.update { state ->
-                state.copy(
-                    homeTitle = if (!isHistoryEmpty) "Recommended For You" else "Trending Now",
-                    quickPicksRows = recommendations.take(16).chunked(4),
-                    mixedForYouItems = recommendations.drop(16).take(8),
-                    newReleasesItems = newReleases.take(8),
-                    trendingNowItems = trending.take(8),
-                    trendingNowRows = trending.drop(8).take(16).chunked(4),
-                    quickPicksItems = recommendations.drop(24).take(8),
-                    isLoading = false
-                )
+                val isHistoryEmpty = _uiState.value.recentlyPlayed.isEmpty()
+
+                _uiState.update { state ->
+                    state.copy(
+                        homeTitle = if (!isHistoryEmpty) "Recommended For You" else "Trending Now",
+                        quickPicksRows = recommendations.take(16).chunked(4),
+                        mixedForYouItems = recommendations.drop(16).take(8),
+                        newReleasesItems = newReleases.take(8),
+                        trendingNowItems = trending.take(8),
+                        trendingNowRows = trending.drop(8).take(16).chunked(4),
+                        quickPicksItems = recommendations.drop(24).take(8),
+                        isLoading = false
+                    )
+                }
+
+                loadMoodContent()
+            } catch (e: Exception) {
+                SecureLogger.e("HomeViewModel", "Load home content failed", e)
+                _uiState.update { it.copy(isLoading = false) }
             }
-            
-            loadMoodContent()
         }
     }
 

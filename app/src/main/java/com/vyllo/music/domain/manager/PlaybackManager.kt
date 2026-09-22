@@ -28,6 +28,7 @@ class PlaybackManager @Inject constructor(
 
     private var mediaController: MediaController? = null
     private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var playerListener: androidx.media3.common.Player.Listener? = null
 
     private val listeners = mutableListOf<PlaybackListener>()
 
@@ -37,7 +38,12 @@ class PlaybackManager @Inject constructor(
         fun onError(error: Exception)
     }
 
+    @androidx.media3.common.util.UnstableApi
     fun initialize(): ListenableFuture<MediaController> {
+        // Re-initialize safely if called again (e.g. after release).
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        mediaController = null
+
         val sessionToken = SessionToken(context, ComponentName(context, MusicService::class.java))
         controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
         
@@ -54,7 +60,9 @@ class PlaybackManager @Inject constructor(
     }
 
     private fun setupPlayerListener() {
-        mediaController?.addListener(object : androidx.media3.common.Player.Listener {
+        val controller = mediaController ?: return
+        playerListener?.let { controller.removeListener(it) }
+        val listener = object : androidx.media3.common.Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 notifyPlaybackStateChanged(playing)
             }
@@ -78,7 +86,9 @@ class PlaybackManager @Inject constructor(
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 notifyError(error)
             }
-        })
+        }
+        playerListener = listener
+        controller.addListener(listener)
     }
 
     fun getController(): MediaController? = mediaController
@@ -86,13 +96,15 @@ class PlaybackManager @Inject constructor(
     fun isConnected(): Boolean = mediaController != null
 
     suspend fun awaitConnection(): MediaController {
-        val future = controllerFuture ?: throw IllegalStateException("Controller not initialized")
+        mediaController?.let { return it }
+        val future = controllerFuture ?: initialize()
 
         return suspendCancellableCoroutine { continuation ->
             future.addListener({
                 try {
                     val controller = future.get()
                     mediaController = controller
+                    setupPlayerListener()
                     continuation.resume(controller)
                 } catch (e: Exception) {
                     continuation.resumeWithException(e)
@@ -102,7 +114,11 @@ class PlaybackManager @Inject constructor(
     }
 
     suspend fun playMusic(item: MusicItem, streamUrl: String, isVideo: Boolean = false): Result<Unit> {
-        val controller = mediaController ?: return Result.failure(Exception("MediaController not connected"))
+        val controller = try {
+            awaitConnection()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
 
         return try {
             val metadata = MediaMetadata.Builder()
@@ -189,6 +205,7 @@ class PlaybackManager @Inject constructor(
 
     fun setShuffleModeEnabled(enabled: Boolean) {
         mediaController?.shuffleModeEnabled = enabled
+        playbackQueueManager.setShuffleEnabled(enabled)
     }
 
     fun isShuffleModeEnabled(): Boolean = mediaController?.shuffleModeEnabled == true
@@ -221,6 +238,10 @@ class PlaybackManager @Inject constructor(
 
     fun release() {
         listeners.clear()
+        playerListener?.let { listener ->
+            mediaController?.removeListener(listener)
+        }
+        playerListener = null
         controllerFuture?.let { MediaController.releaseFuture(it) }
         mediaController = null
         controllerFuture = null

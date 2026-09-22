@@ -37,7 +37,7 @@ fun AppUpdateDialog(
             try {
                 context.startActivity(intent)
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.vyllo.music.core.security.SecureLogger.e("AppUpdate", "Failed to launch installer", e)
             }
             viewModel.resetState()
             onDismiss()

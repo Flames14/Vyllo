@@ -13,7 +13,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.vyllo.music.data.IMusicRepository
+import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.data.download.DownloadDao
 import com.vyllo.music.data.download.DownloadEntity
 import com.vyllo.music.data.download.DownloadStatus
@@ -100,7 +100,10 @@ class DownloadWorker @AssistedInject constructor(
                 kotlinx.coroutines.delay(500)
                 streamUrl = repository.getStreamUrl(url, force = true)
             }
-            streamUrl ?: return Result.failure()
+            streamUrl ?: run {
+                downloadDao.updateStatus(url, DownloadStatus.FAILED)
+                return Result.failure()
+            }
 
             // Prepare local file
             val downloadsDir = File(applicationContext.filesDir, "downloads")

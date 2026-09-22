@@ -10,7 +10,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
 import com.vyllo.music.SearchViewModel
-import com.vyllo.music.data.IMusicRepository
+import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.data.download.DownloadEntity
 import com.vyllo.music.data.download.PlaylistEntity
 import com.vyllo.music.data.download.PlaylistSongEntity
@@ -123,6 +123,6 @@ private class FakeMusicRepository(
     override fun getSavedLyricsId(videoUrl: String): Long? = null
     override suspend fun getArtistSongs(artist: String): List<MusicItem> = emptyList()
     override suspend fun getDiscoverSimilarSongs(title: String, artist: String): List<MusicItem> = emptyList()
-    override suspend fun getVideoStats(url: String): com.vyllo.music.data.VideoStats? = null
+    override suspend fun getVideoStats(url: String): com.vyllo.music.domain.repository.VideoStats? = null
     override suspend fun getLyrics(title: String, artist: String, duration: Long, url: String): LyricsResponse? = null
 }

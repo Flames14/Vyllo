@@ -187,7 +187,7 @@ private fun RepeatDaysSelector(
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(DayOfWeek.values()) { day ->
+            items(DayOfWeek.values(), key = { it.name }) { day ->
                 val isSelected = selectedDays.contains(day)
                 FilterChip(
                     selected = isSelected,

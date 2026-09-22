@@ -3,7 +3,7 @@ package com.vyllo.music.service.queue
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.vyllo.music.core.security.SecureLogger
-import com.vyllo.music.data.IMusicRepository
+import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.data.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.WakeLockManager
 import com.vyllo.music.domain.manager.StreamUrlCache
@@ -60,7 +60,10 @@ class QueueOperations(
     suspend fun ensureNextEnqueued(player: ExoPlayer?) {
         val p = player ?: return
         try {
-            if (p.repeatMode != Player.REPEAT_MODE_OFF) return
+            // REPEAT_MODE_ONE intentionally replays the current item — no lookahead.
+            // REPEAT_MODE_ALL still needs the next queue item enqueued so ExoPlayer
+            // can advance (and wrap) instead of looping a single media item forever.
+            if (p.repeatMode == Player.REPEAT_MODE_ONE) return
         } catch (e: Exception) {
             SecureLogger.w("MusicService", "Player gone while ensuring lookahead: ${e.message}")
             return
@@ -124,6 +127,12 @@ class QueueOperations(
         val nextIndex = playbackQueueManager.currentIndex + 1
         if (nextIndex in queue.indices) {
             playTrackAtIndexInternal(player, nextIndex, mySeq)
+            return
+        }
+
+        // Repeat-all: wrap to the start of the queue instead of treating end as exhaustion.
+        if (queue.isNotEmpty() && player?.repeatMode == Player.REPEAT_MODE_ALL) {
+            playTrackAtIndexInternal(player, 0, mySeq)
             return
         }
 

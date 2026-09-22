@@ -6,10 +6,13 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.vyllo.music.R
+import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.MusicItem
 import java.io.File
 
 object ShareIntentManager {
+
+    private const val TAG = "ShareIntentManager"
 
     /**
      * Shares an image to Instagram Stories.
@@ -36,7 +39,7 @@ object ShareIntentManager {
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SecureLogger.e(TAG, "Instagram share failed", e)
             Toast.makeText(context, "Instagram is not installed", Toast.LENGTH_SHORT).show()
         }
     }
@@ -65,7 +68,7 @@ object ShareIntentManager {
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SecureLogger.e(TAG, "WhatsApp share failed", e)
             Toast.makeText(context, "WhatsApp is not installed", Toast.LENGTH_SHORT).show()
         }
     }
@@ -94,7 +97,7 @@ object ShareIntentManager {
         try {
             context.startActivity(chooser)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SecureLogger.e(TAG, "Generic share failed", e)
             Toast.makeText(context, "Failed to share", Toast.LENGTH_SHORT).show()
         }
     }
@@ -114,7 +117,7 @@ object ShareIntentManager {
         try {
             context.startActivity(chooser)
         } catch (e: Exception) {
-            e.printStackTrace()
+            SecureLogger.e(TAG, "Share link failed", e)
             Toast.makeText(context, "Failed to share link", Toast.LENGTH_SHORT).show()
         }
     }
@@ -130,7 +133,7 @@ object ShareIntentManager {
             clipboard.setPrimaryClip(clip)
             Toast.makeText(context, "Link copied to clipboard! 🔗", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            e.printStackTrace()
+            SecureLogger.e(TAG, "Copy link failed", e)
             Toast.makeText(context, "Failed to copy link", Toast.LENGTH_SHORT).show()
         }
     }

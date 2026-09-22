@@ -1,4 +1,4 @@
-package com.vyllo.music.data
+package com.vyllo.music.domain.repository
 
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.LyricsResponse
@@ -18,7 +18,7 @@ interface IMusicRepository {
     suspend fun getMoreRelatedSongs(url: String): List<MusicItem>
     suspend fun getArtistSongs(artist: String): List<MusicItem>
     suspend fun getDiscoverSimilarSongs(title: String, artist: String): List<MusicItem>
-    
+
     // Playlist Methods
     fun getAllPlaylists(): Flow<List<PlaylistEntity>>
     suspend fun createPlaylist(name: String)
@@ -26,7 +26,7 @@ interface IMusicRepository {
     suspend fun addSongToPlaylist(playlistId: Long, item: MusicItem)
     suspend fun removeSongFromPlaylist(playlistId: Long, url: String)
     fun getSongsInPlaylist(playlistId: Long): Flow<List<PlaylistSongEntity>>
-    
+
     // Download Methods
     fun getAllDownloads(): Flow<List<DownloadEntity>>
     fun downloadSong(item: MusicItem)
@@ -47,7 +47,7 @@ interface IMusicRepository {
     fun clearSearchHistory()
     fun saveLyricsPreference(videoUrl: String, lrcId: Long)
     fun getSavedLyricsId(videoUrl: String): Long?
-    
+
     suspend fun getLyrics(title: String, artist: String, duration: Long, url: String): LyricsResponse?
     suspend fun getVideoStats(url: String): VideoStats?
 }

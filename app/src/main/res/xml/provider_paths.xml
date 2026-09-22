@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <cache-path name="shared_images" path="shared_images/" />
-    <external-path name="external_files" path="." />
-    <external-public-path name="external_downloads" path="Download" />
+    <files-path name="internal_downloads" path="downloads/" />
+    <external-files-path name="external_app_downloads" path="Download/" />
+    <external-files-path name="external_apk_updates" path="Download/" />
 </paths>

@@ -34,32 +34,34 @@ class AppUpdateRepository @Inject constructor(
                 .build()
 
             val response = okHttpClient.newCall(request).execute()
-            if (!response.isSuccessful) {
-                if (response.code == 404) {
-                    return@withContext UpdateResult.Error("No releases found. Make sure your GitHub repository is public and has a release published.")
+            response.use {
+                if (!response.isSuccessful) {
+                    if (response.code == 404) {
+                        return@withContext UpdateResult.Error("No releases found. Make sure your GitHub repository is public and has a release published.")
+                    }
+                    return@withContext UpdateResult.Error("GitHub API error: ${response.code}")
                 }
-                return@withContext UpdateResult.Error("GitHub API error: ${response.code}")
-            }
 
-            val bodyString = response.body?.string() ?: return@withContext UpdateResult.Error("Empty response body")
-            val release = jsonFormatter.decodeFromString<GithubRelease>(bodyString)
-            
-            // Expected tag like "v1.1.0" or "1.1.0"
-            val gitHubVersion = release.tagName.replace("v", "").replace("V", "")
-            val currentVersion = BuildConfig.VERSION_NAME.replace("v", "").replace("V", "")
-            
-            if (isNewerVersion(currentVersion, gitHubVersion)) {
-                val apkUrl = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }?.downloadUrl
-                if (apkUrl != null) {
-                    return@withContext UpdateResult.UpdateAvailable(release, apkUrl)
+                val bodyString = response.body?.string() ?: return@withContext UpdateResult.Error("Empty response body")
+                val release = jsonFormatter.decodeFromString<GithubRelease>(bodyString)
+
+                // Expected tag like "v1.1.0" or "1.1.0" (strip all leading v/V)
+                val gitHubVersion = release.tagName.replaceFirst(Regex("^[vV]+"), "")
+                val currentVersion = BuildConfig.VERSION_NAME.replaceFirst(Regex("^[vV]+"), "")
+
+                if (isNewerVersion(currentVersion, gitHubVersion)) {
+                    val apkUrl = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }?.downloadUrl
+                    if (apkUrl != null) {
+                        return@withContext UpdateResult.UpdateAvailable(release, apkUrl)
+                    } else {
+                        return@withContext UpdateResult.Error("No APK found in the latest release.")
+                    }
                 } else {
-                    return@withContext UpdateResult.Error("No APK found in the latest release.")
+                    return@withContext UpdateResult.NoUpdate
                 }
-            } else {
-                return@withContext UpdateResult.NoUpdate
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.vyllo.music.core.security.SecureLogger.e("AppUpdate", "Update check failed", e)
             return@withContext UpdateResult.Error(e.localizedMessage ?: "Unknown error occurred")
         }
     }

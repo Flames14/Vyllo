@@ -229,6 +229,8 @@ class AlarmTriggerService : Service() {
     override fun onDestroy() {
         handler.removeCallbacks(autoDismissRunnable)
         stopAlarm()
+        volumeController.restoreAlarmStreamVolume(this)
+        wakeLockManager.release()
         isRunning = false
         super.onDestroy()
     }

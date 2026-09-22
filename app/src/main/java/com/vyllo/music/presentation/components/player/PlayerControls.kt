@@ -211,6 +211,8 @@ fun PlayerPlaybackControls(
                 val newShuffle = !shuffleModeEnabled
                 onShuffleChange(newShuffle)
                 controller?.shuffleModeEnabled = newShuffle
+                // Keep the service-side queue order in sync (MediaController listener
+                // in MusicService reorders PlaybackQueueManager on this change).
             },
             modifier = Modifier.size(40.dp)
         ) {

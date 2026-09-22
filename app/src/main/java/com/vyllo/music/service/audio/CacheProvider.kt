@@ -8,6 +8,7 @@ import com.vyllo.music.core.security.SecureCacheManager
  * Provides the shared ExoPlayer SimpleCache.
  * Extracted from MusicService companion — no behavior change.
  */
+@androidx.media3.common.util.UnstableApi
 object CacheProvider {
     @Volatile
     private var simpleCache: SimpleCache? = null

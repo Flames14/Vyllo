@@ -3,11 +3,7 @@ package com.vyllo.music.presentation.scroll
 import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.vyllo.music.data.manager.PreferenceManager
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -75,22 +71,6 @@ fun rememberHomeFlingBehavior(): androidx.compose.foundation.gestures.FlingBehav
  * Converts section/item spacing to pixels once, so row measurement does not call
  * density APIs while the user is actively scrolling.
  */
-@Composable
-fun rememberHomeScrollSpacing(
-    horizontal: Dp = 16.dp,
-    vertical: Dp = 16.dp
-): HomeScrollSpacing {
-    val density = LocalDensity.current
-    return remember(density, horizontal, vertical) {
-        with(density) {
-            HomeScrollSpacing(
-                horizontalPx = horizontal.roundToPx(),
-                verticalPx = vertical.roundToPx()
-            )
-        }
-    }
-}
-
 data class HomeScrollSpacing(val horizontalPx: Int, val verticalPx: Int)
 
 /**
@@ -119,12 +99,4 @@ class HomeImagePreloadCursor {
         while (requested.size > 400) requested.remove(requested.first())
         return unseen
     }
-}
-
-/**
- * Disposes no-op hooks for observers that want scroll-lifecycle symmetry in tests.
- */
-@Composable
-fun HomeScrollLifecycleEffect(onDispose: () -> Unit = {}) {
-    DisposableEffect(Unit) { onDispose { onDispose() } }
 }

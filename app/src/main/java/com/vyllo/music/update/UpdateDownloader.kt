@@ -24,38 +24,39 @@ class UpdateDownloader @Inject constructor(
                 .build()
 
             val response = okHttpClient.newCall(request).execute()
-            if (!response.isSuccessful) {
-                return@withContext null
+            response.use {
+                if (!response.isSuccessful) {
+                    return@withContext null
+                }
+
+                val responseBody = response.body ?: return@withContext null
+
+                // Save to external files dir (app-specific, no permission required)
+                val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                if (downloadDir != null && !downloadDir.exists()) {
+                    downloadDir.mkdirs()
+                }
+
+                val apkFile = File(downloadDir, fileName)
+                if (apkFile.exists()) {
+                    apkFile.delete()
+                }
+
+                responseBody.byteStream().use { inputStream ->
+                    FileOutputStream(apkFile).use { outputStream ->
+                        val buffer = ByteArray(4096)
+                        var bytesRead: Int
+                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                            outputStream.write(buffer, 0, bytesRead)
+                        }
+                        outputStream.flush()
+                    }
+                }
+
+                return@withContext apkFile
             }
-
-            val responseBody = response.body ?: return@withContext null
-
-            // Save to external files dir (app-specific, no permission required)
-            val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-            if (downloadDir != null && !downloadDir.exists()) {
-                downloadDir.mkdirs()
-            }
-
-            val apkFile = File(downloadDir, fileName)
-            if (apkFile.exists()) {
-                apkFile.delete()
-            }
-
-            val inputStream = responseBody.byteStream()
-            val outputStream = FileOutputStream(apkFile)
-
-            val buffer = ByteArray(4096)
-            var bytesRead: Int
-            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                outputStream.write(buffer, 0, bytesRead)
-            }
-            outputStream.flush()
-            outputStream.close()
-            inputStream.close()
-
-            return@withContext apkFile
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.vyllo.music.core.security.SecureLogger.e("UpdateDownloader", "APK download failed", e)
             return@withContext null
         }
     }

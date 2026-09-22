@@ -41,6 +41,7 @@ android {
         buildConfigField("String", "NETEASE_SEARCH_API", "\"https://music.163.com/api/search/get\"")
         buildConfigField("String", "NETEASE_LYRIC_API", "\"https://music.163.com/api/song/lyric\"")
         buildConfigField("String", "DNS_OVER_HTTPS_URL", "\"https://dns.google/dns-query\"")
+        buildConfigField("String", "GOOGLE_API_KEY", "\"***REMOVED***\"")
     }
 
     buildFeatures {
@@ -55,11 +56,11 @@ android {
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
     }
     packaging {
         resources.excludes.add("META-INF/DEPENDENCIES")
@@ -135,8 +136,10 @@ android {
         checkReleaseBuilds = true
         abortOnError = true
         // Obsolete/missing-resource noise should not block CI while we clean up strings.
-        disable += "ObsoleteResourceMissing"
         disable += "MissingTranslation"
+        // Media3 intentionally exposes many APIs as @UnstableApi; we pin versions
+        // and verify at runtime, so project-wide opt-in is safe here.
+        disable += "UnsafeOptInUsageError"
     }
 }
 

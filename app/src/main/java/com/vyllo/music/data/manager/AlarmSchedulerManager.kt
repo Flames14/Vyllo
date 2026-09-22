@@ -4,7 +4,6 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.AlarmModel
 import com.vyllo.music.domain.model.DayOfWeek
@@ -215,19 +214,6 @@ class AlarmSchedulerManager @Inject constructor(
         alarmTime.add(Calendar.DAY_OF_YEAR, 1)
         SecureLogger.d("AlarmScheduler", "Fallback alarm scheduled for: ${alarmTime.time}")
         return alarmTime.timeInMillis
-    }
-
-    /**
-     * Check if exact alarm permission is granted.
-     * Note: This is for UI display purposes only — setAlarmClock() does NOT require this.
-     * Only setExact()/setExactAndAllowWhileIdle() require it.
-     */
-    fun hasExactAlarmPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            alarmManager.canScheduleExactAlarms()
-        } else {
-            true
-        }
     }
 
     /**

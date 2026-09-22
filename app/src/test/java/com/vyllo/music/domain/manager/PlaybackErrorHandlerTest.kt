@@ -1,23 +1,20 @@
 package com.vyllo.music.domain.manager
 
+import androidx.media3.common.PlaybackException
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 
-/**
- * Unit tests for PlaybackErrorHandler.
- * Verifies bounded retry behavior with exponential backoff.
- */
 class PlaybackErrorHandlerTest {
 
     private var retryCount = 0
     private var maxRetriesReached = false
     private lateinit var handler: PlaybackErrorHandler
 
-    private val fakeError = androidx.media3.common.PlaybackException(
+    private val fakeError = PlaybackException(
         "Test error",
         null,
-        androidx.media3.common.PlaybackException.ERROR_CODE_UNSPECIFIED
+        PlaybackException.ERROR_CODE_UNSPECIFIED
     )
 
     @Before
@@ -34,32 +31,95 @@ class PlaybackErrorHandlerTest {
     }
 
     @Test
-    fun `first error triggers retry`() {
-        handler.handleError(fakeError)
-        // Handler posts delayed callback, retry count will increment
-        // We verify the counter was incremented in the error handler state
-        assertTrue("Error should be tracked", true)
+    fun `registerErrorAndGetDelay returns linear backoff within cap`() {
+        assertEquals(100L, handler.registerErrorAndGetDelay(fakeError))
+        assertEquals(200L, handler.registerErrorAndGetDelay(fakeError))
+        assertEquals(300L, handler.registerErrorAndGetDelay(fakeError))
+        assertFalse(maxRetriesReached)
     }
 
     @Test
-    fun `success resets error counter`() {
-        handler.handleError(fakeError)
+    fun `registerErrorAndGetDelay returns null after max retries and signals callback`() {
+        handler.registerErrorAndGetDelay(fakeError)
+        handler.registerErrorAndGetDelay(fakeError)
+        handler.registerErrorAndGetDelay(fakeError)
+
+        val result = handler.registerErrorAndGetDelay(fakeError)
+
+        assertNull(result)
+        assertTrue(maxRetriesReached)
+    }
+
+    @Test
+    fun `registerErrorAndGetDelay caps delay at maxDelayMs`() {
+        val cappedHandler = PlaybackErrorHandler(
+            maxRetries = 10,
+            baseDelayMs = 400L,
+            maxDelayMs = 500L,
+            onRetry = {},
+            onMaxRetriesReached = { maxRetriesReached = true }
+        )
+        // 400 * 1 = 400, 400 * 2 = 800 capped to 500
+        assertEquals(400L, cappedHandler.registerErrorAndGetDelay(fakeError))
+        assertEquals(500L, cappedHandler.registerErrorAndGetDelay(fakeError))
+        assertEquals(500L, cappedHandler.registerErrorAndGetDelay(fakeError))
+    }
+
+    @Test
+    fun `resetOnSuccess clears error counter so retries restart`() {
+        handler.registerErrorAndGetDelay(fakeError)
+        handler.registerErrorAndGetDelay(fakeError)
         handler.resetOnSuccess()
-        // After reset, the next error should be treated as the first one
-        handler.handleError(fakeError)
-        // If reset worked, we haven't hit max retries
+
+        // After reset, budget is full again — three more errors allowed before null
+        assertEquals(100L, handler.registerErrorAndGetDelay(fakeError))
+        assertEquals(200L, handler.registerErrorAndGetDelay(fakeError))
+        assertEquals(300L, handler.registerErrorAndGetDelay(fakeError))
+        assertNull(handler.registerErrorAndGetDelay(fakeError))
+        assertTrue(maxRetriesReached)
+    }
+
+    @Test
+    fun `release clears pending state and resets counter`() {
+        handler.registerErrorAndGetDelay(fakeError)
+        handler.release()
+
+        // Counter was reset — first error after release returns base delay again
+        assertEquals(100L, handler.registerErrorAndGetDelay(fakeError))
         assertFalse(maxRetriesReached)
     }
 
     @Test
-    fun `release clears pending retries`() {
+    fun `handleError does not signal max retries before budget exhausted`() {
         handler.handleError(fakeError)
-        handler.release()
         handler.handleError(fakeError)
-        handler.release()
-        handler.handleError(fakeError)
-        handler.release()
-        // After release, no callbacks should fire
         assertFalse(maxRetriesReached)
+    }
+
+    @Test
+    fun `handleError signals max retries after budget exhausted`() {
+        // maxRetries = 3, so errors 1..3 schedule retries, error 4 exceeds budget
+        handler.handleError(fakeError)
+        handler.handleError(fakeError)
+        handler.handleError(fakeError)
+        assertFalse(maxRetriesReached)
+
+        handler.handleError(fakeError)
+        assertTrue(maxRetriesReached)
+    }
+
+    @Test
+    fun `handleError schedules retry via onRetry callback path`() {
+        // First error should schedule a delayed retry; we cannot await the Handler
+        // in unit tests reliably, but we verify no exception and counter tracking
+        // by following up with registerErrorAndGetDelay accounting:
+        handler.handleError(fakeError)
+        handler.handleError(fakeError)
+        handler.handleError(fakeError)
+        handler.handleError(fakeError) // exceeds maxRetries=3
+        assertTrue(maxRetriesReached)
+
+        // After exceeding, counter resets — next error starts fresh
+        assertEquals(100L, handler.registerErrorAndGetDelay(fakeError))
     }
 }

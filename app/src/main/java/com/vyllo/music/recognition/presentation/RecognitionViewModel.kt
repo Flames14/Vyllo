@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vyllo.music.recognition.domain.model.RecognitionStatus
 import com.vyllo.music.recognition.domain.usecase.RecognizeMusicUseCase
+import com.vyllo.music.domain.repository.IMusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,7 +14,7 @@ import javax.inject.Inject
 @HiltViewModel
 class RecognitionViewModel @Inject constructor(
     private val recognizeMusicUseCase: RecognizeMusicUseCase,
-    private val repository: com.vyllo.music.data.IMusicRepository
+    private val repository: IMusicRepository
 ) : ViewModel() {
     
     private var recognitionJob: kotlinx.coroutines.Job? = null

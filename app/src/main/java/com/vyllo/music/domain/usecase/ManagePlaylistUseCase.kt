@@ -1,6 +1,6 @@
 package com.vyllo.music.domain.usecase
 
-import com.vyllo.music.data.IMusicRepository
+import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.data.download.PlaylistEntity
 import com.vyllo.music.data.download.PlaylistSongEntity

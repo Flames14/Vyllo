@@ -27,7 +27,14 @@ class PlaybackQueueManager @Inject constructor() {
 
     private val _queueVersion = MutableStateFlow(0L)
     val queueVersion: StateFlow<Long> = _queueVersion.asStateFlow()
-    
+
+    @Volatile
+    var isShuffleEnabled: Boolean = false
+        private set
+
+    /** Snapshot of queue order before shuffle, restored when shuffle is turned off. */
+    private var preShuffleQueue: List<MusicItem>? = null
+
     val currentItem: MusicItem?
         get() = synchronized(lock) {
             if (currentIndex in currentQueue.indices) {
@@ -40,6 +47,7 @@ class PlaybackQueueManager @Inject constructor() {
     fun addItem(item: MusicItem) {
         synchronized(lock) {
             currentQueue.add(item)
+            preShuffleQueue = preShuffleQueue?.plus(item)
             notifyQueueStructureChangedLocked()
         }
     }
@@ -48,6 +56,7 @@ class PlaybackQueueManager @Inject constructor() {
         synchronized(lock) {
             val safeIndex = index.coerceIn(0, currentQueue.size)
             currentQueue.add(safeIndex, item)
+            preShuffleQueue = preShuffleQueue?.plus(item)
             notifyQueueStructureChangedLocked()
         }
     }
@@ -55,6 +64,7 @@ class PlaybackQueueManager @Inject constructor() {
     fun addAll(items: List<MusicItem>) {
         synchronized(lock) {
             currentQueue.addAll(items)
+            preShuffleQueue = preShuffleQueue?.plus(items)
             notifyQueueStructureChangedLocked()
         }
     }
@@ -187,8 +197,24 @@ class PlaybackQueueManager @Inject constructor() {
     fun replaceQueue(items: List<MusicItem>, startIndex: Int = 0) {
         synchronized(lock) {
             currentQueue.clear()
-            currentQueue.addAll(items)
-            currentIndex = startIndex.coerceIn(-1, items.size - 1)
+            val start = startIndex.coerceIn(-1, items.size - 1)
+            if (isShuffleEnabled) {
+                preShuffleQueue = items.toList()
+                val current = items.getOrNull(start)
+                val rest = items.filterIndexed { i, _ -> i != start }.shuffled()
+                if (current != null) {
+                    currentQueue.add(current)
+                    currentQueue.addAll(rest)
+                    currentIndex = 0
+                } else {
+                    currentQueue.addAll(rest)
+                    currentIndex = -1
+                }
+            } else {
+                preShuffleQueue = null
+                currentQueue.addAll(items)
+                currentIndex = start
+            }
             notifyQueueStructureChangedLocked()
         }
     }
@@ -197,11 +223,16 @@ class PlaybackQueueManager @Inject constructor() {
         synchronized(lock) {
             val keepCount = (currentIndex + 1).coerceAtLeast(0)
             val kept = currentQueue.take(keepCount)
-            currentQueue.clear()
-            currentQueue.addAll(kept)
             val keptUrls = kept.map { it.url }.toSet()
             val distinctUpcoming = items.filter { !keptUrls.contains(it.url) }
+            currentQueue.clear()
+            currentQueue.addAll(kept)
             currentQueue.addAll(distinctUpcoming)
+            if (isShuffleEnabled) {
+                val preKept = preShuffleQueue?.take(keepCount) ?: kept
+                val preUrls = preKept.map { it.url }.toSet()
+                preShuffleQueue = preKept + items.filter { !preUrls.contains(it.url) }
+            }
             notifyQueueStructureChangedLocked()
         }
     }
@@ -212,9 +243,49 @@ class PlaybackQueueManager @Inject constructor() {
             val added = items.filter { existingUrls.add(it.url) }
             if (added.isNotEmpty()) {
                 currentQueue.addAll(added)
+                if (isShuffleEnabled) {
+                    preShuffleQueue = preShuffleQueue?.plus(added)
+                }
                 notifyQueueStructureChangedLocked()
             }
             added
+        }
+    }
+
+    /**
+     * Enables/disables shuffle by physically reordering the queue so that the
+     * existing sequential next/prev/lookahead logic plays in shuffled order.
+     * The current item stays at the playhead; original order is restored on disable.
+     */
+    fun setShuffleEnabled(enabled: Boolean) {
+        synchronized(lock) {
+            if (enabled == isShuffleEnabled) return
+            isShuffleEnabled = enabled
+            if (enabled) {
+                preShuffleQueue = currentQueue.toList()
+                val currentIdx = currentIndex
+                val current = currentQueue.getOrNull(currentIdx)
+                val rest = currentQueue.filterIndexed { i, _ -> i != currentIdx }.shuffled()
+                currentQueue.clear()
+                if (current != null) {
+                    currentQueue.add(current)
+                    currentQueue.addAll(rest)
+                    currentIndex = 0
+                } else {
+                    currentQueue.addAll(rest)
+                    currentIndex = currentIndex.coerceIn(-1, currentQueue.size - 1)
+                }
+            } else {
+                val currentUrl = currentItem?.url
+                preShuffleQueue?.let { original ->
+                    currentQueue.clear()
+                    currentQueue.addAll(original)
+                    val restored = currentUrl?.let { u -> currentQueue.indexOfFirst { it.url == u } } ?: -1
+                    currentIndex = if (restored >= 0) restored else currentIndex.coerceIn(-1, currentQueue.size - 1)
+                }
+                preShuffleQueue = null
+            }
+            notifyQueueStructureChangedLocked()
         }
     }
 

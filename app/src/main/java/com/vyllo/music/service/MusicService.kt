@@ -19,7 +19,7 @@ import com.vyllo.music.data.manager.PlaybackAudioEffectsManager
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.data.manager.WakeLockManager
 import com.vyllo.music.domain.manager.PlaybackErrorHandler
-import com.vyllo.music.data.IMusicRepository
+import com.vyllo.music.domain.repository.IMusicRepository
 import dagger.hilt.android.AndroidEntryPoint
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.service.audio.AudioSinkFactory
@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @AndroidEntryPoint
+@androidx.media3.common.util.UnstableApi
 class MusicService : MediaSessionService() {
 
     @Inject
@@ -184,6 +185,7 @@ class MusicService : MediaSessionService() {
                 !keepAudioPlaying // Re-enable automatic audio focus if keepAudioPlaying is false
             )
             .setWakeMode(C.WAKE_MODE_NETWORK)
+            .setHandleAudioBecomingNoisy(true)
             .build()
 
         player?.addListener(
@@ -196,6 +198,14 @@ class MusicService : MediaSessionService() {
                 playbackAudioEffectsManager = playbackAudioEffectsManager
             )
         )
+
+        // Keep PlaybackQueueManager's physical order in sync with ExoPlayer shuffle
+        // so sequential next/prev/lookahead follow the shuffled order.
+        player?.addListener(object : Player.Listener {
+            override fun onShuffleModeEnabledChanged(enabled: Boolean) {
+                playbackQueueManager.setShuffleEnabled(enabled)
+            }
+        })
 
         // Force 1.0x playback speed to prevent "super fast" playback bugs on some devices/emulators
         player?.playbackParameters = androidx.media3.common.PlaybackParameters(1.0f)

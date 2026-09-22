@@ -74,6 +74,7 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
     private val store = ViewModelStore()
     override val viewModelStore: ViewModelStore get() = store
 
+    @androidx.media3.common.util.UnstableApi
     override fun onCreate() {
         super.onCreate()
         savedStateRegistryController.performRestore(null)

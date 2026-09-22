@@ -19,6 +19,7 @@ import android.view.WindowManager
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
+import android.annotation.SuppressLint
 import androidx.activity.ComponentActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -261,8 +262,10 @@ class AlarmTriggerActivity : ComponentActivity() {
         cpuWakeLock = null
     }
 
+    @SuppressLint("MissingSuperCall")
     override fun onBackPressed() {
-        // Prevent back button from dismissing
+        // Prevent back button from dismissing the alarm UI.
+        // Intentionally no super call — alarm must be dismissed via UI actions.
     }
 
     override fun onDestroy() {

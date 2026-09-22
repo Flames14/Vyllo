@@ -62,7 +62,7 @@ fun PlaylistAddDialog(
                         .padding(vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.Add, contentDescription = "New playlist", tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(12.dp))
                     Text("New Playlist", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
@@ -89,7 +89,7 @@ fun PlaylistAddDialog(
                                 .padding(vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Rounded.PlaylistPlay, null, tint = MaterialTheme.colorScheme.onSurface.copy(0.6f))
+                            Icon(Icons.Rounded.PlaylistPlay, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface.copy(0.6f))
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(playlist.name)
                         }

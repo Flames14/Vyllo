@@ -61,9 +61,9 @@ fun SyncStatusBanner(
                             color = MaterialTheme.colorScheme.primary
                         )
                     } else if (syncProgress.isSuccess) {
-                        Icon(Icons.Rounded.CheckCircle, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(22.dp))
+                        Icon(Icons.Rounded.CheckCircle, contentDescription = "Sync succeeded", tint = Color(0xFF4CAF50), modifier = Modifier.size(22.dp))
                     } else {
-                        Icon(Icons.Rounded.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(22.dp))
+                        Icon(Icons.Rounded.Error, contentDescription = "Sync failed", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(22.dp))
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
@@ -74,7 +74,7 @@ fun SyncStatusBanner(
                     )
                 }
                 IconButton(onClick = onClear, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Rounded.Close, null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Rounded.Close, contentDescription = "Dismiss", modifier = Modifier.size(16.dp))
                 }
             }
         }

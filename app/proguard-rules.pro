@@ -22,9 +22,8 @@
     public static *** d(...);
     public static *** v(...);
     public static *** i(...);
-    # Keep warnings and errors for production monitoring
-    # public static *** w(...);
-    # public static *** e(...);
+    public static *** w(...);
+    public static *** e(...);
 }
 
 # Strip Kotlin assertions

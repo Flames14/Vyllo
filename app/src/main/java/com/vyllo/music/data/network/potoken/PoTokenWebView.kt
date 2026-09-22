@@ -145,9 +145,6 @@ class PoTokenWebView private constructor(
 
     override suspend fun generatePoToken(identifier: String): String = withContext(Dispatchers.Main) {
         suspendCancellableCoroutine { continuation ->
-            if (com.vyllo.music.BuildConfig.DEBUG) {
-                Log.d(TAG, "generatePoToken() called with identifier $identifier")
-            }
             addPoTokenContinuation(identifier, continuation)
             val u8Identifier = stringToU8(identifier)
             webView.evaluateJavascript(
@@ -180,9 +177,6 @@ class PoTokenWebView private constructor(
 
     @JavascriptInterface
     fun onObtainPoTokenResult(identifier: String, poTokenU8: String) {
-        if (com.vyllo.music.BuildConfig.DEBUG) {
-            Log.d(TAG, "Generated poToken (before decoding): identifier=$identifier poTokenU8=$poTokenU8")
-        }
         val poToken = try {
             u8ToBase64(poTokenU8)
         } catch (t: Throwable) {
@@ -192,9 +186,6 @@ class PoTokenWebView private constructor(
             return
         }
 
-        if (com.vyllo.music.BuildConfig.DEBUG) {
-            Log.d(TAG, "Generated poToken: identifier=$identifier poToken=$poToken")
-        }
         scope.launch(Dispatchers.Main) {
             popPoTokenContinuation(identifier)?.resume(poToken)
         }
@@ -246,7 +237,7 @@ class PoTokenWebView private constructor(
                             "User-Agent" to listOf(USER_AGENT),
                             "Accept" to listOf("application/json"),
                             "Content-Type" to listOf("application/json+protobuf"),
-                            "x-goog-api-key" to listOf(GOOGLE_API_KEY),
+                            "x-goog-api-key" to listOf(com.vyllo.music.BuildConfig.GOOGLE_API_KEY),
                             "x-user-agent" to listOf("grpc-web-javascript/0.1")
                         ),
                         data.toByteArray()
@@ -293,7 +284,6 @@ class PoTokenWebView private constructor(
     companion object : PoTokenGenerator.Factory {
         private val TAG = PoTokenWebView::class.simpleName
 
-        private const val GOOGLE_API_KEY = "android" // NOSONAR
         private const val REQUEST_KEY = "O43z0dpjhgX20SCx4KAo"
         private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.3"

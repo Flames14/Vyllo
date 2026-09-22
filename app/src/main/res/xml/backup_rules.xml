@@ -8,4 +8,5 @@
     <exclude domain="database" path="downloads_db-wal" />
     <exclude domain="file" path="downloads/" />
     <exclude domain="file" path="secure_cache/" />
+    <exclude domain="sharedpref" path="prefs_fallback.xml" />
 </full-backup-content>

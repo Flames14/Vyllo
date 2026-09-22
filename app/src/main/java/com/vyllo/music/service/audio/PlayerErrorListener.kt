@@ -93,6 +93,7 @@ class PlayerErrorListener(
         playbackQueueOrchestrator.onPlayerAdvancedToNewItem(serviceScope, playerProvider())
     }
 
+    @androidx.media3.common.util.UnstableApi
     override fun onAudioSessionIdChanged(audioSessionId: Int) {
         if (audioSessionId == AudioManager.ERROR) return
         playbackAudioEffectsManager.attachToAudioSession(audioSessionId)

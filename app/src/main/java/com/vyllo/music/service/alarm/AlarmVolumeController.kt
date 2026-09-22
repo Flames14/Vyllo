@@ -19,6 +19,7 @@ class AlarmVolumeController(
 ) {
     private var isGradualVolumeComplete = false
     private var currentVolume = 0
+    private var originalAlarmVolume: Int? = null
 
     companion object {
         private const val TAG = "AlarmTriggerService"
@@ -26,18 +27,36 @@ class AlarmVolumeController(
 
     /**
      * Set the system alarm stream volume to the user's configured level.
-     * This ensures the alarm is audible even if the user previously lowered alarm volume.
+     * Saves the original volume once so it can be restored when the alarm ends.
      */
     fun setAlarmStreamVolume(context: Context) {
         try {
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+            if (originalAlarmVolume == null) {
+                originalAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+            }
             val volume = targetVolumeProvider()
             val targetVolume = (maxVolume * volume / 100f).toInt().coerceIn(1, maxVolume)
             audioManager.setStreamVolume(AudioManager.STREAM_ALARM, targetVolume, 0)
             SecureLogger.d(TAG, "Set alarm stream volume to $targetVolume/$maxVolume")
         } catch (e: Exception) {
             SecureLogger.e(TAG, "Failed to set alarm volume", e)
+        }
+    }
+
+    /**
+     * Restore the user's original alarm stream volume after the alarm ends.
+     */
+    fun restoreAlarmStreamVolume(context: Context) {
+        val original = originalAlarmVolume ?: return
+        originalAlarmVolume = null
+        try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, original, 0)
+            SecureLogger.d(TAG, "Restored original alarm stream volume to $original")
+        } catch (e: Exception) {
+            SecureLogger.e(TAG, "Failed to restore alarm volume", e)
         }
     }
 

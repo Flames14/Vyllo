@@ -61,7 +61,7 @@ suspend fun saveBitmapToFile(context: Context, bitmap: Bitmap): File? {
             outputStream.close()
             file
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.vyllo.music.core.security.SecureLogger.e("StoryShareUtils", "Failed to save bitmap", e)
             null
         }
     }

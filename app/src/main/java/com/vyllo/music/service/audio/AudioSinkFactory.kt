@@ -1,6 +1,7 @@
 package com.vyllo.music.service.audio
 
 import android.content.Context
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
@@ -10,7 +11,9 @@ import com.vyllo.music.service.VolumeBoostAudioProcessor
  * Builds the DefaultRenderersFactory with the volume-boost audio processor.
  * Extracted from MusicService — no behavior change.
  */
+@UnstableApi
 object AudioSinkFactory {
+    @UnstableApi
     fun createRenderersFactory(
         context: Context,
         volumeBoostProcessor: VolumeBoostAudioProcessor

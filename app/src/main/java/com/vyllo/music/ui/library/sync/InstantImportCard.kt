@@ -49,7 +49,7 @@ fun InstantImportCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Bolt, null, tint = Color(0xFFFFB300), modifier = Modifier.size(22.dp))
+                Icon(Icons.Rounded.Bolt, contentDescription = "Instant import", tint = Color(0xFFFFB300), modifier = Modifier.size(22.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Instant Playlist Import",
@@ -90,7 +90,7 @@ fun InstantImportCard(
                 trailingIcon = {
                     if (linkInput.isNotBlank()) {
                         IconButton(onClick = { onLinkChange("") }) {
-                            Icon(Icons.Rounded.Close, null)
+                            Icon(Icons.Rounded.Close, contentDescription = "Clear link")
                         }
                     } else {
                         IconButton(onClick = {
@@ -114,7 +114,7 @@ fun InstantImportCard(
                 shape = RoundedCornerShape(12.dp),
                 enabled = linkInput.isNotBlank()
             ) {
-                Icon(Icons.Rounded.Download, null)
+                Icon(Icons.Rounded.Download, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Import Playlist Now", fontWeight = FontWeight.Bold)
             }

@@ -86,6 +86,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @androidx.media3.common.util.UnstableApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -219,24 +220,27 @@ class MainActivity : ComponentActivity() {
         // Set loading state immediately so the player UI shows the spinner while resolving URL
         playerViewModel.setPlaybackLoading(true, item.url)
         lifecycleScope.launch {
-            val result = playMusicUseCase.execute(item, isVideo = isVideo, keepQueue = fromQueue)
-            playerViewModel.setPlaybackLoading(false)
-            when (result) {
-                is PlayResult.Success -> {
-                    homeViewModel.addToRecentlyPlayed(item)
-                    if (!fromQueue || playerViewModel.relatedSongs.isEmpty()) {
-                        playerViewModel.loadRelatedSongs(item)
+            try {
+                val result = playMusicUseCase.execute(item, isVideo = isVideo, keepQueue = fromQueue)
+                when (result) {
+                    is PlayResult.Success -> {
+                        homeViewModel.addToRecentlyPlayed(item)
+                        if (!fromQueue || playerViewModel.relatedSongs.isEmpty()) {
+                            playerViewModel.loadRelatedSongs(item)
+                        }
+                    }
+                    is PlayResult.Failure -> {
+                        if (!isFinishing && !isDestroyed) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                result.message,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
                 }
-                is PlayResult.Failure -> {
-                    if (!isFinishing && !isDestroyed) {
-                        Toast.makeText(
-                            this@MainActivity,
-                            result.message,
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
+            } finally {
+                playerViewModel.setPlaybackLoading(false)
             }
         }
     }
@@ -305,6 +309,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.O)
     override fun onPictureInPictureModeChanged(
         isInPictureInPictureMode: Boolean,
         newConfig: Configuration

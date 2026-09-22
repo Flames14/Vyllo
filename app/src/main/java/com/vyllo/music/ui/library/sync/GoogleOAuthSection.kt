@@ -78,7 +78,7 @@ fun GoogleOAuthSection(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Rounded.Lock, contentDescription = "Google Account Sync", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Google Account Sync (OAuth 2.0)",
@@ -88,7 +88,7 @@ fun GoogleOAuthSection(
                 }
                 Icon(
                     if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                    null
+                    contentDescription = if (isExpanded) "Collapse Google Sync" else "Expand Google Sync"
                 )
             }
 

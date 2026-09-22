@@ -109,7 +109,7 @@ fun YTMExploreScreen(
             ) { item ->
                 YTMSongRow(
                     item = item,
-                    isPlaying = currentPlayingItem?.title == item.title,
+                    isPlaying = currentPlayingItem?.url == item.url,
                     onClick = { onPlay(item) },
                     homeViewModel = viewModel,
                     isLoading = loadingItemUrl == item.url

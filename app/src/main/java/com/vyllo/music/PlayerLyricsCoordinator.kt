@@ -1,7 +1,7 @@
 package com.vyllo.music
 
 import com.vyllo.music.core.security.SecureLogger
-import com.vyllo.music.data.IMusicRepository
+import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.data.LyricsEngine
 import com.vyllo.music.data.TranslationEngine
 import com.vyllo.music.domain.model.LyricsResponse

@@ -1,6 +1,6 @@
 # Privacy Policy for Vyllo
 
-Last updated: August 29, 2026
+Last updated: September 22, 2026
 
 Vyllo ("we", "our", or "us") is an open-source, privacy-first music client. Your privacy is paramount to us. This Privacy Policy explains how information is handled in connection with your use of the Vyllo mobile application.
 

@@ -1,7 +1,7 @@
 package com.vyllo.music.domain.usecase
 
 import com.vyllo.music.core.security.SecureLogger
-import com.vyllo.music.data.IMusicRepository
+import com.vyllo.music.domain.repository.IMusicRepository
 import kotlinx.coroutines.delay
 import javax.inject.Inject
 

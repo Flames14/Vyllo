@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -68,11 +69,11 @@ fun VylloNavigation(
     onNext: (MusicItem?) -> Unit,
     onPrev: (MusicItem?) -> Unit
 ) {
-    var isPlayerExpanded by remember { mutableStateOf(false) }
-    var isPlaying by remember { mutableStateOf(false) }
-    var showSearchScreen by remember { mutableStateOf(false) }
-    var showAlarmScreen by remember { mutableStateOf(false) }
-    var showRecognitionScreen by remember { mutableStateOf(false) }
+    var isPlayerExpanded by rememberSaveable { mutableStateOf(false) }
+    var isPlaying by rememberSaveable { mutableStateOf(false) }
+    var showSearchScreen by rememberSaveable { mutableStateOf(false) }
+    var showAlarmScreen by rememberSaveable { mutableStateOf(false) }
+    var showRecognitionScreen by rememberSaveable { mutableStateOf(false) }
     
     val scrollState = rememberLazyListState()
     val recognitionViewModel: RecognitionViewModel = hiltViewModel()
@@ -445,7 +446,7 @@ fun LazyListScope.YTMGridSection(
                     columnItems.forEach { item ->
                         YTMCompactRow(
                             item = item,
-                            isPlaying = currentPlayingItem?.title == item.title,
+                            isPlaying = currentPlayingItem?.url == item.url,
                             onClick = { onPlay(item) },
                             modifier = Modifier.fillMaxWidth(),
                             homeViewModel = homeViewModel,

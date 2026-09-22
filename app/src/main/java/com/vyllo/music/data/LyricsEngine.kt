@@ -175,7 +175,6 @@ class LyricsEngine @Inject constructor(
             finalResults
         } catch (e: Exception) {
             SecureLogger.e(TAG, "MANUAL SEARCH error: ${e.message}")
-            e.printStackTrace()
             emptyList()
         }
     }

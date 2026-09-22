@@ -1,6 +1,6 @@
 package com.vyllo.music.di
 
-import com.vyllo.music.data.IMusicRepository
+import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.data.MusicRepositoryImpl
 import dagger.Binds
 import dagger.Module
