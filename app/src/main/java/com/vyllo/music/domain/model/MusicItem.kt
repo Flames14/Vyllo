@@ -56,7 +56,9 @@ data class MusicItem(
                 if (videoId != null && videoId.isNotBlank() && isLikelyYouTubeId(videoId)) {
                     return "https://www.youtube.com/watch?v=$videoId"
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                // Malformed URI — fall through to shared URL return below.
+            }
             return normalizedUrl
         }
 

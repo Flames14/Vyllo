@@ -15,9 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.vyllo.music.R
 import com.vyllo.music.domain.model.AlarmModel
 import com.vyllo.music.domain.model.DayOfWeek
 import com.vyllo.music.domain.model.SoundType
@@ -170,7 +172,7 @@ private fun AlarmHeader(
             }
 
             Text(
-                text = "Alarms",
+                text = stringResource(R.string.nav_alarms),
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onBackground
             )
@@ -178,7 +180,7 @@ private fun AlarmHeader(
             IconButton(onClick = onAddClick) {
                 Icon(
                     androidx.compose.material.icons.Icons.Rounded.Add,
-                    "Add Alarm",
+                    stringResource(R.string.alarm_add_alarm),
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
@@ -299,7 +301,7 @@ private fun EmptyAlarmsView(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Wake up to your favorite songs",
+                text = stringResource(R.string.alarm_empty_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)
             )
@@ -309,7 +311,7 @@ private fun EmptyAlarmsView(
             Button(onClick = onAddClick) {
                 Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Add Alarm")
+                Text(stringResource(R.string.alarm_add_alarm))
             }
         }
     }
@@ -326,7 +328,7 @@ data class AlarmUiState(
     val showSoundPicker: Boolean = false,
     val showTimePicker: Boolean = false,
     val editingAlarm: AlarmModel? = null,
-    val downloadedSongs: List<com.vyllo.music.data.download.DownloadEntity> = emptyList(),
+    val downloadedSongs: List<com.vyllo.music.domain.model.DownloadEntity> = emptyList(),
     val selectedHour: Int = 7,
     val selectedMinute: Int = 0,
     val selectedLabel: String = "",

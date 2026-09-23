@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.domain.model.MusicItem
-import com.vyllo.music.data.download.PlaylistEntity
+import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.*
 import com.vyllo.music.presentation.components.*
 import com.vyllo.music.presentation.theme.VylloSpacing

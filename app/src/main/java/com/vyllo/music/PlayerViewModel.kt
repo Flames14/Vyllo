@@ -11,11 +11,12 @@ import com.vyllo.music.domain.model.EqualizerSettings
 import com.vyllo.music.domain.model.EqualizerPreset
 import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.data.*
-import com.vyllo.music.data.manager.PlaybackQueueManager
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.domain.manager.StreamUrlCache
 import com.vyllo.music.domain.manager.player.EqualizerController
 import com.vyllo.music.domain.manager.player.LyricsController
+import com.vyllo.music.domain.manager.player.PlayerLyricsCoordinator
 import com.vyllo.music.domain.manager.player.RelatedController
 import com.vyllo.music.domain.manager.player.SleepTimerController
 import com.vyllo.music.domain.manager.player.StreamResolver

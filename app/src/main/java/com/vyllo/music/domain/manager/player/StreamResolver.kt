@@ -3,7 +3,7 @@ package com.vyllo.music.domain.manager.player
 import com.vyllo.music.PlayerUiState
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.repository.IMusicRepository
-import com.vyllo.music.data.network.YouTubeThumbnailResolver
+import com.vyllo.music.domain.repository.HighResThumbnailResolver
 import com.vyllo.music.domain.manager.StreamUrlCache
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.usecase.GetStreamUrlUseCase
@@ -20,7 +20,7 @@ class StreamResolver(
     private val repository: IMusicRepository,
     private val getStreamUrlUseCase: GetStreamUrlUseCase,
     private val streamUrlCache: StreamUrlCache,
-    private val thumbnailResolver: YouTubeThumbnailResolver,
+    private val thumbnailResolver: HighResThumbnailResolver,
     private val getState: () -> PlayerUiState,
     private val updateState: (((PlayerUiState) -> PlayerUiState)) -> Unit,
     private val scopeProvider: () -> CoroutineScope

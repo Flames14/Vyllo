@@ -1,6 +1,8 @@
 package com.vyllo.music.data.download
 
 import androidx.room.*
+import com.vyllo.music.domain.model.DownloadEntity
+import com.vyllo.music.domain.model.DownloadStatus
 import kotlinx.coroutines.flow.Flow
 
 /**

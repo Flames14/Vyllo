@@ -7,6 +7,10 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.vyllo.music.data.alarm.AlarmDao
 import com.vyllo.music.data.alarm.AlarmEntity
+import com.vyllo.music.domain.model.DownloadEntity
+import com.vyllo.music.domain.model.DownloadStatus
+import com.vyllo.music.domain.model.PlaylistEntity
+import com.vyllo.music.domain.model.PlaylistSongEntity
 
 /**
  * Room database for storing download metadata.

@@ -1,8 +1,7 @@
 package com.vyllo.music.domain.manager.player
 
-import com.vyllo.music.PlayerLyricsCoordinator
 import com.vyllo.music.PlayerUiState
-import com.vyllo.music.data.LyricsEngine
+import com.vyllo.music.domain.model.LyricPositioning
 import com.vyllo.music.domain.model.LyricsResult
 import com.vyllo.music.domain.model.MusicItem
 import kotlinx.coroutines.CoroutineScope
@@ -31,7 +30,7 @@ class LyricsController(
 
     fun updatePosition(positionMs: Long) {
         val state = getState()
-        val index = LyricsEngine.getCurrentLyricLine(state.syncedLyricsLines, positionMs + state.lyricsOffsetMs)
+        val index = LyricPositioning.getCurrentLine(state.syncedLyricsLines, positionMs + state.lyricsOffsetMs)
         if (index != state.currentLyricIndex) {
             updateState { it.copy(currentLyricIndex = index) }
         }

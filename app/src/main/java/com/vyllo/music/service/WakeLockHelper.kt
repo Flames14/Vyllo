@@ -42,8 +42,9 @@ class WakeLockHelper @Inject constructor(
             }
             try {
                 delay(100L)
-            } catch (_: InterruptedException) {
-                return false
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Scope cancelled (service destroyed) — stop waiting cleanly.
+                throw e
             }
         }
         val started = player.isPlaying ||

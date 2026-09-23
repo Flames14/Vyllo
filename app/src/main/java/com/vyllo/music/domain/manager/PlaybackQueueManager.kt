@@ -1,4 +1,4 @@
-package com.vyllo.music.data.manager
+package com.vyllo.music.domain.manager
 
 import com.vyllo.music.domain.model.MusicItem
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -189,7 +189,18 @@ class PlaybackQueueManager @Inject constructor() {
             if (idx >= 0) {
                 currentIndex = idx
             } else {
-                _currentPlayingItem.value = item
+                // The item is audible but missing from the queue (e.g. local-file
+                // playback). Insert it at the playhead so currentItem,
+                // currentPlayingItem and getUpcomingSnapshot() stay consistent —
+                // otherwise Up Next renders entries relative to a stale index.
+                val insertAt = (currentIndex + 1).coerceIn(0, currentQueue.size)
+                currentQueue.add(insertAt, item)
+                preShuffleQueue = preShuffleQueue?.let { original ->
+                    val preIdx = original.indexOfFirst { it.url == item.url }
+                    if (preIdx >= 0) original else original.plus(item)
+                }
+                currentIndex = insertAt
+                notifyQueueStructureChangedLocked()
             }
         }
     }

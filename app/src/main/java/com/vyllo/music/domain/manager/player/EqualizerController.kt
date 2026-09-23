@@ -1,7 +1,7 @@
 package com.vyllo.music.domain.manager.player
 
 import com.vyllo.music.PlayerUiState
-import com.vyllo.music.data.manager.PreferenceManager
+import com.vyllo.music.domain.repository.PlayerPreferences
 import com.vyllo.music.domain.model.EqualizerPreset
 import com.vyllo.music.domain.model.EqualizerSettings
 import kotlinx.coroutines.CoroutineScope
@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
  * extracted from PlayerViewModel. No behavior change — verbatim logic moved here.
  */
 class EqualizerController(
-    private val preferenceManager: PreferenceManager,
+    private val preferenceManager: PlayerPreferences,
     private val getState: () -> PlayerUiState,
     private val updateState: (((PlayerUiState) -> PlayerUiState)) -> Unit,
     private val scopeProvider: () -> CoroutineScope

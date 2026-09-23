@@ -6,6 +6,7 @@ import com.vyllo.music.core.security.SecurePreferenceManager
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.EqualizerBandSetting
 import com.vyllo.music.domain.model.EqualizerSettings
+import com.vyllo.music.domain.repository.PlayerPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,22 +30,22 @@ private const val TAG = "PreferenceManager"
 class PreferenceManager @Inject constructor(
     context: Context,
     private val securePrefs: SecurePreferenceManager
-) {
+) : PlayerPreferences {
     
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     // Regular preferences for non-sensitive UI settings
     val preferences: SharedPreferences = context.getSharedPreferences("music_prefs", Context.MODE_PRIVATE)
 
-    var isFloatingPlayerEnabled: Boolean
+    override var isFloatingPlayerEnabled: Boolean
         get() = preferences.getBoolean("floating_player_enabled", false)
         set(value) { preferences.edit().putBoolean("floating_player_enabled", value).apply() }
 
-    var floatingPlayerX: Int
+    override var floatingPlayerX: Int
         get() = preferences.getInt("floating_player_x", 0)
         set(value) { preferences.edit().putInt("floating_player_x", value).apply() }
 
-    var floatingPlayerY: Int
+    override var floatingPlayerY: Int
         get() = preferences.getInt("floating_player_y", 100)
         set(value) { preferences.edit().putInt("floating_player_y", value).apply() }
 
@@ -76,7 +77,7 @@ class PreferenceManager @Inject constructor(
         get() = preferences.getBoolean("queue_sticky_enabled", true)
         set(value) { preferences.edit().putBoolean("queue_sticky_enabled", value).apply() }
 
-    var volumeBoostMultiplier: Float
+    override var volumeBoostMultiplier: Float
         get() = preferences.getFloat(KEY_VOLUME_BOOST, 1.0f)
         set(value) { preferences.edit().putFloat(KEY_VOLUME_BOOST, value.coerceIn(1.0f, 3.0f)).apply() }
 
@@ -199,7 +200,7 @@ class PreferenceManager @Inject constructor(
         ).sanitized()
     }
 
-    fun saveEqualizerSettings(settings: EqualizerSettings) {
+    override fun saveEqualizerSettings(settings: EqualizerSettings) {
         val sanitized = settings.sanitized()
         isEqualizerEnabled = sanitized.enabled
         equalizerBassBoostStrength = sanitized.bassBoostStrength

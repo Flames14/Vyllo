@@ -6,8 +6,8 @@ import com.vyllo.music.data.alarm.AlarmEntity
 import com.vyllo.music.data.download.HistoryDao
 import com.vyllo.music.data.download.HistoryEntity
 import com.vyllo.music.data.download.PlaylistDao
-import com.vyllo.music.data.download.PlaylistEntity
-import com.vyllo.music.data.download.PlaylistSongEntity
+import com.vyllo.music.domain.model.PlaylistEntity
+import com.vyllo.music.domain.model.PlaylistSongEntity
 import org.json.JSONArray
 import org.json.JSONObject
 import javax.inject.Inject

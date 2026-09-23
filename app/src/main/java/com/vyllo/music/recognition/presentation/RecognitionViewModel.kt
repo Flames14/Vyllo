@@ -28,23 +28,29 @@ class RecognitionViewModel @Inject constructor(
         recognitionJob?.cancel()
         recognitionJob = viewModelScope.launch {
             _status.value = RecognitionStatus.Listening
-            val result = recognizeMusicUseCase()
-            
-            result.fold(
-                onSuccess = { recognitionResult ->
-                    _status.value = RecognitionStatus.Success(recognitionResult)
-                },
-                onFailure = { error ->
-                    val message = error.message ?: "Unknown error"
-                    _status.value = if (message.contains("No match", ignoreCase = true)) {
-                        RecognitionStatus.NoMatch("No match found. Try again with clearer audio.")
-                    } else if (error is kotlinx.coroutines.CancellationException) {
-                        RecognitionStatus.Idle
-                    } else {
-                        RecognitionStatus.Error(message)
+            try {
+                val result = recognizeMusicUseCase()
+
+                result.fold(
+                    onSuccess = { recognitionResult ->
+                        _status.value = RecognitionStatus.Success(recognitionResult)
+                    },
+                    onFailure = { error ->
+                        if (error is kotlinx.coroutines.CancellationException) throw error
+                        val message = error.message ?: "Unknown error"
+                        _status.value = if (message.contains("No match", ignoreCase = true)) {
+                            RecognitionStatus.NoMatch("No match found. Try again with clearer audio.")
+                        } else {
+                            RecognitionStatus.Error(message)
+                        }
                     }
-                }
-            )
+                )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                _status.value = RecognitionStatus.Idle
+                throw e
+            } catch (e: Exception) {
+                _status.value = RecognitionStatus.Error(e.message ?: "Unknown error")
+            }
         }
     }
 
@@ -71,13 +77,15 @@ class RecognitionViewModel @Inject constructor(
                 val searchQuery = "${result.title} ${result.artist}"
                 val searchResults = repository.searchMusic(searchQuery)
                 val firstMatch = searchResults.firstOrNull()
-                
+
                 if (firstMatch != null) {
                     onResolved(firstMatch)
                 } else {
                     // Fallback to whatever we have, even if it might fail streaming
                     onResolved(result.toMusicItem())
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 onResolved(result.toMusicItem())
             } finally {

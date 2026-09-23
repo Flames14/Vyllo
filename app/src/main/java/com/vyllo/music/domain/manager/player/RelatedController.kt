@@ -2,7 +2,7 @@ package com.vyllo.music.domain.manager.player
 
 import com.vyllo.music.PlayerUiState
 import com.vyllo.music.domain.repository.IMusicRepository
-import com.vyllo.music.data.manager.PlaybackQueueManager
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.domain.model.MusicItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch

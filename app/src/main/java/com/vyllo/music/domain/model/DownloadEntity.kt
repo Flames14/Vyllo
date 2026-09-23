@@ -1,4 +1,4 @@
-package com.vyllo.music.data.download
+package com.vyllo.music.domain.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -18,10 +18,3 @@ data class DownloadEntity(
     val downloadedAt: Long = System.currentTimeMillis(),
     val status: DownloadStatus = DownloadStatus.PENDING
 )
-
-enum class DownloadStatus {
-    PENDING,
-    DOWNLOADING,
-    COMPLETED,
-    FAILED
-}

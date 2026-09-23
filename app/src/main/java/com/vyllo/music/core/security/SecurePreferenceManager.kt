@@ -50,9 +50,9 @@ class SecurePreferenceManager(private val context: Context) {
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to create encrypted preferences: ${e.message}")
-            // Fallback to regular prefs (less secure but functional)
-            context.getSharedPreferences("prefs_fallback", Context.MODE_PRIVATE)
+            // FAIL CLOSED: plaintext storage of "secure" data is worse than none.
+            Log.e(TAG, "EncryptedSharedPreferences unavailable — using process-local memory only")
+            InMemorySharedPreferences()
         }
     }
 

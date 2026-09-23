@@ -14,7 +14,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.*
 import androidx.media3.common.Player
 import com.vyllo.music.MainActivity
-import com.vyllo.music.data.manager.PlaybackQueueManager
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PlaybackAudioEffectsManager
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.data.manager.WakeLockManager
@@ -229,8 +229,10 @@ class MusicService : MediaSessionService() {
             playbackQueueOrchestrator = playbackQueueOrchestrator
         )
 
-        // Initialize MediaSession
-        mediaSession = MediaSession.Builder(this, player!!)
+        // Initialize MediaSession (player was assigned just above; fail soft if builder raced)
+        val initializedPlayer = player
+            ?: throw IllegalStateException("ExoPlayer not initialized before MediaSession build")
+        mediaSession = MediaSession.Builder(this, initializedPlayer)
             .setSessionActivity(pendingIntent)
             .setCallback(sessionCallback)
             .build()

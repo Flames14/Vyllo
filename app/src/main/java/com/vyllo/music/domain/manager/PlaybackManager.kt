@@ -11,8 +11,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.MusicItem
-import com.vyllo.music.data.manager.PlaybackQueueManager
-import com.vyllo.music.service.MusicService
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
@@ -44,19 +43,23 @@ class PlaybackManager @Inject constructor(
         controllerFuture?.let { MediaController.releaseFuture(it) }
         mediaController = null
 
-        val sessionToken = SessionToken(context, ComponentName(context, MusicService::class.java))
-        controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
-        
-        controllerFuture?.addListener({
+        val sessionToken = SessionToken(
+            context,
+            ComponentName(context, "com.vyllo.music.service.MusicService")
+        )
+        val future = MediaController.Builder(context, sessionToken).buildAsync()
+        controllerFuture = future
+
+        future.addListener({
             try {
-                mediaController = controllerFuture?.get()
+                mediaController = future.get()
                 setupPlayerListener()
             } catch (e: Exception) {
                 notifyError(e)
             }
         }, MoreExecutors.directExecutor())
-        
-        return controllerFuture!!
+
+        return future
     }
 
     private fun setupPlayerListener() {
@@ -156,7 +159,10 @@ class PlaybackManager @Inject constructor(
                 .setArtworkUri(item?.thumbnailUrl?.let { Uri.parse(it) })
                 .build()
 
+            // mediaId MUST be the logical queue URL (not the file path) so
+            // onMediaItemTransition can resolve the item inside PlaybackQueueManager.
             val mediaItem = MediaItem.Builder()
+                .setMediaId(item?.url ?: localUrl)
                 .setUri(localUrl)
                 .setMediaMetadata(metadata)
                 .build()

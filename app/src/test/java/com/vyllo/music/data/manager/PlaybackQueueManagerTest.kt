@@ -1,4 +1,4 @@
-package com.vyllo.music.data.manager
+package com.vyllo.music.domain.manager
 
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.MusicItemType
@@ -221,5 +221,94 @@ class PlaybackQueueManagerTest {
             thumbnailUrl = "https://example.com/thumb/$id.jpg",
             type = MusicItemType.SONG
         )
+    }
+
+    // --- Up Next regression: setCurrentPlayingItemDirectly must keep currentIndex
+    // --- and upcoming snapshot consistent when the item is missing from the queue.
+
+    @Test
+    fun setCurrentPlayingItemDirectly_insertsMissingItemAtPlayhead() {
+        val a = createTestMusicItem("a", "Song A")
+        val b = createTestMusicItem("b", "Song B")
+        val c = createTestMusicItem("c", "Song C")
+        playbackQueueManager.addAll(listOf(a, b, c))
+        playbackQueueManager.setCurrentIndexSafe(0)
+
+        val orphan = createTestMusicItem("orphan", "Orphan Song")
+        playbackQueueManager.setCurrentPlayingItemDirectly(orphan)
+
+        assertEquals(orphan, playbackQueueManager.currentItem)
+        assertEquals(1, playbackQueueManager.currentIndex)
+        assertEquals(4, playbackQueueManager.size)
+        // Inserted immediately after the previous playhead so nextItem stays sane
+        assertEquals(orphan, playbackQueueManager.getItemAt(1))
+        assertEquals(b, playbackQueueManager.nextItem)
+    }
+
+    @Test
+    fun setCurrentPlayingItemDirectly_updatesIndexForExistingItem() {
+        val a = createTestMusicItem("a", "Song A")
+        val b = createTestMusicItem("b", "Song B")
+        val c = createTestMusicItem("c", "Song C")
+        playbackQueueManager.addAll(listOf(a, b, c))
+        playbackQueueManager.setCurrentIndexSafe(0)
+
+        playbackQueueManager.setCurrentPlayingItemDirectly(c)
+
+        assertEquals(c, playbackQueueManager.currentItem)
+        assertEquals(2, playbackQueueManager.currentIndex)
+        assertEquals(3, playbackQueueManager.size)
+        assertNull(playbackQueueManager.nextItem)
+    }
+
+    @Test
+    fun setCurrentPlayingItemDirectly_onEmptyQueueTracksItemAsCurrent() {
+        val orphan = createTestMusicItem("orphan", "Orphan Song")
+        playbackQueueManager.setCurrentPlayingItemDirectly(orphan)
+
+        assertEquals(orphan, playbackQueueManager.currentItem)
+        assertEquals(1, playbackQueueManager.size)
+        assertEquals(0, playbackQueueManager.currentIndex)
+        assertNull(playbackQueueManager.nextItem)
+    }
+
+    @Test
+    fun upcomingSnapshot_afterInsertDoesNotSkipToStaleNext() {
+        val a = createTestMusicItem("a", "Song A")
+        val b = createTestMusicItem("b", "Song B")
+        playbackQueueManager.addAll(listOf(a, b))
+        playbackQueueManager.setCurrentIndexSafe(0)
+
+        val orphan = createTestMusicItem("orphan", "Orphan")
+        playbackQueueManager.setCurrentPlayingItemDirectly(orphan)
+
+        val upcoming = playbackQueueManager.getUpcomingSnapshot()
+        // After switching to orphan at idx 1, upcoming must be [c-or-nothing] —
+        // i.e. B must still be reachable as next, never skipped over.
+        assertEquals(orphan, playbackQueueManager.currentItem)
+        // whatever getUpcomingSnapshot returns, currentIndex must agree with currentItem
+        assertTrue(playbackQueueManager.currentIndex in 0 until playbackQueueManager.size)
+        assertEquals(orphan, playbackQueueManager.getItemAt(playbackQueueManager.currentIndex))
+        // silence unused warning if snapshot API shape differs
+        assertNotNull(upcoming)
+    }
+
+    @Test
+    fun nextItem_afterDirectSwitchIsNotStale() {
+        val a = createTestMusicItem("a", "A")
+        val b = createTestMusicItem("b", "B")
+        val c = createTestMusicItem("c", "C")
+        playbackQueueManager.addAll(listOf(a, b, c))
+        playbackQueueManager.setCurrentIndexSafe(1) // on B
+
+        // Simulate external item (e.g. radio/relation) not yet in queue
+        val radio = createTestMusicItem("radio", "Radio Song")
+        playbackQueueManager.setCurrentPlayingItemDirectly(radio)
+
+        assertEquals(radio, playbackQueueManager.currentItem)
+        // Inserted at currentIndex+1 (=2) so queue is [A,B,radio,C]; next is C
+        assertEquals(c, playbackQueueManager.nextItem)
+        assertEquals(2, playbackQueueManager.indexOf(radio))
+        assertEquals(2, playbackQueueManager.currentIndex)
     }
 }

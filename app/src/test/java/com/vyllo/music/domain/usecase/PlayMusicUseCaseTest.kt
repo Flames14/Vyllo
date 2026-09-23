@@ -1,6 +1,6 @@
 package com.vyllo.music.domain.usecase
 
-import com.vyllo.music.data.manager.PlaybackQueueManager
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.domain.manager.PlaybackManager
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.MusicItemType

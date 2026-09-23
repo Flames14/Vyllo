@@ -48,7 +48,9 @@ object SecureCacheManager {
                     file.deleteRecursively()
                 }
             }
-        } catch (ignored: Exception) { }
+        } catch (ignored: Exception) {
+            // Best-effort cleanup: missing files / IO races are non-fatal here.
+        }
 
         Log.d(TAG, "Media cache initialized at: ${cacheDir.absolutePath}")
 

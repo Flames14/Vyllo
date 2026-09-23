@@ -6,10 +6,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
 import com.vyllo.music.domain.model.MusicItem
-import com.vyllo.music.data.download.DownloadEntity
-import com.vyllo.music.data.download.PlaylistEntity
-import com.vyllo.music.data.download.PlaylistSongEntity
-import com.vyllo.music.data.manager.PlaybackQueueManager
+import com.vyllo.music.domain.model.DownloadEntity
+import com.vyllo.music.domain.model.PlaylistEntity
+import com.vyllo.music.domain.model.PlaylistSongEntity
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.DownloadManager
 import com.vyllo.music.domain.usecase.DownloadMusicUseCase
 import com.vyllo.music.domain.usecase.ManagePlaylistUseCase

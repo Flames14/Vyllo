@@ -1,20 +1,20 @@
 package com.vyllo.music.domain.manager
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.content.ContextCompat
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.MusicItem
-import com.vyllo.music.data.manager.PreferenceManager
-import com.vyllo.music.service.FloatingWindowService
+import com.vyllo.music.domain.repository.PlayerPreferences
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class FloatingPlayerManager @Inject constructor(
     private val context: Context,
-    private val preferenceManager: PreferenceManager
+    private val preferenceManager: PlayerPreferences
 ) {
 
     fun isEnabled(): Boolean {
@@ -34,7 +34,9 @@ class FloatingPlayerManager @Inject constructor(
             return false
         }
 
-        val intent = Intent(context, FloatingWindowService::class.java)
+        val intent = Intent().setComponent(
+            ComponentName(context, "com.vyllo.music.service.FloatingWindowService")
+        )
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -51,7 +53,9 @@ class FloatingPlayerManager @Inject constructor(
 
     fun hideFloatingPlayer() {
         try {
-            val intent = Intent(context, FloatingWindowService::class.java)
+            val intent = Intent().setComponent(
+                ComponentName(context, "com.vyllo.music.service.FloatingWindowService")
+            )
             context.stopService(intent)
         } catch (e: Exception) {
             SecureLogger.e("FloatingPlayerManager", "Failed to stop floating player", e)

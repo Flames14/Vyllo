@@ -16,9 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -42,6 +44,7 @@ fun CommentsBottomSheet(
     var nextPage by remember { mutableStateOf<org.schabi.newpipe.extractor.Page?>(null) }
     
     val coroutineScope = rememberCoroutineScope()
+    val loadFailedMessage = stringResource(R.string.comments_load_failed)
 
     LaunchedEffect(item.url) {
         isLoading = true
@@ -50,7 +53,7 @@ fun CommentsBottomSheet(
             withContext(Dispatchers.IO) {
                 val urlToFetch = if (item.url.startsWith("http")) item.url else "https://www.youtube.com/watch?v=${item.url}"
                 val info = CommentsInfo.getInfo(ServiceList.YouTube, urlToFetch)
-                
+
                 withContext(Dispatchers.Main) {
                     currentInfo = info
                     nextPage = info.nextPage
@@ -59,7 +62,7 @@ fun CommentsBottomSheet(
             }
         } catch (e: Exception) {
             com.vyllo.music.core.security.SecureLogger.e("Comments", "Failed to load comments", e)
-            error = e.localizedMessage ?: "Failed to load comments"
+            error = e.localizedMessage ?: loadFailedMessage
         } finally {
             isLoading = false
         }
@@ -112,12 +115,16 @@ fun CommentsBottomSheet(
                 } else null
 
                 Text(
-                    text = if (countText != null) "Comments ($countText)" else "Comments",
+                    text = if (countText != null) {
+                        stringResource(R.string.comments_title_count, countText)
+                    } else {
+                        stringResource(R.string.comments_title)
+                    },
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Rounded.Close, contentDescription = "Close")
+                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.common_close))
                 }
             }
             
@@ -138,7 +145,7 @@ fun CommentsBottomSheet(
             } else if (comments.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "No comments found.",
+                        text = stringResource(R.string.comments_none),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         style = MaterialTheme.typography.bodyLarge
                     )

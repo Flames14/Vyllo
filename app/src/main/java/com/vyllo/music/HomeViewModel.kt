@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.domain.model.MusicItem
-import com.vyllo.music.data.manager.PlaybackQueueManager
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.domain.usecase.GetHomeContentUseCase
 import com.vyllo.music.domain.usecase.RecordListenUseCase
 import com.vyllo.music.domain.usecase.LoadMoreRecommendationsUseCase

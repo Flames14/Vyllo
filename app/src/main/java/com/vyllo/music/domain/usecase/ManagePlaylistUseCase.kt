@@ -2,8 +2,8 @@ package com.vyllo.music.domain.usecase
 
 import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.domain.model.MusicItem
-import com.vyllo.music.data.download.PlaylistEntity
-import com.vyllo.music.data.download.PlaylistSongEntity
+import com.vyllo.music.domain.model.PlaylistEntity
+import com.vyllo.music.domain.model.PlaylistSongEntity
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 

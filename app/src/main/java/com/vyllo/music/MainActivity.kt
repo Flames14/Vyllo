@@ -40,7 +40,7 @@ import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.PlayResult
 import com.vyllo.music.domain.usecase.PlayMusicUseCase
 import com.vyllo.music.service.MusicService
-import com.vyllo.music.data.manager.PlaybackQueueManager
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.presentation.theme.ThemeManager
 import com.vyllo.music.core.security.SecureLogger

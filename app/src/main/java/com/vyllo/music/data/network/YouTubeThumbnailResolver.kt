@@ -2,6 +2,7 @@
 
 import android.net.Uri
 import com.vyllo.music.core.security.SecureLogger
+import com.vyllo.music.domain.repository.HighResThumbnailResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -15,7 +16,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class YouTubeThumbnailResolver @Inject constructor() {
+class YouTubeThumbnailResolver @Inject constructor() : HighResThumbnailResolver {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
@@ -24,17 +25,17 @@ class YouTubeThumbnailResolver @Inject constructor() {
 
     private val cache = ConcurrentHashMap<String, String>()
 
-    suspend fun resolveHighResThumbnail(
+    override suspend fun resolveHighResThumbnail(
         urlOrId: String,
-        fallbackThumbnail: String? = null,
-        title: String? = null,
-        artist: String? = null
+        fallbackThumbnail: String?,
+        title: String?,
+        artist: String?
     ): String = withContext(Dispatchers.IO) {
         val videoId = extractVideoId(urlOrId) ?: extractVideoId(fallbackThumbnail ?: "")
         
         // 1. Check in-memory cache
-        if (videoId != null && cache.containsKey(videoId)) {
-            return@withContext cache[videoId]!!
+        if (videoId != null) {
+            cache[videoId]?.let { return@withContext it }
         }
 
         // 2. Check if fallback thumbnail is already a Google CDN URL

@@ -84,16 +84,15 @@ fun VylloNavigation(
     
     val appContext = LocalContext.current
     
-    // Monitor device security risk on app start
+    // Monitor device security risk on app start (informational only — does not gate features)
     LaunchedEffect(Unit) {
         val riskLevel = SecurityMonitor.getRiskLevel(appContext)
         when (riskLevel) {
             com.vyllo.music.core.security.SecurityRiskLevel.HIGH -> {
-                SecureLogger.security(TAG, "High risk device detected - some features may be limited")
-                // Optionally disable sensitive features like downloads
+                SecureLogger.security(TAG, "High risk signals present (root/emulator/debug) — informational only")
             }
             com.vyllo.music.core.security.SecurityRiskLevel.MEDIUM -> {
-                SecureLogger.w(TAG, "Medium risk device detected")
+                SecureLogger.w(TAG, "Medium risk signals present — informational only")
             }
             com.vyllo.music.core.security.SecurityRiskLevel.LOW -> {
                 SecureLogger.d(TAG, "Low risk factors detected")
@@ -289,32 +288,35 @@ fun VylloNavigation(
                                     AlarmScreen(
                                         onBackClick = { showAlarmScreen = false }
                                     )
-                                } else if (libraryViewModel.selectedLocalPlaylist != null) {
-                                    YTMPlaylistScreen(
-                                        viewModel = libraryViewModel,
-                                        playlist = libraryViewModel.selectedLocalPlaylist!!,
-                                        onBack = { libraryViewModel.selectedLocalPlaylist = null },
-                                        onPlay = { item ->
-                                            homeViewModel.addToRecentlyPlayed(item)
-                                            onPlay(item)
-                                        },
-                                        currentPlayingItem = playerUiState.currentPlayingItem,
-                                        loadingItemUrl = playerUiState.loadingItemUrl
-                                    )
                                 } else {
-                                    YTMLibraryScreen(
-                                        viewModel = libraryViewModel,
-                                        onPlay = { item ->
-                                            homeViewModel.addToRecentlyPlayed(item)
-                                            onPlay(item)
-                                        },
-                                        onSearchClick = { showSearchScreen = true },
-                                        onSettingsClick = { settingsViewModel.showSettings = true },
-                                        onRecognizeClick = { showRecognitionScreen = true },
-                                        currentPlayingItem = playerUiState.currentPlayingItem,
-                                        loadingItemUrl = playerUiState.loadingItemUrl,
-                                        onNavigateToAlarms = { showAlarmScreen = true }
-                                    )
+                                    val selectedPlaylist = libraryViewModel.selectedLocalPlaylist
+                                    if (selectedPlaylist != null) {
+                                        YTMPlaylistScreen(
+                                            viewModel = libraryViewModel,
+                                            playlist = selectedPlaylist,
+                                            onBack = { libraryViewModel.selectedLocalPlaylist = null },
+                                            onPlay = { item ->
+                                                homeViewModel.addToRecentlyPlayed(item)
+                                                onPlay(item)
+                                            },
+                                            currentPlayingItem = playerUiState.currentPlayingItem,
+                                            loadingItemUrl = playerUiState.loadingItemUrl
+                                        )
+                                    } else {
+                                        YTMLibraryScreen(
+                                            viewModel = libraryViewModel,
+                                            onPlay = { item ->
+                                                homeViewModel.addToRecentlyPlayed(item)
+                                                onPlay(item)
+                                            },
+                                            onSearchClick = { showSearchScreen = true },
+                                            onSettingsClick = { settingsViewModel.showSettings = true },
+                                            onRecognizeClick = { showRecognitionScreen = true },
+                                            currentPlayingItem = playerUiState.currentPlayingItem,
+                                            loadingItemUrl = playerUiState.loadingItemUrl,
+                                            onNavigateToAlarms = { showAlarmScreen = true }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -397,22 +399,24 @@ fun VylloNavigation(
         }
 
         // FullScreen Player Overlay (renders over everything when expanded)
-        if (isPlayerExpanded && playerUiState.currentPlayingItem != null) {
-            PremiumFullScreenPlayer(
-                item = playerUiState.currentPlayingItem!!,
-                isPlaying = isPlaying,
-                isLoading = playerUiState.isLoadingPlayer,
-                controller = controller,
-                relatedSongs = playerUiState.relatedSongs,
-                isAutoplayEnabled = playerUiState.autoplayEnabled,
-                onTogglePlay = { if (isPlaying) controller?.pause() else controller?.play() },
-                onNext = { onNext(playerUiState.currentPlayingItem) },
-                onPrev = { onPrev(playerUiState.currentPlayingItem) },
-                onCollapse = { isPlayerExpanded = false },
-                onAutoplayToggle = { playerViewModel.autoplayEnabled = it },
-                onPlayRelated = { item -> homeViewModel.addToRecentlyPlayed(item); onPlayFromQueue(item) },
-                viewModel = playerViewModel
-            )
+        if (isPlayerExpanded) {
+            playerUiState.currentPlayingItem?.let { expandedPlayingItem ->
+                PremiumFullScreenPlayer(
+                    item = expandedPlayingItem,
+                    isPlaying = isPlaying,
+                    isLoading = playerUiState.isLoadingPlayer,
+                    controller = controller,
+                    relatedSongs = playerUiState.relatedSongs,
+                    isAutoplayEnabled = playerUiState.autoplayEnabled,
+                    onTogglePlay = { if (isPlaying) controller?.pause() else controller?.play() },
+                    onNext = { onNext(playerUiState.currentPlayingItem) },
+                    onPrev = { onPrev(playerUiState.currentPlayingItem) },
+                    onCollapse = { isPlayerExpanded = false },
+                    onAutoplayToggle = { playerViewModel.autoplayEnabled = it },
+                    onPlayRelated = { item -> homeViewModel.addToRecentlyPlayed(item); onPlayFromQueue(item) },
+                    viewModel = playerViewModel
+                )
+            }
         }
     }
 }

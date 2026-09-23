@@ -7,16 +7,12 @@ import com.vyllo.music.core.security.SecureLogger as Log
 import java.io.File
 
 /**
- * Security Monitoring and Anti-Tampering Detection
- * 
- * Detects:
- * - Rooted devices
- * - Emulators
- * - USB debugging enabled
- * - Mock location apps
- * 
- * Uses graceful degradation - logs and optionally limits features
- * rather than blocking users entirely.
+ * Security Monitoring signal collection (informational).
+ *
+ * Detects root indicators, emulators, USB debugging, and mock location.
+ * Results are logged only — they do not gate features or block users.
+ * Real update/download protections live in AppUpdateRepository, UpdateDownloader,
+ * and SecurityConfig (host allowlist, ZIP validation, optional cert pinning).
  */
 object SecurityMonitor {
 
@@ -170,7 +166,8 @@ object SecurityMonitor {
     }
 
     /**
-     * Gets security recommendations based on risk level
+     * Recommendations derived from the current risk level (for diagnostics UI/logs).
+     * Does not enforce restrictions by itself.
      */
     fun getRecommendations(context: Context): List<String> {
         val recommendations = mutableListOf<String>()
@@ -178,11 +175,11 @@ object SecurityMonitor {
 
         when (riskLevel) {
             SecurityRiskLevel.HIGH -> {
-                recommendations.add("Consider disabling downloads on rooted devices")
-                recommendations.add("Avoid storing sensitive data locally")
+                recommendations.add("Root/emulator/debug signals present — informational only")
+                recommendations.add("Avoid storing sensitive data locally on shared devices")
             }
             SecurityRiskLevel.MEDIUM -> {
-                recommendations.add("Some security features may be limited")
+                recommendations.add("Some environment risk signals were detected")
             }
             SecurityRiskLevel.LOW -> {
                 // Minor warnings only

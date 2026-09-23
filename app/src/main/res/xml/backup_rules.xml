@@ -9,4 +9,6 @@
     <exclude domain="file" path="downloads/" />
     <exclude domain="file" path="secure_cache/" />
     <exclude domain="sharedpref" path="prefs_fallback.xml" />
+    <!-- Search history lives in DataStore and must never leave the device. -->
+    <exclude domain="file" path="datastore/secure_preferences.preferences_pb" />
 </full-backup-content>

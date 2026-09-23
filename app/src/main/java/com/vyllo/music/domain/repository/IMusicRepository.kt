@@ -2,9 +2,9 @@ package com.vyllo.music.domain.repository
 
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.LyricsResponse
-import com.vyllo.music.data.download.DownloadEntity
-import com.vyllo.music.data.download.PlaylistEntity
-import com.vyllo.music.data.download.PlaylistSongEntity
+import com.vyllo.music.domain.model.DownloadEntity
+import com.vyllo.music.domain.model.PlaylistEntity
+import com.vyllo.music.domain.model.PlaylistSongEntity
 import kotlinx.coroutines.flow.Flow
 
 interface IMusicRepository {

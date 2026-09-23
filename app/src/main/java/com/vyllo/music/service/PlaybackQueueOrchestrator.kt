@@ -2,7 +2,7 @@ package com.vyllo.music.service
 
 import androidx.media3.exoplayer.ExoPlayer
 import com.vyllo.music.domain.repository.IMusicRepository
-import com.vyllo.music.data.manager.PlaybackQueueManager
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.WakeLockManager
 import com.vyllo.music.domain.manager.StreamUrlCache
 import com.vyllo.music.service.queue.QueueOperations

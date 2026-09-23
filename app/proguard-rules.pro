@@ -16,14 +16,12 @@
 -renamesourcefileattribute SourceFile
 
 # -------------------------------------------------------------------
-# Strip Debug Logs in Release (CRITICAL FOR SECURITY)
+# Strip Verbose/Debug Logs in Release (keep w/e for production diagnostics)
 # -------------------------------------------------------------------
 -assumenosideeffects class android.util.Log {
     public static *** d(...);
     public static *** v(...);
     public static *** i(...);
-    public static *** w(...);
-    public static *** e(...);
 }
 
 # Strip Kotlin assertions
@@ -63,9 +61,9 @@
 }
 
 # Keep Room Entities (obfuscate field names)
--keep class com.vyllo.music.data.download.DownloadEntity { *; }
--keep class com.vyllo.music.data.download.PlaylistEntity { *; }
--keep class com.vyllo.music.data.download.PlaylistSongEntity { *; }
+-keep class com.vyllo.music.domain.model.DownloadEntity { *; }
+-keep class com.vyllo.music.domain.model.PlaylistEntity { *; }
+-keep class com.vyllo.music.domain.model.PlaylistSongEntity { *; }
 -keep class com.vyllo.music.data.download.HistoryEntity { *; }
 
 # Keep Room DAOs
@@ -111,9 +109,13 @@
     public <methods>;
 }
 
-# Keep Kotlin Coroutines
--keep class kotlinx.coroutines.** { *; }
--keepclassmembers class kotlinx.coroutines.** { *; }
+# Keep Kotlin Coroutines — only what reflection actually needs
+# (full kotlinx.coroutines.** keep was ~+200KB of dead classes in R8)
+-dontwarn kotlinx.coroutines.debug.**
+-keepclassmembers class kotlinx.coroutines.internal.MainDispatcherFactory { *; }
+-keepclassmembers class kotlinx.coroutines.CoroutineExceptionHandler { *; }
+-keepclassmembers class * implements kotlinx.coroutines.CoroutineScope { *; }
+-keepattributes CoroutineName,CoroutineContext
 
 # -------------------------------------------------------------------
 # WorkManager

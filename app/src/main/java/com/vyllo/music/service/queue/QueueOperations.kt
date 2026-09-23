@@ -4,7 +4,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.repository.IMusicRepository
-import com.vyllo.music.data.manager.PlaybackQueueManager
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.WakeLockManager
 import com.vyllo.music.domain.manager.StreamUrlCache
 import com.vyllo.music.service.WakeLockHelper
@@ -68,27 +68,69 @@ class QueueOperations(
             SecureLogger.w("MusicService", "Player gone while ensuring lookahead: ${e.message}")
             return
         }
-        val nextTrack = playbackQueueManager.nextItem ?: run {
+
+        // PlaybackQueueManager is the source of truth for queue order. The UI
+        // ("Up Next") renders getUpcomingSnapshot() from the same manager, so
+        // ExoPlayer's lookahead must match manager.nextItem exactly — otherwise
+        // seekToNextMediaItem plays a stale entry the user never saw.
+        val expectedNext = playbackQueueManager.nextItem
+        pruneLookaheadToMatchQueue(p, expectedNext?.url) ?: return
+
+        if (expectedNext == null) {
             // Queue exhausted — warm autoplay discovery in the background so a
             // cold network fetch is not needed the moment the track ends.
             state.warmAutoplayDiscovery()
             return
         }
-        if (state.isMediaIdEnqueued(p, nextTrack.url)) return
-        if (p.mediaItemCount > 2) return
 
         wakeLockManager.withLocks {
             // Re-check after acquiring: a concurrent transition may have changed things.
-            if (state.isMediaIdEnqueued(p, nextTrack.url)) return@withLocks
-            val resolved = state.resolveStreamUrl(nextTrack.url)
-            if (resolved != null) {
+            if (state.isMediaIdEnqueued(p, expectedNext.url)) return@withLocks
+            if (playbackQueueManager.nextItem?.url != expectedNext.url) return@withLocks
+            val resolved = state.resolveStreamUrl(expectedNext.url)
+            if (resolved != null &&
+                playbackQueueManager.nextItem?.url == expectedNext.url &&
+                p.currentMediaItem?.mediaId != expectedNext.url
+            ) {
                 try {
-                    with(state) { p.addMediaItem(nextTrack.toMediaItem(resolved)) }
-                    SecureLogger.d("MusicService") { "Lookahead enqueued: ${nextTrack.title}" }
+                    with(state) { p.addMediaItem(expectedNext.toMediaItem(resolved)) }
+                    SecureLogger.d("MusicService") { "Lookahead enqueued: ${expectedNext.title}" }
                 } catch (e: Exception) {
                     SecureLogger.w("MusicService", "Failed to enqueue lookahead: ${e.message}")
                 }
             }
+        }
+    }
+
+    /**
+     * Drops every playlist entry after the current one unless it is exactly the
+     * manager's next item. Returns null when the player is unusable so callers
+     * can bail out.
+     */
+    private fun pruneLookaheadToMatchQueue(player: ExoPlayer, expectedNextUrl: String?): Boolean {
+        return try {
+            val currentIdx = player.currentMediaItemIndex
+            if (currentIdx < 0) return true
+            val firstLookahead = currentIdx + 1
+            if (firstLookahead >= player.mediaItemCount) return true
+
+            val lookaheadIds = (firstLookahead until player.mediaItemCount)
+                .map { player.getMediaItemAt(it).mediaId }
+            val matchesQueue = expectedNextUrl != null &&
+                lookaheadIds.size == 1 &&
+                lookaheadIds[0] == expectedNextUrl
+            if (matchesQueue) {
+                true
+            } else {
+                player.removeMediaItems(firstLookahead, player.mediaItemCount)
+                SecureLogger.d("MusicService") {
+                    "Pruned stale lookahead (expected=$expectedNextUrl, was=$lookaheadIds)"
+                }
+                true
+            }
+        } catch (e: Exception) {
+            SecureLogger.w("MusicService", "Player gone while pruning lookahead: ${e.message}")
+            false
         }
     }
 
@@ -105,7 +147,8 @@ class QueueOperations(
             val p = player
             if (p != null &&
                 p.repeatMode == Player.REPEAT_MODE_OFF &&
-                p.hasNextMediaItem()
+                p.hasNextMediaItem() &&
+                lookaheadMatchesQueue(p)
             ) {
                 try {
                     p.seekToNextMediaItem()
@@ -119,6 +162,22 @@ class QueueOperations(
                 return@launch
             }
             advanceQueueManually(p, mySeq)
+        }
+    }
+
+    /**
+     * True only when ExoPlayer's next entry is the same track the Up Next UI
+     * shows (PlaybackQueueManager.nextItem). A stale lookahead must never be
+     * seeked into — fall back to the manager-index path instead.
+     */
+    private fun lookaheadMatchesQueue(player: ExoPlayer): Boolean {
+        return try {
+            val expected = playbackQueueManager.nextItem?.url ?: return false
+            val nextIdx = player.currentMediaItemIndex + 1
+            nextIdx < player.mediaItemCount && player.getMediaItemAt(nextIdx).mediaId == expected
+        } catch (e: Exception) {
+            SecureLogger.w("MusicService", "Lookahead check failed: ${e.message}")
+            false
         }
     }
 

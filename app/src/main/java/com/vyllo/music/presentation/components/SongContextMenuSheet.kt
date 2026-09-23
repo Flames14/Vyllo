@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
 
 /**
@@ -144,7 +146,7 @@ fun SongContextMenuSheet(
                 HorizontalDivider(color = Color.White.copy(alpha = 0.06f), thickness = 0.5.dp)
                 IOSActionRow(
                     icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                    title = "Add to a Playlist...",
+                    title = androidx.compose.ui.res.stringResource(R.string.menu_add_to_playlist_ellipsis),
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onAddToPlaylist()
@@ -164,7 +166,7 @@ fun SongContextMenuSheet(
             ) {
                 IOSActionRow(
                     icon = Icons.Rounded.Download,
-                    title = "Download Song",
+                    title = androidx.compose.ui.res.stringResource(R.string.menu_download_song),
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onDownload()

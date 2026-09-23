@@ -104,7 +104,7 @@ fun LyricsViewContent(
                 ) {
                     Icon(
                         Icons.Rounded.RemoveCircleOutline,
-                        contentDescription = "Decrease lyrics sync offset by 0.5s",
+                        contentDescription = stringResource(R.string.lyrics_sync_offset_dec),
                         tint = LyricsColors.textSecondary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -121,7 +121,7 @@ fun LyricsViewContent(
                 ) {
                     Icon(
                         Icons.Rounded.AddCircleOutline,
-                        contentDescription = "Increase lyrics sync offset by 0.5s",
+                        contentDescription = stringResource(R.string.lyrics_sync_offset_inc),
                         tint = LyricsColors.textSecondary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -159,7 +159,7 @@ fun LyricsViewContent(
                     // Loading state
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         CircularProgressIndicator(color = LyricsColors.accent, strokeWidth = 2.dp, modifier = Modifier.size(36.dp))
-                        Text("Fetching lyrics…", style = MaterialTheme.typography.bodyMedium, color = LyricsColors.textSecondary)
+                        Text(stringResource(R.string.lyrics_fetching), style = MaterialTheme.typography.bodyMedium, color = LyricsColors.textSecondary)
                     }
                 }
 
@@ -178,7 +178,7 @@ fun LyricsViewContent(
                     PlainLyricsDisplay(playerUiState, viewModel)
                 }
 
-                hasLyricsResponse && !playerUiState.lyricsResponse!!.success -> {
+                hasLyricsResponse && playerUiState.lyricsResponse?.success != true -> {
                     // Failed to find lyrics
                     LyricsFailedState(playerUiState, viewModel)
                 }
@@ -211,7 +211,7 @@ fun LyricsViewContent(
             ) {
                 Icon(
                     Icons.Rounded.Translate,
-                    contentDescription = "Toggle lyrics translation",
+                    contentDescription = stringResource(R.string.lyrics_toggle_translation),
                     tint = if (playerUiState.isTranslationEnabled) LyricsColors.accent else LyricsColors.textInactive
                 )
             }
@@ -313,7 +313,7 @@ private fun LyricsManualSearchScreen(playerUiState: PlayerUiState, viewModel: Pl
             }
         } else if (!playerUiState.lyricsSearching && playerUiState.lyricsSearchQuery.isNotBlank()) {
             Text(
-                "No results found",
+                stringResource(R.string.lyrics_no_results),
                 style = MaterialTheme.typography.bodyMedium,
                 color = LyricsColors.textSecondary,
                 modifier = Modifier.padding(vertical = 16.dp),
@@ -484,15 +484,23 @@ private fun PlainLyricsDisplay(playerUiState: PlayerUiState, viewModel: PlayerVi
 private fun LyricsFailedState(playerUiState: PlayerUiState, viewModel: PlayerViewModel) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Icon(Icons.Rounded.SearchOff, null, tint = LyricsColors.textInactive, modifier = Modifier.size(40.dp))
-        Text("Lyrics not found", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = LyricsColors.textSecondary)
-        Text("Try searching manually", style = MaterialTheme.typography.bodySmall, color = LyricsColors.textInactive)
+        Text(
+            stringResource(R.string.player_lyrics_not_found),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = LyricsColors.textSecondary
+        )
+        Text(
+            stringResource(R.string.lyrics_search_manual_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = LyricsColors.textInactive
+        )
         FilledTonalButton(onClick = {
             SecureLogger.d("LyricsTabContent", "User tapped 'Search for lyrics' from failed state")
             viewModel.showLyricsSelector = true
         }) {
             Icon(Icons.Rounded.Search, null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(4.dp))
-            Text("Search for lyrics")
+            Text(stringResource(R.string.player_lyrics_search_button))
         }
         // Show error message if available
         val error = playerUiState.lyricsResponse?.error

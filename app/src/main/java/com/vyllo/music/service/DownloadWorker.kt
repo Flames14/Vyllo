@@ -15,8 +15,8 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.data.download.DownloadDao
-import com.vyllo.music.data.download.DownloadEntity
-import com.vyllo.music.data.download.DownloadStatus
+import com.vyllo.music.domain.model.DownloadEntity
+import com.vyllo.music.domain.model.DownloadStatus
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -202,7 +202,9 @@ class DownloadWorker @AssistedInject constructor(
             SecureLogger.e("DownloadWorker", "Download failed for $title: ${e.message}", e)
             try {
                 downloadDao.updateStatus(url, DownloadStatus.FAILED)
-            } catch (_: Exception) {}
+            } catch (dbError: Exception) {
+                SecureLogger.w("DownloadWorker", "Could not mark FAILED: ${dbError.message}")
+            }
             workingFile?.takeIf { it.exists() }?.delete()
             return Result.failure()
         } finally {

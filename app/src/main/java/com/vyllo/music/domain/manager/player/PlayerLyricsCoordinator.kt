@@ -1,9 +1,10 @@
-package com.vyllo.music
+package com.vyllo.music.domain.manager.player
 
+import com.vyllo.music.PlayerUiState
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.repository.IMusicRepository
-import com.vyllo.music.data.LyricsEngine
-import com.vyllo.music.data.TranslationEngine
+import com.vyllo.music.domain.repository.LyricsSearchService
+import com.vyllo.music.domain.repository.LyricsTranslator
 import com.vyllo.music.domain.model.LyricsResponse
 import com.vyllo.music.domain.model.LyricsResult
 import com.vyllo.music.domain.model.LyricsStatus
@@ -18,7 +19,8 @@ import javax.inject.Inject
 
 class PlayerLyricsCoordinator @Inject constructor(
     private val repository: IMusicRepository,
-    private val lyricsEngine: LyricsEngine,
+    private val searchService: LyricsSearchService,
+    private val translator: LyricsTranslator,
     private val getLyricsUseCase: GetLyricsUseCase,
     private val translateLyricsUseCase: TranslateLyricsUseCase
 ) {
@@ -84,7 +86,7 @@ class PlayerLyricsCoordinator @Inject constructor(
         updateState { it.copy(lyricsSearching = true) }
         lyricsSearchJob?.cancel()
         lyricsSearchJob = scope.launch(Dispatchers.IO) {
-            val results = lyricsEngine.searchLyrics(query)
+            val results = searchService.searchLyrics(query)
             updateState { it.copy(lyricsSearchResults = results, lyricsSearching = false) }
         }
     }
@@ -130,7 +132,7 @@ class PlayerLyricsCoordinator @Inject constructor(
         updateState: ((PlayerUiState) -> PlayerUiState) -> Unit,
         result: LyricsResult
     ) {
-        val parsedLines = LyricsEngine.parseSyncedLyrics(result.syncedLyrics)
+        val parsedLines = searchService.parseSyncedLyrics(result.syncedLyrics)
         updateState { state ->
             state.copy(
                 syncedLyricsLines = parsedLines,
@@ -173,7 +175,7 @@ class PlayerLyricsCoordinator @Inject constructor(
             )
         }
         translationJob?.cancel()
-        TranslationEngine.resetSession()
+        translator.resetSession()
     }
 
     private fun detectLangCode(languages: List<String>?): String? {

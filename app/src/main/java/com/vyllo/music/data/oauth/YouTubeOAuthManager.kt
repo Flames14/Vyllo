@@ -6,6 +6,7 @@ import android.net.Uri
 import android.util.Base64
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.vyllo.music.core.security.InMemorySharedPreferences
 import com.vyllo.music.core.security.SecureLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -63,8 +64,11 @@ class YouTubeOAuthManager @Inject constructor(
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
         } catch (e: Exception) {
-            SecureLogger.e(TAG, "Failed to initialize EncryptedSharedPreferences, using fallback", e)
-            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            // FAIL CLOSED: never fall back to plaintext for OAuth tokens.
+            // A broken keystore must surface as "not signed in", not as
+            // cleartext access/refresh tokens on disk.
+            SecureLogger.e(TAG, "EncryptedSharedPreferences unavailable — refusing plaintext token storage", e)
+            InMemorySharedPreferences()
         }
     }
 

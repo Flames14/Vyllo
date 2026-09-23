@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -173,7 +174,7 @@ fun PlayerQueueSheet(
                             ) {
                                 Icon(
                                     Icons.Rounded.KeyboardArrowUp,
-                                    contentDescription = "Swipe up",
+                                    contentDescription = stringResource(com.vyllo.music.R.string.accessibility_swipe_up),
                                     tint = Color.White,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -181,12 +182,12 @@ fun PlayerQueueSheet(
                             Spacer(Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = "Swipe up for Up Next",
+                                    text = stringResource(com.vyllo.music.R.string.queue_swipe_up_hint),
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                     color = Color.White
                                 )
                                 Text(
-                                    text = "${item.title} • Auto-Mix",
+                                    text = stringResource(com.vyllo.music.R.string.queue_auto_mix, item.title),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Color.White.copy(alpha = 0.6f),
                                     maxLines = 1,

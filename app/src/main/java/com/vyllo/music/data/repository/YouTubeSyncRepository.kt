@@ -2,8 +2,8 @@ package com.vyllo.music.data.repository
 
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.data.download.PlaylistDao
-import com.vyllo.music.data.download.PlaylistEntity
-import com.vyllo.music.data.download.PlaylistSongEntity
+import com.vyllo.music.domain.model.PlaylistEntity
+import com.vyllo.music.domain.model.PlaylistSongEntity
 import com.vyllo.music.data.network.YouTubeRemotePlaylist
 import com.vyllo.music.data.network.YouTubeRemoteTrack
 import com.vyllo.music.data.network.YouTubeSyncApiService

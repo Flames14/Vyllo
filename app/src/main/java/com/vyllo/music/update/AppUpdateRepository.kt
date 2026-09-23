@@ -50,8 +50,12 @@ class AppUpdateRepository @Inject constructor(
                 val currentVersion = BuildConfig.VERSION_NAME.replaceFirst(Regex("^[vV]+"), "")
 
                 if (isNewerVersion(currentVersion, gitHubVersion)) {
-                    val apkUrl = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }?.downloadUrl
+                    val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
+                    val apkUrl = apkAsset?.downloadUrl
                     if (apkUrl != null) {
+                        if (!isTrustedApkHost(apkUrl)) {
+                            return@withContext UpdateResult.Error("Update URL host is not trusted")
+                        }
                         return@withContext UpdateResult.UpdateAvailable(release, apkUrl)
                     } else {
                         return@withContext UpdateResult.Error("No APK found in the latest release.")
@@ -80,5 +84,30 @@ class AppUpdateRepository @Inject constructor(
             if (inc < c) return false
         }
         return false // Exactly the same
+    }
+
+    companion object {
+        private val TRUSTED_APK_HOSTS = setOf(
+            "github.com",
+            "api.github.com",
+            "objects.githubusercontent.com",
+            "release-assets.githubusercontent.com",
+            "raw.githubusercontent.com"
+        )
+
+        /**
+         * Only GitHub-controlled hosts may deliver an installable APK. A tampered
+         * API response pointing at an arbitrary domain is rejected here; Android's
+         * same-signature install check remains the second line of defense.
+         */
+        fun isTrustedApkHost(url: String): Boolean {
+            val host = try {
+                java.net.URI(url).host?.lowercase() ?: return false
+            } catch (e: Exception) {
+                return false
+            }
+            if (!url.startsWith("https://", ignoreCase = true)) return false
+            return TRUSTED_APK_HOSTS.any { host == it || host.endsWith(".$it") }
+        }
     }
 }

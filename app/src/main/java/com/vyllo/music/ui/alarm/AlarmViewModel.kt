@@ -6,8 +6,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import com.vyllo.music.R
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.data.alarm.AlarmDao
 import com.vyllo.music.data.download.DownloadDao
@@ -18,6 +20,7 @@ import com.vyllo.music.domain.model.SoundType
 import com.vyllo.music.domain.repository.AlarmRepository
 import com.vyllo.music.domain.usecase.*
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +32,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class AlarmViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val getAllAlarmsUseCase: GetAllAlarmsUseCase,
     private val createAlarmUseCase: CreateAlarmUseCase,
     private val updateAlarmUseCase: UpdateAlarmUseCase,
@@ -92,7 +96,7 @@ class AlarmViewModel @Inject constructor(
         set
 
     // Downloaded songs for sound picker
-    var downloadedSongs by mutableStateOf<List<com.vyllo.music.data.download.DownloadEntity>>(emptyList())
+    var downloadedSongs by mutableStateOf<List<com.vyllo.music.domain.model.DownloadEntity>>(emptyList())
         private set
 
     // Countdown state
@@ -411,7 +415,7 @@ class AlarmViewModel @Inject constructor(
         val millisUntil = nextAlarmTime - now
         
         if (millisUntil <= 0) {
-            timeUntilNextAlarm = "Ringing now!"
+            timeUntilNextAlarm = appContext.getString(R.string.alarm_countdown_ringing_now)
             return
         }
 
@@ -420,9 +424,9 @@ class AlarmViewModel @Inject constructor(
         val seconds = (millisUntil % 60000) / 1000
 
         timeUntilNextAlarm = when {
-            hours > 0 -> "Next alarm in ${hours}h ${minutes}m"
-            minutes > 0 -> "Next alarm in ${minutes}m ${seconds}s"
-            else -> "Next alarm in ${seconds}s"
+            hours > 0 -> appContext.getString(R.string.alarm_countdown_next_hm, hours, minutes)
+            minutes > 0 -> appContext.getString(R.string.alarm_countdown_next_ms, minutes, seconds)
+            else -> appContext.getString(R.string.alarm_countdown_next_s, seconds)
         }
     }
 

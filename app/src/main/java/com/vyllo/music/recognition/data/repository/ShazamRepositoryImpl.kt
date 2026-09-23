@@ -128,7 +128,9 @@ class ShazamRepositoryImpl @Inject constructor(
                 if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
                     audioRecord.stop()
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+                // RECORDSTATE may already be STOPPED/INITIALIZED — ignore.
+            }
             audioRecord.release()
         }
 

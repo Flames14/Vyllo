@@ -26,8 +26,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.vyllo.music.R
 
 @Composable
 fun PremiumGlassSearchBar(
@@ -70,7 +72,11 @@ fun PremiumGlassSearchBar(
                 modifier = Modifier.weight(1f),
                 decorationBox = { innerTextField ->
                     if (query.isEmpty()) {
-                        Text("Search songs, artists...", color = MaterialTheme.colorScheme.onBackground.copy(0.4f), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            stringResource(R.string.search_placeholder),
+                            color = MaterialTheme.colorScheme.onBackground.copy(0.4f),
+                            style = MaterialTheme.typography.titleMedium
+                        )
                     }
                     innerTextField()
                 }

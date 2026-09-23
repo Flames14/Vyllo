@@ -8,7 +8,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.vyllo.music.R
 
 /**
  * Time picker dialog for setting alarm time.
@@ -37,7 +39,7 @@ fun AlarmTimePickerDialog(
                     IconButton(onClick = {
                         selectedHour = if (selectedHour > 0) selectedHour - 1 else 23
                     }) {
-                        Icon(Icons.Default.Remove, "Decrease hour")
+                        Icon(Icons.Default.Remove, stringResource(R.string.alarm_cd_dec_hour))
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -59,7 +61,7 @@ fun AlarmTimePickerDialog(
                     IconButton(onClick = {
                         selectedHour = if (selectedHour < 23) selectedHour + 1 else 0
                     }) {
-                        Icon(Icons.Default.Add, "Increase hour")
+                        Icon(Icons.Default.Add, stringResource(R.string.alarm_cd_inc_hour))
                     }
                 }
 
@@ -74,7 +76,7 @@ fun AlarmTimePickerDialog(
                     IconButton(onClick = {
                         selectedMinute = if (selectedMinute > 0) selectedMinute - 1 else 59
                     }) {
-                        Icon(Icons.Default.Remove, "Decrease minute")
+                        Icon(Icons.Default.Remove, stringResource(R.string.alarm_cd_dec_minute))
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -96,7 +98,7 @@ fun AlarmTimePickerDialog(
                     IconButton(onClick = {
                         selectedMinute = if (selectedMinute < 59) selectedMinute + 1 else 0
                     }) {
-                        Icon(Icons.Default.Add, "Increase minute")
+                        Icon(Icons.Default.Add, stringResource(R.string.alarm_cd_inc_minute))
                     }
                 }
             }

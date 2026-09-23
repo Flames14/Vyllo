@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.vyllo.music.LibraryViewModel
 import com.vyllo.music.LocalLibraryViewModel
+import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
 
 import androidx.compose.material.icons.rounded.SkipNext
@@ -217,7 +219,11 @@ fun PremiumMiniPlayer(
                 } else {
                     Icon(
                         if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        contentDescription = if (isPlaying) {
+                            stringResource(R.string.accessibility_pause)
+                        } else {
+                            stringResource(R.string.accessibility_play)
+                        },
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(32.dp)
                     )
@@ -230,7 +236,7 @@ fun PremiumMiniPlayer(
             ) {
                 Icon(
                     Icons.Rounded.SkipNext,
-                    contentDescription = "Next track",
+                    contentDescription = stringResource(R.string.accessibility_skip_next),
                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
                     modifier = Modifier.size(24.dp)
                 )

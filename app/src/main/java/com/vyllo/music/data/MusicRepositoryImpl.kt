@@ -6,8 +6,13 @@ import com.vyllo.music.domain.repository.VideoStats
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.LyricsResponse
-import com.vyllo.music.data.download.*
-import com.vyllo.music.data.manager.PlaybackQueueManager
+import com.vyllo.music.domain.model.DownloadEntity
+import com.vyllo.music.domain.model.PlaylistEntity
+import com.vyllo.music.domain.model.PlaylistSongEntity
+import com.vyllo.music.data.download.HistoryDao
+import com.vyllo.music.data.download.toHistoryEntity
+import com.vyllo.music.data.download.toMusicItem
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.data.network.YouTubeDataSource
 import com.vyllo.music.data.network.SuggestionDataSource
@@ -266,7 +271,13 @@ class MusicRepositoryImpl @Inject constructor(
                     SecureLogger.d("MusicRepositoryImpl") {
                         "Found subtitle stream: lang=${bestSubStream.displayLanguageName}, format=${bestSubStream.format}, url=${bestSubStream.url}"
                     }
-                    val subContent = subtitleLyricsDelegate.downloadSubtitleContent(bestSubStream.url!!)
+                    val subUrl = bestSubStream.url
+                    val subContent = if (subUrl.isNullOrBlank()) {
+                        SecureLogger.w("MusicRepositoryImpl", "Subtitle stream has no URL; skipping")
+                        null
+                    } else {
+                        subtitleLyricsDelegate.downloadSubtitleContent(subUrl)
+                    }
 
                     if (!subContent.isNullOrBlank()) {
                         val syncedLines = subtitleLyricsDelegate.parseSubtitles(subContent)
@@ -319,7 +330,10 @@ class MusicRepositoryImpl @Inject constructor(
                     if (url.startsWith("http")) url else "https://www.youtube.com/watch?v=$url"
                 )
                 commentCount = commentsInfo.commentsCount.toLong()
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                // Comments are optional enrichment; keep like/view stats either way.
+                SecureLogger.d("MusicRepositoryImpl", "Comment count unavailable: ${e.message}")
+            }
 
             VideoStats(likeCount = likeCount, viewCount = viewCount, commentCount = commentCount)
         } catch (e: Exception) {

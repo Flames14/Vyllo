@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.lazy.LazyListState
 import com.vyllo.music.core.security.SecurityConfig
 import com.vyllo.music.core.security.SecurePreferenceManager
-import com.vyllo.music.data.manager.PlaybackQueueManager
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.data.manager.DownloadManager
 import com.vyllo.music.domain.manager.PlaybackManager

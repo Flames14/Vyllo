@@ -35,8 +35,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.vyllo.music.R
 import com.vyllo.music.PlayerUiState
 import com.vyllo.music.PlayerViewModel
 import com.vyllo.music.domain.model.MusicItem
@@ -90,13 +92,13 @@ fun PlayerUpNextTab(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Playing from Queue",
+                        text = stringResource(R.string.queue_playing_from),
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = Color.White.copy(alpha = 0.6f)
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "• ${relatedSongs.size} tracks",
+                        text = "• " + stringResource(R.string.queue_track_count, relatedSongs.size),
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White.copy(alpha = 0.4f)
                     )

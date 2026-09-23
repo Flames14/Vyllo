@@ -26,8 +26,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.vyllo.music.R
 import com.vyllo.music.presentation.theme.VylloRadius
 import com.vyllo.music.presentation.theme.VylloSpacing
 
@@ -132,9 +134,9 @@ fun VylloEmptyState(
 fun VylloErrorState(
     message: String,
     modifier: Modifier = Modifier,
-    title: String = "Something went wrong",
+    title: String = stringResource(R.string.state_error_title),
     onRetry: (() -> Unit)? = null,
-    retryLabel: String = "Try again"
+    retryLabel: String = stringResource(R.string.state_try_again)
 ) {
     Column(
         modifier = modifier

@@ -13,8 +13,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.vyllo.music.R
 import com.vyllo.music.domain.model.DayOfWeek
 import com.vyllo.music.ui.alarm.AlarmViewModel
 
@@ -31,7 +33,11 @@ fun AlarmEditDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = if (viewModel.editingAlarm == null) "Add Alarm" else "Edit Alarm",
+                text = if (viewModel.editingAlarm == null) {
+                    stringResource(R.string.alarm_add_alarm)
+                } else {
+                    stringResource(R.string.alarm_edit_alarm)
+                },
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
         },
@@ -94,8 +100,8 @@ fun AlarmEditDialog(
                             text = "Vibration",
                             style = MaterialTheme.typography.bodyLarge
                         )
-                        Text(
-                            text = "Vibrate when alarm triggers",
+                Text(
+                    text = stringResource(R.string.alarm_vibrate_when_triggers),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                         )
@@ -162,7 +168,7 @@ private fun AlarmTimeSelector(
             }
             Icon(
                 Icons.Rounded.Edit,
-                contentDescription = "Edit time",
+                        contentDescription = stringResource(R.string.alarm_cd_edit_time),
                 tint = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
@@ -241,7 +247,7 @@ private fun SoundSelector(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = songTitle ?: "Default alarm sound",
+                    text = songTitle ?: stringResource(R.string.alarm_default_sound_label),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
@@ -249,7 +255,7 @@ private fun SoundSelector(
             }
             Icon(
                 Icons.Rounded.ChevronRight,
-                contentDescription = "Select sound",
+                    contentDescription = stringResource(R.string.alarm_cd_select_sound),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

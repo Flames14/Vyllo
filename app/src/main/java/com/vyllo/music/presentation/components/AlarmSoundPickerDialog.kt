@@ -14,9 +14,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.vyllo.music.data.download.DownloadEntity
+import com.vyllo.music.R
+import com.vyllo.music.domain.model.DownloadEntity
 import com.vyllo.music.domain.model.SoundType
 
 /**
@@ -78,7 +80,7 @@ fun AlarmSoundPickerDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    text = "System default alarm tone",
+                                    text = stringResource(R.string.alarm_sound_system_default),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                 )
@@ -112,7 +114,7 @@ fun AlarmSoundPickerDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No downloaded songs available",
+                            text = stringResource(R.string.alarm_no_downloads),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                         )

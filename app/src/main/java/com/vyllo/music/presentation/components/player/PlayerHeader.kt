@@ -37,11 +37,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.media3.session.MediaController
 import com.vyllo.music.PlayerUiState
 import com.vyllo.music.PlayerViewModel
+import com.vyllo.music.R
 import com.vyllo.music.core.utils.ShareIntentManager
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.presentation.components.iosPressClickable
@@ -69,7 +71,7 @@ fun PlayerHeader(
         IconButton(onClick = onCollapse) {
             Icon(
                 imageVector = Icons.Rounded.KeyboardArrowDown,
-                contentDescription = "Collapse",
+                contentDescription = stringResource(R.string.header_collapse),
                 tint = Color.White,
                 modifier = Modifier.size(32.dp)
             )
@@ -111,13 +113,13 @@ fun PlayerHeader(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Rounded.Headphones,
-                            contentDescription = "Song Mode",
+                            contentDescription = stringResource(R.string.header_song_mode),
                             tint = Color.White,
                             modifier = Modifier.size(15.dp)
                         )
                         Spacer(Modifier.width(5.dp))
                         Text(
-                            text = "Song",
+                            text = stringResource(R.string.header_song),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = Color.White
                         )
@@ -150,13 +152,13 @@ fun PlayerHeader(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Rounded.SmartDisplay,
-                            contentDescription = "Video Mode",
+                            contentDescription = stringResource(R.string.header_video_mode),
                             tint = Color.White,
                             modifier = Modifier.size(15.dp)
                         )
                         Spacer(Modifier.width(5.dp))
                         Text(
-                            text = "Video",
+                            text = stringResource(R.string.header_video),
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                             color = Color.White
                         )
@@ -169,7 +171,7 @@ fun PlayerHeader(
         Box {
             var showMoreMenu by remember { mutableStateOf(false) }
             IconButton(onClick = { showMoreMenu = true }) {
-                Icon(Icons.Rounded.MoreVert, "More Options", tint = Color.White)
+                Icon(Icons.Rounded.MoreVert, stringResource(R.string.header_more_options), tint = Color.White)
             }
             DropdownMenu(
                 expanded = showMoreMenu,
@@ -177,13 +179,13 @@ fun PlayerHeader(
                 modifier = Modifier.background(Color(0xFF1E1E22))
             ) {
                 DropdownMenuItem(
-                    text = { Text("Equalizer", color = Color.White) },
+                    text = { Text(stringResource(R.string.header_equalizer), color = Color.White) },
                     onClick = {
                         showMoreMenu = false
                         onShowEqualizer()
                     },
                     leadingIcon = {
-                        Icon(Icons.Rounded.Tune, "Equalizer", tint = Color.White)
+                        Icon(Icons.Rounded.Tune, stringResource(R.string.header_equalizer), tint = Color.White)
                     }
                 )
                 DropdownMenuItem(
@@ -192,9 +194,9 @@ fun PlayerHeader(
                         val label = if (playerUiState.isSleepTimerActive && remaining != null) {
                             val m = remaining / 60
                             val s = remaining % 60
-                            "Sleep Timer (%02d:%02d)".format(m, s)
+                            context.getString(R.string.header_sleep_timer_remaining, m, s)
                         } else {
-                            "Sleep Timer"
+                            context.getString(R.string.header_sleep_timer)
                         }
                         Text(
                             label,
@@ -208,39 +210,39 @@ fun PlayerHeader(
                     leadingIcon = {
                         Icon(
                             Icons.Rounded.Snooze,
-                            "Sleep Timer",
+                            context.getString(R.string.header_sleep_timer),
                             tint = if (playerUiState.isSleepTimerActive) MaterialTheme.colorScheme.primary else Color.White
                         )
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text("Share Story Card", color = Color.White) },
+                    text = { Text(stringResource(R.string.header_share_story), color = Color.White) },
                     onClick = {
                         showMoreMenu = false
                         onShowStoryShare()
                     },
                     leadingIcon = {
-                        Icon(Icons.Rounded.CameraAlt, "Share Story", tint = Color.White)
+                        Icon(Icons.Rounded.CameraAlt, stringResource(R.string.header_share_story_cd), tint = Color.White)
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text("Share Song Link", color = Color.White) },
+                    text = { Text(stringResource(R.string.header_share_link), color = Color.White) },
                     onClick = {
                         showMoreMenu = false
                         ShareIntentManager.shareSongLink(context, item)
                     },
                     leadingIcon = {
-                        Icon(Icons.Rounded.Share, "Share Link", tint = Color.White)
+                        Icon(Icons.Rounded.Share, stringResource(R.string.header_share_link_cd), tint = Color.White)
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text("Copy Song Link", color = Color.White) },
+                    text = { Text(stringResource(R.string.header_copy_link), color = Color.White) },
                     onClick = {
                         showMoreMenu = false
                         ShareIntentManager.copySongLink(context, item)
                     },
                     leadingIcon = {
-                        Icon(Icons.Rounded.ContentCopy, "Copy Link", tint = Color.White)
+                        Icon(Icons.Rounded.ContentCopy, stringResource(R.string.header_copy_link_cd), tint = Color.White)
                     }
                 )
             }

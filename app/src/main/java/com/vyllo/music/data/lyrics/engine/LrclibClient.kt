@@ -79,7 +79,10 @@ object LrclibClient {
 
             val response = client.newCall(LyricsResponseFactory.newRequest(url)).execute()
             val body = response.body?.string()
-            SecureLogger.d(TAG, "  LRCLIB search: HTTP ${response.code}, results=${try { JSONArray(body!!).length() } catch (_: Exception) { 0 }}")
+            val resultCount = try {
+                if (body.isNullOrBlank()) 0 else JSONArray(body).length()
+            } catch (_: Exception) { 0 }
+            SecureLogger.d(TAG, "  LRCLIB search: HTTP ${response.code}, results=$resultCount")
 
             if (!response.isSuccessful || body.isNullOrBlank()) return null
 

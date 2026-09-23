@@ -39,6 +39,14 @@ object PoTokenProviderImpl : PoTokenProvider {
             return null
         }
 
+        // NewPipe's PoTokenProvider API is synchronous, so runBlocking below is
+        // forced by the extractor contract (not a coroutine design choice).
+        // Never block the main thread: fail gracefully instead of ANR-ing.
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            Log.w(TAG, "PoToken requested on main thread; returning null to avoid ANR")
+            return null
+        }
+
         try {
             return getWebClientPoToken(videoId = videoId, forceRecreate = false)
         } catch (e: RuntimeException) {
@@ -63,8 +71,8 @@ object PoTokenProviderImpl : PoTokenProvider {
 
         val (poTokenGenerator, visitorData, streamingPot, hasBeenRecreated) =
             synchronized(WebPoTokenGenLock) {
-                val shouldRecreate = webPoTokenGenerator == null || forceRecreate ||
-                    webPoTokenGenerator!!.isExpired()
+                val existing = webPoTokenGenerator
+                val shouldRecreate = existing == null || forceRecreate || existing.isExpired()
 
                 if (shouldRecreate) {
                     val innertubeClientRequestInfo = InnertubeClientRequestInfo.ofWebClient()
@@ -81,28 +89,37 @@ object PoTokenProviderImpl : PoTokenProvider {
                         false
                     )
                     // close the current webPoTokenGenerator on the main thread
-                    webPoTokenGenerator?.let { generator ->
+                    existing?.let { generator ->
                         Handler(Looper.getMainLooper()).post { generator.close() }
                     }
 
-                    // create a new webPoTokenGenerator using runBlocking
+                    // NewPipe's PoTokenProvider API is synchronous; the underlying
+                    // suspend funs hop to Dispatchers.Main themselves, so this only
+                    // blocks the calling worker thread (never the main thread).
                     webPoTokenGenerator = runBlocking {
                         PoTokenWebView.newPoTokenGenerator(appContext)
                     }
 
+                    val visitor = webPoTokenVisitorData
+                        ?: throw PoTokenException("visitorData missing after recreate")
                     // The streaming poToken needs to be generated exactly once before generating
                     // any other (player) tokens.
-                    webPoTokenStreamingPot = runBlocking {
-                        webPoTokenGenerator!!.generatePoToken(webPoTokenVisitorData!!)
+                    val newGen = webPoTokenGenerator
+                        ?: throw PoTokenException("PoToken generator missing after recreate")
+                    val streamingToken = runBlocking {
+                        newGen.generatePoToken(visitor)
                     }
+                    webPoTokenStreamingPot = streamingToken
                 }
 
-                return@synchronized Quadruple(
-                    webPoTokenGenerator!!,
-                    webPoTokenVisitorData!!,
-                    webPoTokenStreamingPot!!,
-                    shouldRecreate
-                )
+                val gen = webPoTokenGenerator
+                    ?: throw PoTokenException("PoToken generator unavailable")
+                val vd = webPoTokenVisitorData
+                    ?: throw PoTokenException("visitorData unavailable")
+                val sp = webPoTokenStreamingPot
+                    ?: throw PoTokenException("streaming PoToken unavailable")
+
+                return@synchronized Quadruple(gen, vd, sp, shouldRecreate)
             }
 
         val playerPot = try {
@@ -110,6 +127,7 @@ object PoTokenProviderImpl : PoTokenProvider {
                 poTokenGenerator.generatePoToken(videoId)
             }
         } catch (throwable: Throwable) {
+            if (throwable is kotlinx.coroutines.CancellationException) throw throwable
             if (hasBeenRecreated) {
                 // the poTokenGenerator has just been recreated (and possibly this is already the
                 // second time we try), so there is likely nothing we can do

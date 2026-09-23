@@ -2,7 +2,7 @@ package com.vyllo.music.domain.usecase
 
 import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.domain.model.MusicItem
-import com.vyllo.music.data.download.DownloadEntity
+import com.vyllo.music.domain.model.DownloadEntity
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 

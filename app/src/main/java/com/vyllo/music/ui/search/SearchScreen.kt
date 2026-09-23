@@ -48,6 +48,8 @@ import com.vyllo.music.ui.components.*
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.res.stringResource
+import com.vyllo.music.R
 
 // =========================================================================
 // YTM SEARCH SCREEN
@@ -161,7 +163,10 @@ fun YTMSearchScreen(
                             },
                         decorationBox = { innerTextField ->
                             if (viewModel.searchQuery.isEmpty()) {
-                                Text("Search songs, albums, artists", color = MaterialTheme.colorScheme.onBackground.copy(0.4f))
+                                Text(
+                                    stringResource(R.string.search_placeholder_long),
+                                    color = MaterialTheme.colorScheme.onBackground.copy(0.4f)
+                                )
                             }
                             innerTextField()
                         }

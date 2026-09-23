@@ -28,10 +28,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.LibraryViewModel
+import com.vyllo.music.R
 
 @Composable
 fun PlaylistAddDialog(
@@ -52,7 +54,7 @@ fun PlaylistAddDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add to Playlist") },
+        title = { Text(stringResource(R.string.playlist_add_to)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
                 Row(
@@ -62,16 +64,24 @@ fun PlaylistAddDialog(
                         .padding(vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Rounded.Add, contentDescription = "New playlist", tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        Icons.Rounded.Add,
+                        contentDescription = stringResource(R.string.playlist_new),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text("New Playlist", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text(
+                        stringResource(R.string.playlist_new),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
                 if (viewModel.allPlaylists.isEmpty()) {
                     Text(
-                        "No playlists yet",
+                        stringResource(R.string.playlist_none_yet),
                         modifier = Modifier.padding(vertical = 16.dp).fillMaxWidth(),
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurface.copy(0.5f)
@@ -98,7 +108,7 @@ fun PlaylistAddDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         }
     )
 }
@@ -112,12 +122,12 @@ fun CreatePlaylistDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New Playlist") },
+        title = { Text(stringResource(R.string.playlist_new)) },
         text = {
             OutlinedTextField(
                 value = playlistName,
                 onValueChange = { playlistName = it },
-                label = { Text("Playlist Name") },
+                label = { Text(stringResource(R.string.playlist_name)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -126,10 +136,10 @@ fun CreatePlaylistDialog(
             Button(
                 onClick = { if (playlistName.isNotBlank()) onCreate(playlistName) },
                 enabled = playlistName.isNotBlank()
-            ) { Text("Create") }
+            ) { Text(stringResource(R.string.playlist_create)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         }
     )
 }

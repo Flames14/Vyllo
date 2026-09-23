@@ -1,4 +1,4 @@
-package com.vyllo.music.data.download
+package com.vyllo.music.domain.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

@@ -26,7 +26,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.vyllo.music.R
 import com.vyllo.music.presentation.components.ytmClickable
 import com.vyllo.music.presentation.theme.VylloSize
 import com.vyllo.music.presentation.theme.VylloSpacing
@@ -86,18 +88,18 @@ fun YTMHeader(
             if (onSearchClick != null) {
                 HeaderIconButton(
                     icon = Icons.Rounded.Search,
-                    contentDescription = "Search songs, albums and artists",
+                    contentDescription = androidx.compose.ui.res.stringResource(com.vyllo.music.R.string.accessibility_search),
                     onClick = onSearchClick
                 )
             }
             HeaderIconButton(
                 icon = Icons.Rounded.GraphicEq,
-                contentDescription = "Recognise music",
+                contentDescription = androidx.compose.ui.res.stringResource(com.vyllo.music.R.string.accessibility_recognize),
                 onClick = onRecognizeClick
             )
             HeaderIconButton(
                 icon = Icons.Rounded.Settings,
-                contentDescription = "Settings and themes",
+                contentDescription = androidx.compose.ui.res.stringResource(com.vyllo.music.R.string.accessibility_settings),
                 onClick = onSettingsClick
             )
         }

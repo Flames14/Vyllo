@@ -38,8 +38,11 @@ object LrcParser {
                         val timeMs = (minutes * 60 + seconds) * 1000 + fractionMs
                         lines.add(SyncedLyricLine(timeMs, text))
                     }
-                } catch (_: Exception) {
-                    // Skip malformed lines
+                } catch (e: Exception) {
+                    // Skip malformed numeric fields on this line only
+                    com.vyllo.music.core.security.SecureLogger.d("LrcParser") {
+                        "Skipping malformed LRC line: $line (${e.message})"
+                    }
                 }
             }
         }

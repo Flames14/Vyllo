@@ -6,7 +6,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.data.manager.PlaybackAudioEffectsManager
-import com.vyllo.music.data.manager.PlaybackQueueManager
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.domain.manager.PlaybackErrorHandler
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.service.PlaybackQueueOrchestrator

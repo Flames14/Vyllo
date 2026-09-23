@@ -90,8 +90,9 @@ fun PlayerActionPills(
         // Like / Dislike Combined Pill (Real YouTube Likes with Interactive Feedback)
         var isLiked by remember(item.url) { mutableStateOf(false) }
         var isDisliked by remember(item.url) { mutableStateOf(false) }
+        val likeFallbackLabel = stringResource(R.string.pill_like)
 
-        val displayedLikes = remember(playerUiState.likeCountFormatted, isLiked) {
+        val displayedLikes = remember(playerUiState.likeCountFormatted, isLiked, likeFallbackLabel) {
             when {
                 isLiked -> {
                     val baseCount = playerUiState.likeCount
@@ -99,8 +100,8 @@ fun PlayerActionPills(
                         viewModel.formatMetricCount(baseCount + 1)
                     } else "1"
                 }
-                !playerUiState.likeCountFormatted.isNullOrBlank() -> playerUiState.likeCountFormatted!!
-                else -> "Like"
+                !playerUiState.likeCountFormatted.isNullOrBlank() -> playerUiState.likeCountFormatted.orEmpty()
+                else -> likeFallbackLabel
             }
         }
 
@@ -115,7 +116,7 @@ fun PlayerActionPills(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.ThumbUp,
-                    contentDescription = "Like",
+                    contentDescription = stringResource(R.string.cd_like),
                     tint = if (isLiked) Color(0xFF3EA6FF) else Color.White,
                     modifier = Modifier
                         .size(18.dp)
@@ -136,7 +137,7 @@ fun PlayerActionPills(
                 Spacer(Modifier.width(10.dp))
                 Icon(
                     imageVector = Icons.Rounded.ThumbDown,
-                    contentDescription = "Dislike",
+                    contentDescription = stringResource(R.string.cd_dislike),
                     tint = if (isDisliked) Color(0xFF3EA6FF) else Color.White,
                     modifier = Modifier
                         .size(18.dp)
@@ -150,28 +151,28 @@ fun PlayerActionPills(
         }
 
         // Lyrics Pill
-        YtmPillButton(icon = Icons.Rounded.Lyrics, label = "Lyrics") {
+        YtmPillButton(icon = Icons.Rounded.Lyrics, label = stringResource(R.string.pill_lyrics)) {
             onLyricsClick()
         }
 
         // Comments Pill (Real YouTube Comment Count)
-        val displayedComments = playerUiState.commentCountFormatted ?: "Comments"
+        val displayedComments = playerUiState.commentCountFormatted ?: stringResource(R.string.pill_comments)
         YtmPillButton(icon = Icons.AutoMirrored.Rounded.Comment, label = displayedComments) {
             onShowComments()
         }
 
         // Save to Playlist Pill
-        YtmPillButton(icon = Icons.AutoMirrored.Rounded.PlaylistAdd, label = "Save") {
+        YtmPillButton(icon = Icons.AutoMirrored.Rounded.PlaylistAdd, label = stringResource(R.string.pill_save)) {
             libraryViewModel.showPlaylistAddDialog(item)
         }
 
         // Share Pill
-        YtmPillButton(icon = Icons.Rounded.Share, label = "Share") {
+        YtmPillButton(icon = Icons.Rounded.Share, label = stringResource(R.string.pill_share)) {
             onShowStoryShare()
         }
 
         // Download Pill
-        YtmPillButton(icon = Icons.Rounded.Download, label = "Download") {
+        YtmPillButton(icon = Icons.Rounded.Download, label = stringResource(R.string.pill_download)) {
             libraryViewModel.downloadSong(item)
         }
     }
@@ -259,6 +260,11 @@ fun PlayerPlaybackControls(
         }
 
         // Main Big Play/Pause Circle with Apple Damped Spring
+        val playPauseDescription = if (isPlaying) {
+            stringResource(R.string.accessibility_pause)
+        } else {
+            stringResource(R.string.accessibility_play)
+        }
         Surface(
             modifier = Modifier
                 .size(68.dp)
@@ -267,7 +273,7 @@ fun PlayerPlaybackControls(
                     onTogglePlay()
                 }
                 .semantics {
-                    contentDescription = if (isPlaying) "Pause" else "Play"
+                    contentDescription = playPauseDescription
                 },
             color = Color.White,
             contentColor = Color.Black
@@ -282,7 +288,7 @@ fun PlayerPlaybackControls(
                 } else {
                     Icon(
                         if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = stringResource(if (isPlaying) R.string.accessibility_pause else R.string.accessibility_play),
+                        contentDescription = playPauseDescription,
                         modifier = Modifier.size(40.dp),
                         tint = Color.Black
                     )

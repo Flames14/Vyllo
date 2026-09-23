@@ -11,12 +11,13 @@ import androidx.work.workDataOf
 import androidx.work.OutOfQuotaPolicy
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.data.download.DownloadDao
-import com.vyllo.music.data.download.DownloadEntity
-import com.vyllo.music.data.download.DownloadStatus
+import com.vyllo.music.domain.model.DownloadEntity
+import com.vyllo.music.domain.model.DownloadStatus
 import com.vyllo.music.service.DownloadWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -30,7 +31,9 @@ class DownloadRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val downloadDao: DownloadDao
 ) {
-    private val repositoryScope = CoroutineScope(Dispatchers.IO)
+    // SupervisorJob so one failed enqueue doesn't kill subsequent work,
+    // and cancellation propagates cleanly if the singleton is ever torn down.
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     fun getAllDownloads(): Flow<List<DownloadEntity>> =
         downloadDao.getAllDownloads().distinctUntilChanged()
