@@ -59,7 +59,7 @@ fun VolumeBoosterOverlay(
             ) {
                 Icon(
                     imageVector = androidx.compose.material.icons.Icons.Rounded.VolumeUp,
-                    contentDescription = "Volume Boost",
+                    contentDescription = stringResource(R.string.cd_volume_boost),
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(24.dp)
                 )

@@ -1,4 +1,4 @@
-﻿<resources>
+<resources>
     <string name="exact_alarm_permission_title">Allow exact alarms</string>
     <string name="exact_alarm_permission_message">Android needs this access so alarms can ring at the time you set. Enable Alarms &amp; reminders for Vyllo, then return and save or enable your alarm.</string>
     <string name="exact_alarm_permission_action">Open settings</string>
@@ -415,4 +415,64 @@
     <string name="notif_downloading">Downloading Music</string>
     <string name="notif_floating_title">Floating Player Active</string>
     <string name="notif_floating_text">Tap the bubble to return to app</string>
+    <!-- Accessibility: icon content descriptions (TalkBack) -->
+    <string name="cd_selected">Selected</string>
+    <string name="cd_likes">Likes</string>
+    <string name="cd_add_to_playlist">Add to playlist</string>
+    <string name="cd_remove_from_playlist">Remove from playlist</string>
+    <string name="cd_toggle_fullscreen">Toggle full screen</string>
+    <string name="cd_volume_boost">Volume boost</string>
+    <string name="cd_back">Back</string>
+    <string name="cd_clear">Clear</string>
+    <string name="cd_rewind_10">Rewind 10 seconds</string>
+    <string name="cd_forward_10">Forward 10 seconds</string>
+    <string name="cd_collapse_queue">Collapse queue</string>
+    <string name="cd_reorder">Reorder</string>
+    <string name="cd_exit_fullscreen">Exit full screen</string>
+    <string name="cd_refresh_up_next">Refresh Up Next mix</string>
+    <string name="cd_close">Close</string>
+    <string name="cd_recognize">Recognize</string>
+    <string name="cd_fill_search_box">Fill search box with "%1$s"</string>
+    <string name="cd_sync_youtube_playlists">Sync YouTube playlists</string>
+    <string name="cd_new_playlist">New playlist</string>
+    <string name="cd_delete">Delete</string>
+    <string name="cd_google_account_sync">Google account sync</string>
+    <string name="cd_refresh_playlists">Refresh playlists</string>
+    <string name="cd_disconnect">Disconnect</string>
+    <string name="cd_instant_import">Instant import</string>
+    <string name="cd_clear_link">Clear link</string>
+    <string name="cd_paste_link">Paste link</string>
+    <string name="cd_sync_succeeded">Sync succeeded</string>
+    <string name="cd_sync_failed">Sync failed</string>
+    <string name="cd_dismiss">Dismiss</string>
+    <string name="cd_search_by_voice">Search by voice</string>
+    <string name="cd_clear_search">Clear search</string>
+    <string name="cd_avatar">Avatar</string>
+    <string name="cd_toggle_equalizer">Toggle equalizer</string>
+    <string name="cd_equalizer_value">%1$s %2$d%%</string>
+    <string name="cd_equalizer_band">%1$s frequency %2$s</string>
+    <string name="cd_volume_booster_value">Volume booster %1$d%%</string>
+    <string name="cd_see_all">See all %1$s</string>
+    <string name="cd_expand_google_sync">Expand Google sync</string>
+    <string name="cd_collapse_google_sync">Collapse Google sync</string>
+    <string name="cd_music_bubble">Music bubble</string>
+    <string name="cd_playback_progress">Playback position: %1$s of %2$s</string>
+    <string name="state_load_failed">Couldn\'t load this right now. Check your connection and try again.</string>
+    <string name="explore_empty_body">No music is available here right now. Try another category or search for a song.</string>
+    <string name="explore_search_action">Search music</string>
+    <string name="search_idle_body">Find songs, albums and artists. You can also tap the mic to search by voice - your recent searches will appear here.</string>
+    <string name="search_no_results_body">We couldn\'t find anything for \u201C%1$s\u201D. Check the spelling or try a different search.</string>
+    <string name="search_clear_action">Clear search</string>
+    <string name="library_no_playlists_body">Group the songs you love into playlists you can play anytime.</string>
+    <string name="library_create_playlist_action">Create playlist</string>
+    <string name="library_downloads_body">Songs you download are stored on this device and play without internet.</string>
+    <string name="library_find_music_action">Find music to download</string>
+    <string name="playlist_empty_body">Add songs with the playlist button on any track.</string>
+    <string name="playlist_back_action">Back to library</string>
+    <string name="sync_syncing">Syncing: %1$s\u2026</string>
+    <plurals name="sync_imported">
+        <item quantity="one">Imported \u2018%1$s\u2019 (%2$d track)!</item>
+        <item quantity="other">Imported \u2018%1$s\u2019 (%2$d tracks)!</item>
+    </plurals>
+    <string name="sync_error">Sync error: %1$s</string>
 </resources>

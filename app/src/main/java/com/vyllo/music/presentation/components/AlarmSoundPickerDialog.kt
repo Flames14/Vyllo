@@ -91,7 +91,7 @@ fun AlarmSoundPickerDialog(
                         if (selectedSoundType == SoundType.DEFAULT) {
                             Icon(
                                 Icons.Rounded.Check,
-                                contentDescription = "Selected",
+                                contentDescription = stringResource(R.string.cd_selected),
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -166,7 +166,7 @@ fun AlarmSoundPickerDialog(
                                     if (selectedSongUrl == download.url) {
                                         Icon(
                                             Icons.Rounded.Check,
-                                            contentDescription = "Selected",
+                                            contentDescription = stringResource(R.string.cd_selected),
                                             tint = MaterialTheme.colorScheme.primary
                                         )
                                     }

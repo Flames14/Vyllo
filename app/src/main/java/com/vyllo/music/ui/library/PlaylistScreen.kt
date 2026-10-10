@@ -49,7 +49,7 @@ fun YTMPlaylistScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.cd_back),
                     tint = MaterialTheme.colorScheme.onBackground
                 )
             }
@@ -72,8 +72,8 @@ fun YTMPlaylistScreen(
                     VylloEmptyState(
                         icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
                         title = stringResource(R.string.library_playlist_empty),
-                        message = "Add songs with the playlist button on any track.",
-                        actionLabel = "Back to library",
+                        message = stringResource(R.string.playlist_empty_body),
+                        actionLabel = stringResource(R.string.playlist_back_action),
                         onAction = onBack
                     )
                 }

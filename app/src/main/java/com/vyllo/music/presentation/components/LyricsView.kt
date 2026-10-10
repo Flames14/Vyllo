@@ -249,7 +249,7 @@ private fun LyricsManualSearchScreen(playerUiState: PlayerUiState, viewModel: Pl
         ) {
             Text(stringResource(R.string.lyrics_search_action), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = LyricsColors.textPrimary)
             IconButton(onClick = { viewModel.showLyricsSelector = false }) {
-                Icon(Icons.Rounded.Close, null, tint = LyricsColors.textSecondary)
+                Icon(Icons.Rounded.Close, stringResource(R.string.cd_close), tint = LyricsColors.textSecondary)
             }
         }
 
@@ -292,7 +292,7 @@ private fun LyricsManualSearchScreen(playerUiState: PlayerUiState, viewModel: Pl
                     SecureLogger.d("LyricsSearch", "User clicked search button for: '${viewModel.lyricsSearchQuery}'")
                     viewModel.searchForLyrics(viewModel.lyricsSearchQuery)
                 }) {
-                    Icon(Icons.Rounded.ArrowForward, null, tint = LyricsColors.textSecondary, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.ArrowForward, stringResource(R.string.nav_search), tint = LyricsColors.textSecondary, modifier = Modifier.size(18.dp))
                 }
             }
         }

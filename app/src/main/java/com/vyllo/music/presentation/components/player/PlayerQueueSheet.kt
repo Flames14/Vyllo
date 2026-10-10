@@ -279,7 +279,7 @@ fun PlayerQueueSheet(
                         ) {
                             Icon(
                                 Icons.Rounded.KeyboardArrowDown,
-                                contentDescription = "Collapse Queue",
+                                contentDescription = stringResource(R.string.cd_collapse_queue),
                                 tint = Color.White.copy(alpha = 0.8f),
                                 modifier = Modifier.size(24.dp)
                             )
@@ -401,7 +401,7 @@ fun QueueSongRowItem(
         // Drag handle icon (=)
         Icon(
             imageVector = Icons.Rounded.DragHandle,
-            contentDescription = "Reorder",
+            contentDescription = stringResource(R.string.cd_reorder),
             tint = Color.White.copy(alpha = 0.4f),
             modifier = Modifier.size(22.dp)
         )

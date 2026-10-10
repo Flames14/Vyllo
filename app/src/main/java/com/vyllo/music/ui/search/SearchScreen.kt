@@ -51,6 +51,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.stringResource
 import com.vyllo.music.R
+import com.vyllo.music.presentation.components.VylloErrorState
 
 // =========================================================================
 // YTM SEARCH SCREEN
@@ -126,7 +127,7 @@ fun YTMSearchScreen(
             IconButton(onClick = onBack) {
                 Icon(
                     Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.cd_back),
                     tint = MaterialTheme.colorScheme.onBackground
                 )
             }
@@ -179,7 +180,7 @@ fun YTMSearchScreen(
                             modifier = Modifier.size(44.dp)
                         ) {
                             Icon(
-                                Icons.Filled.Close, "Clear search",
+                                Icons.Filled.Close, stringResource(R.string.cd_clear_search),
                                 tint = MaterialTheme.colorScheme.onBackground.copy(0.6f),
                                 modifier = Modifier.size(20.dp)
                             )
@@ -205,7 +206,7 @@ fun YTMSearchScreen(
                             modifier = Modifier.size(44.dp)
                         ) {
                             Icon(
-                                Icons.Rounded.Mic, "Search by voice",
+                                Icons.Rounded.Mic, stringResource(R.string.cd_search_by_voice),
                                 tint = if (viewModel.isListening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground.copy(0.6f),
                                 modifier = Modifier.size(22.dp).then(
                                     if (viewModel.isListening) Modifier.graphicsLayer(scaleX = micScale, scaleY = micScale) else Modifier
@@ -279,7 +280,7 @@ fun YTMSearchScreen(
                         VylloEmptyState(
                             icon = Icons.Rounded.Search,
                             title = stringResource(R.string.search_hint_vyllo),
-                            message = "Find songs, albums and artists. You can also tap the mic to search by voice — your recent searches will appear here.",
+                            message = stringResource(R.string.search_idle_body),
                             modifier = Modifier.padding(top = VylloSpacing.xxl)
                         )
                     }
@@ -298,13 +299,20 @@ fun YTMSearchScreen(
                     item(key = "search_skeleton", contentType = "skeleton") {
                         ListSkeleton(rows = 7)
                     }
+                } else if (viewModel.searchFailed && viewModel.searchResults.isEmpty() && !viewModel.isLoading) {
+                    item(key = "search_error", contentType = "error") {
+                        VylloErrorState(
+                            message = stringResource(R.string.state_load_failed),
+                            onRetry = { viewModel.performSearch(viewModel.searchQuery) }
+                        )
+                    }
                 } else if (viewModel.searchResults.isEmpty() && !viewModel.isLoading) {
                     item(key = "search_no_results", contentType = "empty") {
                         VylloEmptyState(
                             icon = Icons.Rounded.SearchOff,
                             title = stringResource(R.string.search_no_results),
-                            message = "We couldn't find anything for \u201C${viewModel.searchQuery}\u201D. Check the spelling or try a different search.",
-                            actionLabel = "Clear search",
+                            message = stringResource(R.string.search_no_results_body, viewModel.searchQuery),
+                            actionLabel = stringResource(R.string.search_clear_action),
                             onAction = { viewModel.onQueryChanged("") },
                             modifier = Modifier.padding(top = VylloSpacing.xxl)
                         )

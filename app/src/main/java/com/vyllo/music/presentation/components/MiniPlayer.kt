@@ -200,7 +200,7 @@ fun PremiumMiniPlayer(
             ) {
                 Icon(
                     Icons.Rounded.PlaylistAdd,
-                    contentDescription = "Add to playlist",
+                    contentDescription = stringResource(R.string.cd_add_to_playlist),
                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                     modifier = Modifier.size(22.dp)
                 )

@@ -108,7 +108,7 @@ fun YouTubeSyncBottomSheet(
                 }
 
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Rounded.Close, "Close")
+                    Icon(Icons.Rounded.Close, stringResource(R.string.cd_close))
                 }
             }
 

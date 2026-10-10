@@ -115,7 +115,7 @@ fun PlayerUpNextTab(
                 ) {
                     Icon(
                         Icons.Rounded.Refresh,
-                        contentDescription = "Refresh Up Next mix",
+                        contentDescription = stringResource(R.string.cd_refresh_up_next),
                         tint = if (isRefreshing) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.75f),
                         modifier = Modifier
                             .size(20.dp)

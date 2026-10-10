@@ -28,6 +28,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.data.repository.SyncProgress
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.vyllo.music.R
 
 @Composable
 fun SyncStatusBanner(
@@ -61,20 +64,20 @@ fun SyncStatusBanner(
                             color = MaterialTheme.colorScheme.primary
                         )
                     } else if (syncProgress.isSuccess) {
-                        Icon(Icons.Rounded.CheckCircle, contentDescription = "Sync succeeded", tint = Color(0xFF4CAF50), modifier = Modifier.size(22.dp))
+                        Icon(Icons.Rounded.CheckCircle, contentDescription = stringResource(R.string.cd_sync_succeeded), tint = Color(0xFF4CAF50), modifier = Modifier.size(22.dp))
                     } else {
-                        Icon(Icons.Rounded.Error, contentDescription = "Sync failed", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(22.dp))
+                        Icon(Icons.Rounded.Error, contentDescription = stringResource(R.string.cd_sync_failed), tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(22.dp))
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = if (syncProgress.isSyncing) "Syncing: ${syncProgress.playlistTitle}..."
-                        else if (syncProgress.isSuccess) "Imported '${syncProgress.playlistTitle}' (${syncProgress.totalTracks} tracks)!"
-                        else "Sync error: ${syncProgress.errorMessage}",
+                        text = if (syncProgress.isSyncing) stringResource(R.string.sync_syncing, syncProgress.playlistTitle)
+                        else if (syncProgress.isSuccess) pluralStringResource(R.plurals.sync_imported, syncProgress.totalTracks, syncProgress.playlistTitle, syncProgress.totalTracks)
+                        else stringResource(R.string.sync_error, syncProgress.errorMessage.orEmpty()),
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                     )
                 }
                 IconButton(onClick = onClear, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Rounded.Close, contentDescription = "Dismiss", modifier = Modifier.size(16.dp))
+                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_dismiss), modifier = Modifier.size(16.dp))
                 }
             }
         }

@@ -38,6 +38,8 @@ import com.vyllo.music.presentation.theme.VylloMotion
 import com.vyllo.music.presentation.theme.VylloRadius
 import com.vyllo.music.presentation.theme.VylloSize
 import com.vyllo.music.presentation.theme.VylloSpacing
+import androidx.compose.ui.res.stringResource
+import com.vyllo.music.R
 
 @Composable
 fun YTMSongRow(
@@ -119,7 +121,7 @@ fun YTMSongRow(
                 IconButton(onClick = onRemoveClick) {
                     Icon(
                         Icons.Rounded.DeleteOutline,
-                        contentDescription = "Remove from Playlist",
+                        contentDescription = stringResource(R.string.cd_remove_from_playlist),
                         tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                         modifier = Modifier.size(20.dp)
                     )
@@ -128,7 +130,7 @@ fun YTMSongRow(
                 IconButton(onClick = { libraryViewModel.showPlaylistAddDialog(item) }) {
                     Icon(
                         Icons.Rounded.PlaylistAdd, 
-                        contentDescription = "Add to Playlist",
+                        contentDescription = stringResource(R.string.cd_add_to_playlist),
                         tint = MaterialTheme.colorScheme.onBackground.copy(0.6f),
                         modifier = Modifier.size(20.dp)
                     )

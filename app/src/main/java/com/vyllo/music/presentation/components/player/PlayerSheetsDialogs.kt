@@ -258,7 +258,7 @@ fun PlayerFullscreenVideoOverlay(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Close,
-                        contentDescription = "Exit Fullscreen",
+                        contentDescription = stringResource(R.string.cd_exit_fullscreen),
                         tint = Color.White,
                         modifier = Modifier.size(26.dp)
                     )

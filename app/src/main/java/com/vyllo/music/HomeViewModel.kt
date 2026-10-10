@@ -1,4 +1,4 @@
-﻿package com.vyllo.music
+package com.vyllo.music
 
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
@@ -41,6 +41,7 @@ data class HomeUiState(
     val selectedChip: String = "All",
     val exploreTrendingItems: List<MusicItem> = emptyList(),
     val isLoadingExplore: Boolean = false,
+    val exploreLoadFailed: Boolean = false,
     val homeTitle: String = "Recommended For You",
 
     /**
@@ -376,12 +377,39 @@ class HomeViewModel @Inject constructor(
 
     fun onExploreCategorySelected(category: String) {
         if (_uiState.value.selectedExploreCategory == category) {
-            _uiState.update { it.copy(selectedExploreCategory = null, exploreTrendingItems = emptyList()) }
+            _uiState.update {
+                it.copy(
+                    selectedExploreCategory = null,
+                    exploreTrendingItems = emptyList(),
+                    exploreLoadFailed = false
+                )
+            }
             loadExploreContent()
             return
         }
 
-        _uiState.update { it.copy(selectedExploreCategory = category, isLoadingExplore = true) }
+        _uiState.update {
+            it.copy(
+                selectedExploreCategory = category,
+                isLoadingExplore = true,
+                exploreLoadFailed = false
+            )
+        }
+        searchExploreCategory(category)
+    }
+
+    fun retryExploreContent() {
+        val category = _uiState.value.selectedExploreCategory
+        _uiState.update { it.copy(exploreLoadFailed = false) }
+        if (category == null) {
+            loadExploreContent()
+        } else {
+            _uiState.update { it.copy(isLoadingExplore = true) }
+            searchExploreCategory(category)
+        }
+    }
+
+    private fun searchExploreCategory(category: String) {
         viewModelScope.launch {
             try {
                 val query = when (category) {
@@ -395,9 +423,10 @@ class HomeViewModel @Inject constructor(
                     else -> "$category playlist"
                 }
                 val items = repository.searchMusic(query, maintainSession = false)
-                _uiState.update { it.copy(exploreTrendingItems = items) }
+                _uiState.update { it.copy(exploreTrendingItems = items, exploreLoadFailed = false) }
             } catch (e: Exception) {
                 SecureLogger.e("HomeViewModel", "Explore category search failed", e)
+                _uiState.update { it.copy(exploreTrendingItems = emptyList(), exploreLoadFailed = true) }
             } finally {
                 _uiState.update { it.copy(isLoadingExplore = false) }
             }
@@ -408,12 +437,13 @@ class HomeViewModel @Inject constructor(
         if (_uiState.value.exploreTrendingItems.isNotEmpty() && _uiState.value.selectedExploreCategory == null) return
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingExplore = true) }
+            _uiState.update { it.copy(isLoadingExplore = true, exploreLoadFailed = false) }
             try {
                 val items = repository.getTrendingMusic()
-                _uiState.update { it.copy(exploreTrendingItems = items) }
+                _uiState.update { it.copy(exploreTrendingItems = items, exploreLoadFailed = false) }
             } catch (e: Exception) {
                 SecureLogger.e("HomeViewModel", "Load explore content failed", e)
+                _uiState.update { it.copy(exploreLoadFailed = true) }
             } finally {
                 _uiState.update { it.copy(isLoadingExplore = false) }
             }

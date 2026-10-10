@@ -46,6 +46,7 @@ class LibraryViewModel @Inject constructor(
     val userEmail: StateFlow<String?> = youtubeOAuthManager.userEmail
     var remoteYouTubePlaylists by mutableStateOf<List<YouTubeRemotePlaylist>>(emptyList())
     var isLoadingRemotePlaylists by mutableStateOf(false)
+    var remotePlaylistsFailed by mutableStateOf(false)
     var syncProgressState by mutableStateOf<SyncProgress?>(null)
     var showYouTubeSyncSheet by mutableStateOf(false)
 
@@ -198,9 +199,12 @@ class LibraryViewModel @Inject constructor(
     fun loadRemoteYouTubePlaylists() {
         viewModelScope.launch {
             isLoadingRemotePlaylists = true
+            remotePlaylistsFailed = false
             val result = youtubeSyncRepository.getUserPlaylists()
             if (result.isSuccess) {
                 remoteYouTubePlaylists = result.getOrNull() ?: emptyList()
+            } else {
+                remotePlaylistsFailed = true
             }
             isLoadingRemotePlaylists = false
         }

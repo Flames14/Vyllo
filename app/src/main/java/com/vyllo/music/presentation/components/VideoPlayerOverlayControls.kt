@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import androidx.compose.ui.res.stringResource
+import com.vyllo.music.R
 
 @Composable
 fun VideoPlayerOverlayControls(
@@ -67,7 +69,7 @@ fun VideoPlayerOverlayControls(
                     horizontalArrangement = Arrangement.spacedBy(32.dp)
                 ) {
                     IconButton(onClick = onRewind, modifier = Modifier.size(48.dp)) {
-                        Icon(Icons.Rounded.Replay10, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                        Icon(Icons.Rounded.Replay10, stringResource(R.string.cd_rewind_10), tint = Color.White, modifier = Modifier.size(32.dp))
                     }
 
                     Surface(
@@ -83,7 +85,7 @@ fun VideoPlayerOverlayControls(
                             } else {
                                 Icon(
                                     imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                    contentDescription = null,
+                                    contentDescription = if (isPlaying) stringResource(R.string.accessibility_pause) else stringResource(R.string.accessibility_play),
                                     tint = Color.White,
                                     modifier = Modifier.size(48.dp)
                                 )
@@ -92,7 +94,7 @@ fun VideoPlayerOverlayControls(
                     }
 
                     IconButton(onClick = onForward, modifier = Modifier.size(48.dp)) {
-                        Icon(Icons.Rounded.Forward10, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                        Icon(Icons.Rounded.Forward10, stringResource(R.string.cd_forward_10), tint = Color.White, modifier = Modifier.size(32.dp))
                     }
                 }
 
@@ -133,7 +135,7 @@ fun VideoPlayerOverlayControls(
                             IconButton(onClick = onToggleFullScreen) {
                                 Icon(
                                     imageVector = if (isFullScreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-                                    contentDescription = "Toggle Fullscreen",
+                                    contentDescription = stringResource(R.string.cd_toggle_fullscreen),
                                     tint = Color.White
                                 )
                             }

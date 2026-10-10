@@ -22,6 +22,7 @@ import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.*
 import com.vyllo.music.presentation.components.*
 import com.vyllo.music.ui.components.*
+import com.vyllo.music.presentation.components.VylloErrorState
 
 // =========================================================================
 // YTM EXPLORE SCREEN
@@ -93,13 +94,20 @@ fun YTMExploreScreen(
             item(key = "explore_skeleton", contentType = "skeleton") {
                 ListSkeleton(rows = 6)
             }
+        } else if (uiState.exploreLoadFailed) {
+            item(key = "explore_error", contentType = "error") {
+                VylloErrorState(
+                    message = stringResource(R.string.state_load_failed),
+                    onRetry = { viewModel.retryExploreContent() }
+                )
+            }
         } else if (uiState.exploreTrendingItems.isEmpty()) {
             item(key = "explore_empty", contentType = "empty") {
                 VylloEmptyState(
                     icon = Icons.Rounded.Explore,
                     title = stringResource(R.string.explore_nothing),
-                    message = "No music is available here right now. Try another category or search for a song.",
-                    actionLabel = "Search music",
+                    message = stringResource(R.string.explore_empty_body),
+                    actionLabel = stringResource(R.string.explore_search_action),
                     onAction = onSearchClick
                 )
             }

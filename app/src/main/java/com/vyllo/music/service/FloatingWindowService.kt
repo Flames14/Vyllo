@@ -48,6 +48,7 @@ import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.core.security.SecureLogger
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import androidx.compose.ui.res.stringResource
 
 @AndroidEntryPoint
 class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewModelStoreOwner {
@@ -244,14 +245,14 @@ fun FloatingBubbleContent(
         if (artworkUri != null) {
             AsyncImage(
                 model = artworkUri,
-                contentDescription = "Music Bubble",
+                contentDescription = stringResource(R.string.cd_music_bubble),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.matchParentSize().clip(CircleShape)
             )
         } else {
              Icon(
                  imageVector = Icons.Rounded.MusicNote,
-                 contentDescription = null,
+                 contentDescription = stringResource(R.string.cd_music_bubble),
                  tint = Color.White,
                  modifier = Modifier.size(32.dp)
              )

@@ -1,4 +1,4 @@
-﻿package com.vyllo.music.presentation.components.player
+package com.vyllo.music.presentation.components.player
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -38,6 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.media3.session.MediaController
 import com.vyllo.music.presentation.components.formatTime
+import androidx.compose.ui.res.stringResource
+import com.vyllo.music.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +67,7 @@ fun PlayerSeekBar(
             .fillMaxWidth()
             .alpha((1f - (expandProgress * 2.5f)).coerceIn(0f, 1f))
     ) {
+        val progressCd = stringResource(R.string.cd_playback_progress, formatTime(currentPosition), formatTime(duration))
         Slider(
             value = if (duration > 0) currentPosition.toFloat() / duration.toFloat() else 0f,
             onValueChange = { newPercent ->
@@ -114,7 +117,7 @@ fun PlayerSeekBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .semantics {
-                    contentDescription = "Playback progress: ${formatTime(currentPosition)} of ${formatTime(duration)}"
+                    contentDescription = progressCd
                 }
         )
         Row(

@@ -1,4 +1,4 @@
-﻿package com.vyllo.music.presentation.components.common
+package com.vyllo.music.presentation.components.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,7 +55,7 @@ fun PremiumGlassSearchBar(
         ) {
             if (isSearching) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onBackground)
+                    Icon(Icons.Filled.ArrowBack, stringResource(R.string.cd_back), tint = MaterialTheme.colorScheme.onBackground)
                 }
             } else {
                 Icon(Icons.Filled.Search, stringResource(R.string.nav_search), tint = MaterialTheme.colorScheme.onBackground.copy(0.6f))
@@ -84,7 +84,7 @@ fun PremiumGlassSearchBar(
 
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
-                    Icon(Icons.Filled.Close, "Clear", tint = MaterialTheme.colorScheme.onBackground.copy(0.6f))
+                    Icon(Icons.Filled.Close, stringResource(R.string.cd_clear), tint = MaterialTheme.colorScheme.onBackground.copy(0.6f))
                 }
             }
         }

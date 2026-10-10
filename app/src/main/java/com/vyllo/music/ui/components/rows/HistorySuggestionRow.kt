@@ -27,6 +27,8 @@ import com.vyllo.music.presentation.components.ytmClickable
 import com.vyllo.music.presentation.theme.VylloRadius
 import com.vyllo.music.presentation.theme.VylloSize
 import com.vyllo.music.presentation.theme.VylloSpacing
+import androidx.compose.ui.res.stringResource
+import com.vyllo.music.R
 
 @Composable
 fun HistorySuggestionRow(
@@ -72,7 +74,7 @@ fun HistorySuggestionRow(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.NorthWest,
-                    contentDescription = "Fill search box with \u201C$text\u201D",
+                    contentDescription = stringResource(R.string.cd_fill_search_box),
                     tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f),
                     modifier = Modifier.size(VylloSize.iconMedium)
                 )

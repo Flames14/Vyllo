@@ -156,12 +156,12 @@ fun YTMLibraryScreen(
                     }) {
                         Icon(
                             Icons.Rounded.Sync,
-                            contentDescription = "Sync YouTube Playlists",
+                            contentDescription = stringResource(R.string.cd_sync_youtube_playlists),
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
                     IconButton(onClick = { showCreateDialog = true }) {
-                        Icon(Icons.Rounded.Add, "New Playlist", tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Rounded.Add, stringResource(R.string.cd_new_playlist), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -172,8 +172,8 @@ fun YTMLibraryScreen(
                 VylloEmptyState(
                     icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
                     title = stringResource(R.string.library_no_playlists),
-                    message = "Group the songs you love into playlists you can play anytime.",
-                    actionLabel = "Create playlist",
+                    message = stringResource(R.string.library_no_playlists_body),
+                    actionLabel = stringResource(R.string.library_create_playlist_action),
                     onAction = { showCreateDialog = true }
                 )
             }
@@ -212,7 +212,7 @@ fun YTMLibraryScreen(
                         )
                     }
                     IconButton(onClick = { viewModel.deletePlaylist(playlist) }) {
-                        Icon(Icons.Rounded.Delete, "Delete", tint = MaterialTheme.colorScheme.onBackground.copy(0.3f), modifier = Modifier.size(20.dp))
+                        Icon(Icons.Rounded.Delete, stringResource(R.string.cd_delete), tint = MaterialTheme.colorScheme.onBackground.copy(0.3f), modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -229,8 +229,8 @@ fun YTMLibraryScreen(
                 VylloEmptyState(
                     icon = Icons.Rounded.DownloadDone,
                     title = stringResource(R.string.library_no_downloads),
-                    message = "Songs you download are stored on this device and play without internet.",
-                    actionLabel = "Find music to download",
+                    message = stringResource(R.string.library_downloads_body),
+                    actionLabel = stringResource(R.string.library_find_music_action),
                     onAction = onSearchClick
                 )
             }

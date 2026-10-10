@@ -54,6 +54,9 @@ class SearchViewModel @Inject constructor(
     var isLoadingMore by mutableStateOf(false)
         private set
 
+    var searchFailed by mutableStateOf(false)
+        private set
+
     var isListening by mutableStateOf(false)
 
     private var searchJob: Job? = null
@@ -129,6 +132,7 @@ class SearchViewModel @Inject constructor(
         suggestions = emptyList()
         isSearching = true
         isLoading = true
+        searchFailed = false
 
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
@@ -139,6 +143,7 @@ class SearchViewModel @Inject constructor(
             } catch (e: Exception) {
                 SecureLogger.e(TAG, "Search failed: ${e.message}")
                 searchResults = emptyList()
+                searchFailed = true
             } finally {
                 isLoading = false
                 loadSearchHistory()

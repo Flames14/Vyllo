@@ -24,6 +24,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.vyllo.music.presentation.components.ytmClickable
 import com.vyllo.music.presentation.theme.VylloSize
 import com.vyllo.music.presentation.theme.VylloSpacing
+import androidx.compose.ui.res.stringResource
+import com.vyllo.music.R
 
 @Composable
 fun YTMSectionHeader(title: String, onSeeAll: (() -> Unit)? = null) {
@@ -51,13 +53,14 @@ fun YTMSectionHeader(title: String, onSeeAll: (() -> Unit)? = null) {
         // Previously it was always drawn but never wired up, which advertised a
         // tap target that did nothing.
         if (onSeeAll != null) {
+            val seeAllCd = stringResource(R.string.cd_see_all, title)
             Box(
                 modifier = Modifier
                     .heightIn(min = VylloSize.minTouchTarget)
                     .widthIn(min = VylloSize.minTouchTarget)
                     .clip(CircleShape)
                     .ytmClickable(onClick = onSeeAll)
-                    .semantics { contentDescription = "See all $title" },
+                    .semantics { contentDescription = seeAllCd },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

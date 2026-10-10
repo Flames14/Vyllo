@@ -1,4 +1,4 @@
-﻿package com.vyllo.music.presentation.components.player
+package com.vyllo.music.presentation.components.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -249,7 +249,7 @@ fun PlayerPlaybackControls(
         ) {
             Icon(
                 Icons.Rounded.Replay10,
-                contentDescription = "Rewind 10 seconds",
+                contentDescription = stringResource(R.string.cd_rewind_10),
                 tint = Color.White.copy(alpha = 0.85f),
                 modifier = Modifier.size(28.dp)
             )
@@ -303,7 +303,7 @@ fun PlayerPlaybackControls(
         ) {
             Icon(
                 Icons.Rounded.Forward10,
-                contentDescription = "Forward 10 seconds",
+                contentDescription = stringResource(R.string.cd_forward_10),
                 tint = Color.White.copy(alpha = 0.85f),
                 modifier = Modifier.size(28.dp)
             )

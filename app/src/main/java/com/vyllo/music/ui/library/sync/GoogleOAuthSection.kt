@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.LibraryViewModel
 import com.vyllo.music.R
+import com.vyllo.music.presentation.components.VylloErrorState
 
 @Composable
 fun GoogleOAuthSection(
@@ -80,7 +81,7 @@ fun GoogleOAuthSection(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Lock, contentDescription = "Google Account Sync", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Rounded.Lock, contentDescription = stringResource(R.string.cd_google_account_sync), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = stringResource(R.string.oauth_title),
@@ -90,7 +91,7 @@ fun GoogleOAuthSection(
                 }
                 Icon(
                     if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                    contentDescription = if (isExpanded) "Collapse Google Sync" else "Expand Google Sync"
+                    contentDescription = if (isExpanded) stringResource(R.string.cd_collapse_google_sync) else stringResource(R.string.cd_expand_google_sync)
                 )
             }
 
@@ -232,10 +233,10 @@ fun GoogleOAuthSection(
 
                             Row {
                                 IconButton(onClick = { viewModel.loadRemoteYouTubePlaylists() }) {
-                                    Icon(Icons.Rounded.Refresh, "Refresh Playlists")
+                                    Icon(Icons.Rounded.Refresh, stringResource(R.string.cd_refresh_playlists))
                                 }
                                 IconButton(onClick = { viewModel.disconnectGoogle() }) {
-                                    Icon(Icons.AutoMirrored.Rounded.Logout, "Disconnect", tint = MaterialTheme.colorScheme.error)
+                                    Icon(Icons.AutoMirrored.Rounded.Logout, stringResource(R.string.cd_disconnect), tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }
@@ -253,6 +254,12 @@ fun GoogleOAuthSection(
                             Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                             }
+                        } else if (viewModel.remotePlaylistsFailed && viewModel.remoteYouTubePlaylists.isEmpty()) {
+                            VylloErrorState(
+                                message = stringResource(R.string.state_load_failed),
+                                onRetry = { viewModel.loadRemoteYouTubePlaylists() },
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         } else if (viewModel.remoteYouTubePlaylists.isEmpty()) {
                             Box(modifier = Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) {
                                 Text(stringResource(R.string.oauth_tap_refresh), color = MaterialTheme.colorScheme.onSurface.copy(0.5f))

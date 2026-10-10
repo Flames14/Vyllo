@@ -221,7 +221,7 @@ fun CommentRow(comment: CommentsInfoItem) {
     ) {
         AsyncImage(
             model = comment.uploaderAvatars?.firstOrNull()?.url,
-            contentDescription = "Avatar",
+            contentDescription = stringResource(R.string.cd_avatar),
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(40.dp)
@@ -259,7 +259,7 @@ fun CommentRow(comment: CommentsInfoItem) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Rounded.Favorite,
-                    contentDescription = "Likes",
+                    contentDescription = stringResource(R.string.cd_likes),
                     modifier = Modifier.size(14.dp),
                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )

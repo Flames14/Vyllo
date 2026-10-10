@@ -100,11 +100,12 @@ fun EqualizerBottomSheet(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
                 }
+                val toggleEqualizerCd = stringResource(R.string.cd_toggle_equalizer)
                 Switch(
                     checked = settings.enabled,
                     onCheckedChange = onEnabledChange,
                     modifier = Modifier.semantics {
-                        contentDescription = "Toggle Equalizer"
+                        contentDescription = toggleEqualizerCd
                     }
                 )
             }
@@ -234,13 +235,14 @@ private fun EqualizerStrengthSlider(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
         }
+        val strengthCd = stringResource(R.string.cd_equalizer_value, title, (value / 10f).toInt())
         Slider(
             value = value.toFloat(),
             onValueChange = { onValueChange(it.toInt()) },
             valueRange = EqualizerSettings.STRENGTH_MIN.toFloat()..EqualizerSettings.STRENGTH_MAX.toFloat(),
             enabled = enabled,
             modifier = Modifier.semantics {
-                contentDescription = "$title ${(value / 10f).toInt()}%"
+                contentDescription = strengthCd
             }
         )
     }
@@ -269,13 +271,14 @@ private fun EqualizerBandSlider(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
         }
+        val bandCd = stringResource(R.string.cd_equalizer_band, label, if (value == 0) "0 dB" else "${value / 100f} dB")
         Slider(
             value = value.toFloat(),
             onValueChange = { onValueChange(it.toInt()) },
             valueRange = EqualizerSettings.BAND_LEVEL_MIN.toFloat()..EqualizerSettings.BAND_LEVEL_MAX.toFloat(),
             enabled = enabled,
             modifier = Modifier.semantics {
-                contentDescription = "$label frequency ${if (value == 0) "0 dB" else "${value / 100f} dB"}"
+                contentDescription = bandCd
             }
         )
     }
@@ -303,6 +306,7 @@ private fun VolumeBoosterSlider(
                 color = MaterialTheme.colorScheme.primary
             )
         }
+        val boosterCd = stringResource(R.string.cd_volume_booster_value, (value * 100).toInt())
         Slider(
             value = value,
             onValueChange = onValueChange,
@@ -310,7 +314,7 @@ private fun VolumeBoosterSlider(
             valueRange = 1.0f..3.0f,
             steps = 19,
             modifier = Modifier.semantics {
-                contentDescription = "Volume booster ${(value * 100).toInt()}%"
+                contentDescription = boosterCd
             }
         )
     }

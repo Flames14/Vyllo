@@ -165,7 +165,7 @@ fun RecognitionScreen(
                 .statusBarsPadding()
                 .padding(start = 8.dp, top = 8.dp)
         ) {
-            Icon(Icons.Default.Close, contentDescription = "Close")
+            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_close))
         }
     }
 }
@@ -218,7 +218,7 @@ fun RecognitionCircle(
         ) {
             Icon(
                 imageVector = Icons.Rounded.GraphicEq,
-                contentDescription = "Recognize",
+                contentDescription = stringResource(R.string.cd_recognize),
                 modifier = Modifier
                     .padding(20.dp)
                     .fillMaxSize(),
