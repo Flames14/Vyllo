@@ -1,4 +1,4 @@
-package com.vyllo.music.presentation.components
+﻿package com.vyllo.music.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,13 +44,13 @@ fun YTMSquareCard(
 ) {
     Column(
         modifier = Modifier
-            .width(140.dp)
+            .width(128.dp)
             .clip(RoundedCornerShape(12.dp))
             .ytmClickable { if (!isLoading) onClick() }
     ) {
         Box(
             modifier = Modifier
-                .size(140.dp)
+                .size(128.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.onBackground.copy(0.08f))
                 .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
@@ -60,7 +60,7 @@ fun YTMSquareCard(
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 cornerRadius = 12.dp,
-                requestSizePx = 280,
+                requestSizePx = 256,
                 showLoading = isLoading
             )
             if (isPlaying && !isLoading) {
@@ -124,8 +124,8 @@ fun YTMLargeCard(
 ) {
     Box(
         modifier = Modifier
-            .width(280.dp)
-            .height(160.dp)
+            .width(260.dp)
+            .height(148.dp)
             .clip(RoundedCornerShape(16.dp))
             .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.onBackground.copy(0.1f))
@@ -135,7 +135,7 @@ fun YTMLargeCard(
             thumbnailUrl = item.thumbnailUrl,
             contentDescription = null,
             cornerRadius = 12.dp,
-            requestSizePx = 560,
+            requestSizePx = 520,
             modifier = Modifier.fillMaxSize(),
             showLoading = isLoading
         )
@@ -212,7 +212,7 @@ fun StaticSquareCard(
     val imageRequest = remember(item.thumbnailUrl) {
         ImageRequest.Builder(context)
             .data(item.thumbnailUrl)
-            .size(300, 300)
+            .size(300, 300).crossfade(false)
             .build()
     }
     
@@ -276,14 +276,14 @@ fun StaticLargeCard(
     val imageRequest = remember(item.thumbnailUrl) {
         ImageRequest.Builder(context)
             .data(item.thumbnailUrl)
-            .size(500, 300)
+            .size(480, 288).crossfade(false)
             .build()
     }
     
     Box(
         modifier = Modifier
-            .width(280.dp)
-            .height(160.dp)
+            .width(260.dp)
+            .height(148.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .ytmClickable { onClick() }
@@ -342,3 +342,4 @@ fun StaticLargeCard(
         }
     }
 }
+

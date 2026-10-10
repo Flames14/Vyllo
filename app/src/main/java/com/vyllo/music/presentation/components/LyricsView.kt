@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -31,6 +32,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -245,7 +247,7 @@ private fun LyricsManualSearchScreen(playerUiState: PlayerUiState, viewModel: Pl
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Search Lyrics", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = LyricsColors.textPrimary)
+            Text(stringResource(R.string.lyrics_search_action), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = LyricsColors.textPrimary)
             IconButton(onClick = { viewModel.showLyricsSelector = false }) {
                 Icon(Icons.Rounded.Close, null, tint = LyricsColors.textSecondary)
             }
@@ -266,7 +268,7 @@ private fun LyricsManualSearchScreen(playerUiState: PlayerUiState, viewModel: Pl
                     SecureLogger.d("LyricsSearch", "User typing: '$it'")
                     viewModel.lyricsSearchQuery = it
                 },
-                placeholder = { Text("Artist - Song", color = LyricsColors.textInactive) },
+                placeholder = { Text(stringResource(R.string.lyrics_search_hint), color = LyricsColors.textInactive) },
                 textStyle = MaterialTheme.typography.bodyMedium.copy(color = LyricsColors.textPrimary),
                 singleLine = true,
                 colors = TextFieldDefaults.colors(
@@ -298,7 +300,7 @@ private fun LyricsManualSearchScreen(playerUiState: PlayerUiState, viewModel: Pl
         // Results
         if (playerUiState.lyricsSearchResults.isNotEmpty()) {
             Text(
-                "${playerUiState.lyricsSearchResults.size} results",
+                pluralStringResource(R.plurals.lyrics_results_count, playerUiState.lyricsSearchResults.size, playerUiState.lyricsSearchResults.size),
                 style = MaterialTheme.typography.labelSmall,
                 color = LyricsColors.textInactive,
                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
@@ -349,9 +351,9 @@ private fun LyricsResultCard(result: LyricsResult, isSelected: Boolean, onClick:
             Text(result.artistName, style = MaterialTheme.typography.bodySmall, color = LyricsColors.textSecondary, maxLines = 1)
         }
         if (result.syncedLyrics != null) {
-            Text("Synced", style = MaterialTheme.typography.labelSmall, color = LyricsColors.accent)
+            Text(stringResource(R.string.lyrics_synced_mode), style = MaterialTheme.typography.labelSmall, color = LyricsColors.accent)
         } else {
-            Text("Plain", style = MaterialTheme.typography.labelSmall, color = LyricsColors.textInactive)
+            Text(stringResource(R.string.lyrics_plain_mode), style = MaterialTheme.typography.labelSmall, color = LyricsColors.textInactive)
         }
     }
 }
@@ -367,10 +369,11 @@ private fun SyncedLyricsDisplay(
     onSeek: (Long) -> Unit
 ) {
     val listState = rememberLazyListState()
+    val activeLyricIndex by viewModel.lyricIndex.collectAsState()
 
     // Smoothly auto-scroll to follow active lyric
-    LaunchedEffect(playerUiState.currentLyricIndex) {
-        val targetIdx = playerUiState.currentLyricIndex
+    LaunchedEffect(activeLyricIndex) {
+        val targetIdx = activeLyricIndex
         if (targetIdx in playerUiState.syncedLyricsLines.indices) {
             val scrollTarget = (targetIdx - 2).coerceAtLeast(0)
             listState.animateScrollToItem(scrollTarget)
@@ -389,7 +392,7 @@ private fun SyncedLyricsDisplay(
             items = playerUiState.syncedLyricsLines,
             key = { index, line -> "${line.startTimeMs}_$index" }
         ) { index, line ->
-            val isActive = playerUiState.currentLyricIndex == index
+            val isActive = activeLyricIndex == index
             val alpha by animateFloatAsState(
                 targetValue = if (isActive) 1f else 0.38f,
                 animationSpec = spring(

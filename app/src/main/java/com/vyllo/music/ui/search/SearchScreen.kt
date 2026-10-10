@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -92,7 +93,7 @@ fun YTMSearchScreen(
             viewModel.isListening = true
             speechLauncher.launch(intent)
         } else {
-            Toast.makeText(context, "Microphone permission is needed for voice search", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.search_mic_permission), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -187,7 +188,7 @@ fun YTMSearchScreen(
                         IconButton(
                             onClick = {
                                 if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-                                    Toast.makeText(context, "Speech recognition not available on this device", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.search_speech_unavailable), Toast.LENGTH_SHORT).show()
                                     return@IconButton
                                 }
                                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
@@ -230,12 +231,12 @@ fun YTMSearchScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                "Recent searches",
+                                stringResource(R.string.search_recent),
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             TextButton(onClick = { viewModel.clearSearchHistory() }) {
-                                Text("Clear", color = MaterialTheme.colorScheme.primary)
+                                Text(stringResource(R.string.common_clear), color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
@@ -277,7 +278,7 @@ fun YTMSearchScreen(
                     item(key = "search_idle_empty") {
                         VylloEmptyState(
                             icon = Icons.Rounded.Search,
-                            title = "Search Vyllo",
+                            title = stringResource(R.string.search_hint_vyllo),
                             message = "Find songs, albums and artists. You can also tap the mic to search by voice — your recent searches will appear here.",
                             modifier = Modifier.padding(top = VylloSpacing.xxl)
                         )
@@ -301,7 +302,7 @@ fun YTMSearchScreen(
                     item(key = "search_no_results", contentType = "empty") {
                         VylloEmptyState(
                             icon = Icons.Rounded.SearchOff,
-                            title = "No results found",
+                            title = stringResource(R.string.search_no_results),
                             message = "We couldn't find anything for \u201C${viewModel.searchQuery}\u201D. Check the spelling or try a different search.",
                             actionLabel = "Clear search",
                             onAction = { viewModel.onQueryChanged("") },
@@ -310,11 +311,11 @@ fun YTMSearchScreen(
                     }
                 }
 
-                items(
+                itemsIndexed(
                     items = viewModel.searchResults,
-                    key = { item -> "search_result_${item.url}" },
-                    contentType = { "song_row" }
-                ) { item ->
+                    key = { index, item -> "search_result_${item.url}#$index" },
+                    contentType = { _, _ -> "song_row" }
+                ) { _, item ->
                     YTMSongRow(
                         item = item,
                         isPlaying = currentPlayingItem?.url == item.url,

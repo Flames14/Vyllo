@@ -112,7 +112,7 @@ fun EqualizerBottomSheet(
             // Presets Horizontal Row
             Column {
                 Text(
-                    text = "Presets",
+                    text = stringResource(R.string.equalizer_presets),
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     modifier = Modifier.padding(bottom = 6.dp)
@@ -169,8 +169,15 @@ fun EqualizerBottomSheet(
             )
 
             settings.bands.forEachIndexed { index, band ->
+                val bandLabelRes = when (index) {
+                    0 -> R.string.eq_band_bass
+                    1 -> R.string.eq_band_low_mid
+                    2 -> R.string.eq_band_mid
+                    3 -> R.string.eq_band_upper_mid
+                    else -> R.string.eq_band_treble
+                }
                 EqualizerBandSlider(
-                    label = band.label,
+                    label = stringResource(bandLabelRes),
                     value = band.level,
                     enabled = settings.enabled,
                     onValueChange = { onBandLevelChange(index, it) }
@@ -179,6 +186,7 @@ fun EqualizerBottomSheet(
 
             Spacer(modifier = Modifier.height(4.dp))
 
+            val equalizerResetCd = stringResource(R.string.equalizer_reset_cd)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -193,7 +201,7 @@ fun EqualizerBottomSheet(
                 TextButton(
                     onClick = onReset,
                     modifier = Modifier.semantics {
-                        contentDescription = "Reset equalizer to flat"
+                        contentDescription = equalizerResetCd
                     }
                 ) {
                     Text(stringResource(R.string.equalizer_reset))
@@ -221,7 +229,7 @@ private fun EqualizerStrengthSlider(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
             )
             Text(
-                text = "${(value / 10f).toInt()}%",
+                text = stringResource(R.string.equalizer_percent, (value / 10f).toInt()),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
@@ -290,7 +298,7 @@ private fun VolumeBoosterSlider(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
             )
             Text(
-                text = "${(value * 100).toInt()}%",
+                text = stringResource(R.string.equalizer_percent, (value * 100).toInt()),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary
             )

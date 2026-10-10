@@ -55,8 +55,15 @@ fun YTMSongRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent)
+            // background(shape) instead of clip(shape)+background: the row's
+            // children never cross its bounds, so the clip only existed to round
+            // a solid fill. Dropping it removes one RenderNode per visible row
+            // (each clip() is an unconditional graphicsLayer) — that is the
+            // difference between running 60Hz with and without headroom.
+            .background(
+                if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent,
+                RoundedCornerShape(12.dp)
+            )
             .ytmClickable(
                 enabled = !isLoading,
                 onLongClick = { showContextMenu = true },
@@ -159,8 +166,13 @@ fun YTMCompactRow(
 
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent)
+            // See YTMSongRow: background(shape) in place of clip+background
+            // keeps the visual identical (no child crosses the row bounds)
+            // while removing a per-row render layer from the grid rows.
+            .background(
+                if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent,
+                RoundedCornerShape(10.dp)
+            )
             .ytmClickable(
                 enabled = !isLoading,
                 onLongClick = { showContextMenu = true },

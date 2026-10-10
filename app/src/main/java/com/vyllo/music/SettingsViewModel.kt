@@ -24,6 +24,8 @@ class SettingsViewModel @Inject constructor(
     var isKeepAudioPlayingEnabled by mutableStateOf(preferenceManager.isKeepAudioPlayingEnabled)
     var themeMode by mutableStateOf(preferenceManager.themeMode)
     var isHighRefreshRateEnabled by mutableStateOf(preferenceManager.isHighRefreshRateEnabled)
+    var wifiOnlyDownloads by mutableStateOf(preferenceManager.wifiOnlyDownloads)
+    var downloadsRequireBatteryOk by mutableStateOf(preferenceManager.downloadsRequireBatteryOk)
 
     var backupStatusMessage by mutableStateOf<String?>(null)
 
@@ -71,6 +73,16 @@ class SettingsViewModel @Inject constructor(
     fun toggleHighRefreshRate(enabled: Boolean) {
         isHighRefreshRateEnabled = enabled
         preferenceManager.isHighRefreshRateEnabled = enabled
+    }
+
+    fun toggleWifiOnlyDownloads(enabled: Boolean) {
+        wifiOnlyDownloads = enabled
+        preferenceManager.wifiOnlyDownloads = enabled
+    }
+
+    fun toggleDownloadsRequireBatteryOk(enabled: Boolean) {
+        downloadsRequireBatteryOk = enabled
+        preferenceManager.downloadsRequireBatteryOk = enabled
     }
 
     fun exportBackup(onExportReady: (String) -> Unit) {

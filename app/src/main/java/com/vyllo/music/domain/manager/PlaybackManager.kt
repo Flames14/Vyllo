@@ -116,7 +116,27 @@ class PlaybackManager @Inject constructor(
         }
     }
 
-    suspend fun playMusic(item: MusicItem, streamUrl: String, isVideo: Boolean = false): Result<Unit> {
+/**
+ * Starts [item] with an optional lookahead playlist.
+ *
+ * This used to call `controller.setMediaItem(...)`, which **replaces the whole
+ * ExoPlayer playlist**. That silently defeated every piece of lookahead machinery
+ * in the service (`ensureNextEnqueued`, `pruneLookaheadToMatchQueue`,
+ * `lookaheadMatchesQueue`) — after every tap the player was back to one cold item,
+ * so each track-to-track handoff was a full re-prepare.
+ *
+ * Passing `[item] + lookahead` keeps ExoPlayer's buffers alive across the boundary,
+ * so the next track is already decoding when it becomes audible.
+ *
+ * @param lookaheadItems already-resolved (item, streamUrl) pairs for the tracks that
+ *   follow. Resolved by the service, so this call stays cheap.
+ */
+    suspend fun playMusic(
+        item: MusicItem,
+        streamUrl: String,
+        isVideo: Boolean = false,
+        lookaheadItems: List<Pair<MusicItem, String>>
+    ): Result<Unit> {
         val controller = try {
             awaitConnection()
         } catch (e: Exception) {
@@ -124,29 +144,35 @@ class PlaybackManager @Inject constructor(
         }
 
         return try {
-            val metadata = MediaMetadata.Builder()
-                .setTitle(item.title)
-                .setArtist(item.uploader)
-                .setArtworkUri(Uri.parse(item.thumbnailUrl))
-                .build()
+            val mediaItems = ArrayList<MediaItem>(1 + lookaheadItems.size)
+            mediaItems += item.toMediaItem(streamUrl)
+            lookaheadItems.forEach { (next, nextUrl) -> mediaItems += next.toMediaItem(nextUrl) }
 
-            val mediaItem = MediaItem.Builder()
-                .setMediaId(item.url)
-                .setUri(streamUrl)
-                .setMediaMetadata(metadata)
-                .build()
-
-            // Do not call controller.stop() here as it causes unnecessary delay
-            controller.setMediaItem(mediaItem)
+            // setMediaItems + prepare + play. No stop() first: the outgoing track
+            // keeps audible until ExoPlayer actually starts the new one.
+            controller.setMediaItems(mediaItems, 0, 0L)
             controller.prepare()
             controller.play()
 
-            SecureLogger.d("PlaybackManager") { "playMusic: url=${item.url}, isVideo=$isVideo" }
+            SecureLogger.d("PlaybackManager") { "playMusic: url=${item.url}, isVideo=$isVideo, lookahead=${lookaheadItems.size}" }
             Result.success(Unit)
         } catch (e: Exception) {
             SecureLogger.e("PlaybackManager", "playMusic failed", e)
             Result.failure(e)
         }
+    }
+
+    private fun MusicItem.toMediaItem(streamUrl: String): MediaItem {
+        val metadata = MediaMetadata.Builder()
+            .setTitle(title)
+            .setArtist(uploader)
+            .setArtworkUri(Uri.parse(thumbnailUrl))
+            .build()
+        return MediaItem.Builder()
+            .setMediaId(url)
+            .setUri(streamUrl)
+            .setMediaMetadata(metadata)
+            .build()
     }
 
     suspend fun playFromLocal(localUrl: String, item: MusicItem? = null): Result<Unit> {
@@ -185,6 +211,12 @@ class PlaybackManager @Inject constructor(
         mediaController?.play()
     }
 
+    /**
+     * Hard stop, releasing buffered audio.
+     *
+     * Not part of the normal tap path — [playMusic] hands off between items without
+     * stopping, so the outgoing track stays audible while the next one starts.
+     */
     fun stop() {
         mediaController?.stop()
     }

@@ -1,4 +1,4 @@
-package com.vyllo.music.presentation.components.player
+﻿package com.vyllo.music.presentation.components.player
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -89,6 +89,12 @@ fun PlayerArtwork(
         label = "artworkPlayScale"
     )
     val activeArtworkUrl = playerUiState.resolvedThumbnailUrl ?: item.thumbnailUrl
+    val artworkContext = LocalContext.current
+    val lowRamMode = remember(artworkContext) {
+        com.vyllo.music.core.utils.DevicePerf.isLowRamDevice(artworkContext)
+    }
+    val glowBlur = if (lowRamMode) 18.dp else 36.dp
+    val cardShadow = if (lowRamMode) 4.dp else 20.dp
 
     // 2. Large High-Resolution Album Artwork (Smoothly expands / zooms with playback, drag & double-tap seeking)
     Box(
@@ -99,18 +105,29 @@ fun PlayerArtwork(
         contentAlignment = Alignment.Center
     ) {
         // Ambient Colored Glow behind Artwork (Apple Music style)
+        //
+        // The request is remembered and crossfade is off: this composable sits
+        // above the queue drawer, so rebuilding an ImageRequest and animating a
+        // crossfade while the drawer list was scrolling meant a fresh decode plus
+        // a fade on top of the list's own work. The artwork URL is the only input
+        // that can change it.
         if (isPlaying && activeArtworkUrl.isNotBlank() && !viewModel.isVideoMode) {
-            AsyncImage(
-                model = coil.request.ImageRequest.Builder(LocalContext.current)
+            val glowContext = LocalContext.current
+            val glowRequest = remember(activeArtworkUrl) {
+                coil.request.ImageRequest.Builder(glowContext)
                     .data(activeArtworkUrl)
                     .size(180, 180)
-                    .crossfade(true)
-                    .build(),
+                    .crossfade(false)
+                    .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                    .build()
+            }
+            AsyncImage(
+                model = glowRequest,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize(0.92f)
-                    .blur(36.dp)
+                    .blur(glowBlur)
                     .alpha(0.65f)
             )
         }
@@ -120,20 +137,16 @@ fun PlayerArtwork(
                 .fillMaxSize()
                 .clip(RoundedCornerShape(22.dp))
                 .background(Color.Black)
-                .shadow(20.dp, RoundedCornerShape(22.dp), spotColor = Color.Black.copy(alpha = 0.6f))
+                .shadow(cardShadow, RoundedCornerShape(22.dp), spotColor = Color.Black.copy(alpha = 0.6f))
                 .pointerInput(Unit) {
                 detectTapGestures(
                     onDoubleTap = { offset ->
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         if (offset.x < size.width / 2) {
-                            val newPos = (currentPosition - 10000L).coerceAtLeast(0L)
-                            controller?.seekTo(newPos)
-                            onPositionChange(newPos)
+                            seekRelative(controller, duration, -10000L) { onPositionChange(it) }
                             onSeekFeedback("-10")
                         } else {
-                            val newPos = (currentPosition + 10000L).coerceAtMost(duration)
-                            controller?.seekTo(newPos)
-                            onPositionChange(newPos)
+                            seekRelative(controller, duration, 10000L) { onPositionChange(it) }
                             onSeekFeedback("+10")
                         }
                     }
@@ -151,11 +164,12 @@ fun PlayerArtwork(
                 onTogglePlay = onTogglePlay,
                 onSeek = { newPercent ->
                     val newPos = (newPercent * duration).toLong()
+                    markManualSeek()
                     controller?.seekTo(newPos)
                     onPositionChange(newPos)
                 },
-                onForward = { controller?.seekTo((currentPosition + 10000).coerceAtMost(duration)) },
-                onRewind = { controller?.seekTo((currentPosition - 10000).coerceAtLeast(0)) },
+                onForward = { seekRelative(controller, duration, 10000L) { onPositionChange(it) } },
+                onRewind = { seekRelative(controller, duration, -10000L) { onPositionChange(it) } },
                 onToggleFullScreen = { viewModel.setFullScreenVideo(!playerUiState.isFullScreenVideo) }
             )
         } else {
@@ -274,3 +288,5 @@ fun PlayerTrackInfo(
         )
     }
 }
+
+

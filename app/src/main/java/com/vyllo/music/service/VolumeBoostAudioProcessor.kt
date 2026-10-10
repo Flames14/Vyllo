@@ -28,6 +28,18 @@ class VolumeBoostAudioProcessor : BaseAudioProcessor() {
         }
 
         val size = inputBuffer.remaining()
+
+        // Bypass: at 1.0x the DSP chain is a no-op, so pass bytes straight
+        // through instead of the ShortArray copy path below. put() consumes
+        // the input (advances its position), which is what the pipeline
+        // expects — do not touch inputBuffer.position() afterwards.
+        if (volumeMultiplier <= 1.0f) {
+            val passthrough = replaceOutputBuffer(size)
+            passthrough.put(inputBuffer)
+            passthrough.flip()
+            return
+        }
+
         val outputBuffer = replaceOutputBuffer(size)
 
         val numSamples = size / 2

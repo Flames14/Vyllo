@@ -7,8 +7,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Close
@@ -75,7 +77,9 @@ fun RecognitionScreen(
             .padding(24.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -117,7 +121,8 @@ fun RecognitionScreen(
                             viewModel.resolveAndPlay(currentStatus.result) { musicItem ->
                                 onTrackFound(musicItem)
                             }
-                        }
+                        },
+                        onStartOver = { viewModel.stopRecognition() }
                     )
                 }
                 is RecognitionStatus.Error -> {
@@ -226,7 +231,8 @@ fun RecognitionCircle(
 @Composable
 fun SongResultCard(
     result: com.vyllo.music.recognition.domain.model.RecognitionResult,
-    onPlay: () -> Unit
+    onPlay: () -> Unit,
+    onStartOver: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -292,6 +298,18 @@ fun SongResultCard(
                 Icon(Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.recognition_play_song), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            TextButton(onClick = onStartOver) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(stringResource(R.string.recognition_start_over))
             }
         }
     }

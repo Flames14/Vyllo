@@ -17,8 +17,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.vyllo.music.R
 import kotlin.math.roundToInt
 import androidx.compose.material.icons.rounded.VolumeUp
 
@@ -64,12 +66,12 @@ fun VolumeBoosterOverlay(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Volume Booster",
+                        text = stringResource(R.string.volume_booster_title),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
                     )
                     Text(
-                        text = "${(multiplier * 100).roundToInt()}%",
+                        text = stringResource(R.string.equalizer_percent, (multiplier * 100).roundToInt()),
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onPrimary
                     )

@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+﻿<manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
     <queries>
@@ -7,6 +7,25 @@
         <package android:name="com.android.webview" />
         <package android:name="com.instagram.android" />
         <package android:name="com.whatsapp" />
+
+        <!-- Root-superuser packages probed by SecurityMonitor. On Android 11+
+             PackageManager only reports packages listed here; without them the
+             root-app check silently returns false on every modern device.
+             These are <queries> declarations, NOT permissions: no extra access
+             is granted and Play does not restrict them. -->
+        <package android:name="com.noshufou.android.su" />
+        <package android:name="com.noshufou.android.su.elite" />
+        <package android:name="eu.chainfire.supersu" />
+        <package android:name="com.koushikdutta.superuser" />
+        <package android:name="com.thirdparty.superuser" />
+        <package android:name="com.yellowes.su" />
+        <package android:name="com.koushikdutta.rommanager" />
+        <package android:name="com.koushikdutta.rommanager.license" />
+        <package android:name="com.dimonvideo.luckypatcher" />
+        <package android:name="com.chelpus.lackypatch" />
+        <package android:name="com.ramdroid.appquarantine" />
+        <package android:name="com.ramdroid.appquarantinepro" />
+        <package android:name="com.topjohnwu.magisk" />
     </queries>
 
     <uses-permission android:name="android.permission.INTERNET" />
@@ -21,9 +40,9 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     
-    <!-- Alarm permissions -->
+    <!-- Exact user alarms require special access on Android 12+ (requested only
+         when the user enables or saves an alarm). -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -36,22 +55,14 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Vyllo"
-        android:icon="@drawable/app_icon"
-        android:roundIcon="@drawable/app_icon"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:networkSecurityConfig="@xml/network_security_config"
         tools:targetApi="31">
 
-        <activity
-            android:name=".SplashActivity"
-            android:exported="true"
-            android:theme="@style/Theme.Vyllo.Splash"
-            android:screenOrientation="portrait">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
+        <!-- MainActivity is the launcher: Android 12+ draws the system splash
+             (windowBackground + app icon) itself, so a separate redirect
+             activity only produced a second, icon-less splash frame. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -60,6 +71,10 @@
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:theme="@style/Theme.Vyllo">
             <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -67,9 +82,14 @@
             </intent-filter>
         </activity>
 
+        <!-- exported=false: Media3 binds this service from inside this app only.
+             The system media session (notification, Bluetooth, lock screen) talks
+             to the MediaSession token, not to a bound service, so nothing needs
+             the service exported. Exporting it would let any app on the device
+             bind and control playback. -->
         <service
             android:name=".service.MusicService"
-            android:exported="true"
+            android:exported="false"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
@@ -107,6 +127,7 @@
             android:launchMode="singleInstance" />
 
         <!-- Boot receiver for re-scheduling alarms after reboot -->
+        <!-- TIME_SET / TIMEZONE_CHANGED: RTC_WAKEUP alarms shift on clock changes -->
         <receiver
             android:name=".service.AlarmBootReceiver"
             android:enabled="true"
@@ -116,6 +137,8 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
             </intent-filter>
         </receiver>
 

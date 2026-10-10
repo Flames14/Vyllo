@@ -30,8 +30,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.vyllo.music.R
 
 @Composable
 fun InstantImportCard(
@@ -52,7 +54,7 @@ fun InstantImportCard(
                 Icon(Icons.Rounded.Bolt, contentDescription = "Instant import", tint = Color(0xFFFFB300), modifier = Modifier.size(22.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Instant Playlist Import",
+                    text = stringResource(R.string.import_title),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -62,7 +64,7 @@ fun InstantImportCard(
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                 ) {
                     Text(
-                        "No Login Needed",
+                        stringResource(R.string.import_no_login),
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
@@ -73,7 +75,7 @@ fun InstantImportCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Paste any YouTube or YouTube Music playlist link to import all tracks into your library immediately with artwork.",
+                text = stringResource(R.string.import_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -83,7 +85,7 @@ fun InstantImportCard(
             OutlinedTextField(
                 value = linkInput,
                 onValueChange = onLinkChange,
-                placeholder = { Text("https://music.youtube.com/playlist?list=PL...") },
+                placeholder = { Text(stringResource(R.string.import_url_placeholder)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -116,7 +118,7 @@ fun InstantImportCard(
             ) {
                 Icon(Icons.Rounded.Download, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Import Playlist Now", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.import_action), fontWeight = FontWeight.Bold)
             }
         }
     }

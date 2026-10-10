@@ -24,11 +24,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.vyllo.music.R
 import com.vyllo.music.data.network.YouTubeRemotePlaylist
 
 @Composable
@@ -68,7 +71,7 @@ fun RemotePlaylistItemRow(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "${playlist.trackCount} tracks • ${playlist.privacyStatus.replaceFirstChar { it.uppercase() }}",
+                        text = pluralStringResource(R.plurals.playlist_tracks_count, playlist.trackCount, playlist.trackCount, playlist.privacyStatus.replaceFirstChar { it.uppercase() }),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(0.6f)
                     )
@@ -83,7 +86,7 @@ fun RemotePlaylistItemRow(
             ) {
                 Icon(Icons.Rounded.Download, null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Sync", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.common_sync), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }

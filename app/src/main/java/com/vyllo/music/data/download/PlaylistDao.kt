@@ -34,9 +34,9 @@ interface PlaylistDao {
     @Query("SELECT * FROM playlists")
     suspend fun getAllPlaylistsList(): List<PlaylistEntity>
 
-    @Query("SELECT * FROM playlist_songs WHERE playlistId = :playlistId ORDER BY addedAt DESC")
+    @Query("SELECT * FROM playlist_songs WHERE playlistId = :playlistId ORDER BY addedAt DESC LIMIT 500")
     fun getSongsByPlaylist(playlistId: Long): Flow<List<PlaylistSongEntity>>
 
-    @Query("SELECT * FROM playlist_songs WHERE playlistId = :playlistId ORDER BY addedAt DESC")
+    @Query("SELECT * FROM playlist_songs WHERE playlistId = :playlistId ORDER BY addedAt DESC LIMIT 500")
     suspend fun getSongsByPlaylistList(playlistId: Long): List<PlaylistSongEntity>
 }

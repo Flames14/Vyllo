@@ -77,6 +77,22 @@ class PreferenceManager @Inject constructor(
         get() = preferences.getBoolean("queue_sticky_enabled", true)
         set(value) { preferences.edit().putBoolean("queue_sticky_enabled", value).apply() }
 
+    var isAutoplayEnabled: Boolean
+        get() = preferences.getBoolean("autoplay_enabled", true)
+        set(value) { preferences.edit().putBoolean("autoplay_enabled", value).apply() }
+
+    var batteryRationaleShown: Boolean
+        get() = preferences.getBoolean("battery_rationale_shown", false)
+        set(value) { preferences.edit().putBoolean("battery_rationale_shown", value).apply() }
+
+    var wifiOnlyDownloads: Boolean
+        get() = preferences.getBoolean("wifi_only_downloads", false)
+        set(value) { preferences.edit().putBoolean("wifi_only_downloads", value).apply() }
+
+    var downloadsRequireBatteryOk: Boolean
+        get() = preferences.getBoolean("downloads_require_battery_ok", false)
+        set(value) { preferences.edit().putBoolean("downloads_require_battery_ok", value).apply() }
+
     override var volumeBoostMultiplier: Float
         get() = preferences.getFloat(KEY_VOLUME_BOOST, 1.0f)
         set(value) { preferences.edit().putFloat(KEY_VOLUME_BOOST, value.coerceIn(1.0f, 3.0f)).apply() }

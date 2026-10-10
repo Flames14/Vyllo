@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -117,13 +118,17 @@ fun AutoplayRow(isChecked: Boolean, onToggle: (Boolean) -> Unit) {
 @Composable
 fun ImmersiveBackground(imageUrl: String, content: @Composable BoxScope.() -> Unit) {
     val bg = MaterialTheme.colorScheme.background
+    val immersiveContext = LocalContext.current
+    val immersiveBlur = remember(immersiveContext) {
+        if (com.vyllo.music.core.utils.DevicePerf.isLowRamDevice(immersiveContext)) 18.dp else 40.dp
+    }
     Box(modifier = Modifier.fillMaxSize().background(bg)) {
         if (imageUrl.isNotEmpty()) {
              AsyncImage(
                 model = imageUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().alpha(0.25f).blur(40.dp)
+                modifier = Modifier.fillMaxSize().alpha(0.25f).blur(immersiveBlur)
             )
         }
         Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(bg.copy(alpha = 0.4f), bg.copy(alpha = 0.8f), bg))))
@@ -135,5 +140,7 @@ fun formatTime(ms: Long): String {
     val totalSeconds = ms / 1000
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
-    return String.format("%02d:%02d", minutes, seconds)
+    // Locale.ROOT: digits must never vary with device locale (e.g. Arabic
+    // numerals vs Latin) — this is a clock, not user-facing prose.
+    return String.format(java.util.Locale.ROOT, "%02d:%02d", minutes, seconds)
 }

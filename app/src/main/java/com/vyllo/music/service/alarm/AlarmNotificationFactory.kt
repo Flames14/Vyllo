@@ -9,6 +9,7 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import com.vyllo.music.R
 import com.vyllo.music.domain.model.SoundType
 import com.vyllo.music.service.AlarmTriggerService
 
@@ -49,6 +50,17 @@ object AlarmNotificationFactory {
     }
 
     /**
+     * Stable per-alarm request codes. Notification actions previously shared the
+     * fixed codes 0/1/2 across ALL alarms, so overlapping alarms clobbered each
+     * other's dismiss/snooze intents. The alarm id is also attached as an extra
+     * so the service acts on the right alarm even if fields were overwritten.
+     */
+    private fun requestCodeFor(alarmId: Long, slot: Int): Int {
+        val base = (alarmId % 100000).toInt().coerceAtLeast(0)
+        return base * 10 + slot.coerceIn(0, 9)
+    }
+
+    /**
      * Create notification displayed when alarm triggers.
      */
     fun createNotification(
@@ -62,20 +74,22 @@ object AlarmNotificationFactory {
     ): Notification {
         val dismissIntent = Intent(context, AlarmTriggerService::class.java).apply {
             action = AlarmTriggerService.ACTION_DISMISS
+            putExtra("alarm_id", alarmId)
         }
         val dismissPendingIntent = PendingIntent.getService(
             context,
-            1,
+            requestCodeFor(alarmId, 1),
             dismissIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val snoozeIntent = Intent(context, AlarmTriggerService::class.java).apply {
             action = AlarmTriggerService.ACTION_SNOOZE
+            putExtra("alarm_id", alarmId)
         }
         val snoozePendingIntent = PendingIntent.getService(
             context,
-            2,
+            requestCodeFor(alarmId, 2),
             snoozeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -94,13 +108,13 @@ object AlarmNotificationFactory {
 
         val fullScreenPendingIntent = PendingIntent.getActivity(
             context,
-            0,
+            requestCodeFor(alarmId, 0),
             fullScreenIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
-            .setContentTitle("Alarm")
+            .setContentTitle(context.getString(R.string.notif_alarm_title))
             .setContentText(if (alarmLabel.isNotBlank()) alarmLabel else "Tap to dismiss or snooze")
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setPriority(NotificationCompat.PRIORITY_MAX)

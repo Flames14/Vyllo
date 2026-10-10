@@ -37,8 +37,14 @@ data class PlayerUiState(
     val relatedSongs: List<MusicItem> = emptyList(),
     val artistSongs: List<MusicItem> = emptyList(),
     val discoverSimilarSongs: List<MusicItem> = emptyList(),
+    /** Related tab: top of the same ranked pool Up Next uses, weighted to new artists. */
+    val discoverySongs: List<MusicItem> = emptyList(),
     val isLoadingRelatedTab: Boolean = false,
     val isLoadingMoreRelated: Boolean = false,
+    /** Per-section flags so each Related section can show its own skeleton. */
+    val isLoadingPool: Boolean = false,
+    val isLoadingArtistSongs: Boolean = false,
+    val isLoadingSimilarSongs: Boolean = false,
     val autoplayEnabled: Boolean = true,
     val isLoadingPlayer: Boolean = false,
     val loadingItemUrl: String? = null,
@@ -82,8 +88,15 @@ class PlayerViewModel @Inject constructor(
     private val thumbnailResolver: com.vyllo.music.data.network.YouTubeThumbnailResolver
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(PlayerUiState())
+    private val _uiState = MutableStateFlow(
+        PlayerUiState(autoplayEnabled = preferenceManager.isAutoplayEnabled)
+    )
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
+
+    // Lyric highlight index lives outside PlayerUiState so the 500ms tick
+    // only recomposes the lyrics list, not the whole navigation/player UI.
+    private val _lyricIndex = MutableStateFlow(-1)
+    val lyricIndex: StateFlow<Int> = _lyricIndex.asStateFlow()
 
     // Controllers are initialized in init after viewModelScope is available.
     private lateinit var equalizerController: EqualizerController
@@ -105,7 +118,10 @@ class PlayerViewModel @Inject constructor(
         }
     var autoplayEnabled: Boolean
         get() = _uiState.value.autoplayEnabled
-        set(value) { _uiState.update { it.copy(autoplayEnabled = value) } }
+        set(value) {
+            preferenceManager.isAutoplayEnabled = value
+            _uiState.update { it.copy(autoplayEnabled = value) }
+        }
     val isLoadingPlayer: Boolean
         get() = _uiState.value.isLoadingPlayer
     val loadingItemUrl: String?
@@ -118,8 +134,8 @@ class PlayerViewModel @Inject constructor(
     val syncedLyricsLines: List<SyncedLyricLine>
         get() = _uiState.value.syncedLyricsLines
     var currentLyricIndex: Int
-        get() = _uiState.value.currentLyricIndex
-        set(value) { _uiState.update { it.copy(currentLyricIndex = value) } }
+        get() = _lyricIndex.value
+        set(value) { _lyricIndex.value = value }
     val lyricsLoading: Boolean
         get() = _uiState.value.lyricsLoading
     var lyricsOffsetMs: Long
@@ -176,7 +192,9 @@ class PlayerViewModel @Inject constructor(
             lyricsCoordinator = lyricsCoordinator,
             getState = { _uiState.value },
             updateState = { transform -> _uiState.update(transform) },
-            scopeProvider = { viewModelScope }
+            scopeProvider = { viewModelScope },
+            getLyricIndex = { _lyricIndex.value },
+            setLyricIndex = { _lyricIndex.value = it }
         )
         relatedController = RelatedController(
             repository = repository,
@@ -214,10 +232,29 @@ class PlayerViewModel @Inject constructor(
                     streamResolver.resolveThumbnail(item)
                     streamResolver.loadVideoStats(item)
                     val upcoming = playbackQueueManager.getUpcomingSnapshot()
-                    if (upcoming.isEmpty() || _uiState.value.relatedSongs.isEmpty()) {
-                        relatedController.loadRelatedSongs(item, force = true)
+                    val previousRelated = _uiState.value.relatedSongs
+                    val isFromCurrentPool = previousRelated.any { it.url == item.url }
+                    if (!isFromCurrentPool) {
+                        // New playback context (search / recent / external). Do NOT
+                        // force: the pool for this anchor may still be cached, and
+                        // force=true threw away a good ranking plus fired nine
+                        // searches on every track change.
+                        relatedController.loadRelatedSongs(item, force = false)
                     } else {
-                        _uiState.update { it.copy(relatedSongs = upcoming) }
+                        // Same pool: natural advance (played the head) trims it
+                        // off; a manual skip-ahead keeps the skipped songs above
+                        // so they don't vanish from Up Next.
+                        val playedHead = previousRelated.firstOrNull()?.url == item.url
+                        if (playedHead) {
+                            if (upcoming.isNotEmpty()) {
+                                _uiState.update { it.copy(relatedSongs = upcoming) }
+                            }
+                        } else {
+                            val merged = (previousRelated + upcoming)
+                                .distinctBy { it.url }
+                                .filter { it.url != item.url }
+                            _uiState.update { it.copy(relatedSongs = merged) }
+                        }
                         if (upcoming.size < 5) {
                             relatedController.loadMoreRelatedSongs()
                         }
@@ -251,8 +288,10 @@ class PlayerViewModel @Inject constructor(
         )
     }
 
-    fun fetchLyrics(item: MusicItem, durationSecs: Long) =
+    fun fetchLyrics(item: MusicItem, durationSecs: Long) {
+        _lyricIndex.value = -1
         lyricsController.fetchLyrics(item, durationSecs)
+    }
 
     fun updateLyricsPosition(positionMs: Long) =
         lyricsController.updatePosition(positionMs)

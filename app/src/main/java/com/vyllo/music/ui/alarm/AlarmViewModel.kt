@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.content.Context
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import com.vyllo.music.R
@@ -58,6 +59,23 @@ class AlarmViewModel @Inject constructor(
 
     var editingAlarm by mutableStateOf<AlarmModel?>(null)
         private set
+
+    val exactAlarmPermissionRequiredForSave: Boolean
+        get() = editingAlarm?.isEnabled != false
+
+    fun canScheduleExactAlarms(): Boolean = alarmScheduler.canScheduleExactAlarms()
+
+    fun openExactAlarmSettings() {
+        // The SCHEDULE_EXACT_ALARM settings screen only exists on Android 12+;
+        // below that every app may schedule exact alarms without asking.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        try {
+            appContext.startActivity(alarmScheduler.getExactAlarmPermissionIntent())
+        } catch (e: Exception) {
+            showError = "Unable to open exact alarm settings"
+            SecureLogger.e("AlarmVM", "Failed to open exact alarm settings", e)
+        }
+    }
 
     var showSoundPicker by mutableStateOf(false)
         private set
@@ -320,6 +338,34 @@ class AlarmViewModel @Inject constructor(
         selectedSoundType = SoundType.DEFAULT
         selectedSongUrl = null
         selectedSongTitle = null
+    }
+
+    /**
+     * Delete a downloaded song (file + database row). The picker list refreshes
+     * itself through the observed downloads Flow. If the deleted song was the
+     * currently selected alarm sound, fall back to the default tone so a later
+     * save can never reference a missing file.
+     */
+    fun deleteDownloadedSong(url: String) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val download = downloadDao.getDownloadByUrl(url)
+                if (download != null) {
+                    val file = java.io.File(download.filePath)
+                    if (file.exists() && !file.delete()) {
+                        SecureLogger.w("AlarmVM", "Could not delete file: ${download.filePath}")
+                    }
+                    downloadDao.deleteByUrl(url)
+                }
+                if (selectedSongUrl == url) {
+                    selectedSongUrl = null
+                    selectedSongTitle = null
+                    selectedSoundType = SoundType.DEFAULT
+                }
+            } catch (e: Exception) {
+                SecureLogger.e("AlarmVM", "Failed to delete download", e)
+            }
+        }
     }
 
     /**

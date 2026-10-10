@@ -1,8 +1,7 @@
-package com.vyllo.music.recognition.data.repository
+﻿package com.vyllo.music.recognition.data.repository
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.util.Log
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -11,6 +10,7 @@ import com.vyllo.music.recognition.data.ShazamSignatureGenerator
 import com.vyllo.music.recognition.data.remote.ShazamApi
 import com.vyllo.music.recognition.domain.model.RecognitionResult
 import com.vyllo.music.recognition.domain.repository.ShazamRepository
+import com.vyllo.music.core.security.SecureLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -39,13 +39,13 @@ class ShazamRepositoryImpl @Inject constructor(
     override suspend fun recognize(): Result<RecognitionResult> = withContext(Dispatchers.IO) {
         try {
             // Record Audio
-            Log.d(TAG, "Starting audio recording...")
+            SecureLogger.d(TAG, "Starting audio recording...")
             val rawAudio = recordAudio() ?: return@withContext Result.failure(Exception("Failed to record audio"))
-            Log.d(TAG, "Recorded ${rawAudio.size} bytes")
+            SecureLogger.d(TAG, "Recorded ${rawAudio.size} bytes")
             
             val isSilence = rawAudio.all { it == 0.toByte() }
             if (isSilence) {
-                Log.w(TAG, "WARNING: Recorded audio is pure silence!")
+                SecureLogger.w(TAG, "WARNING: Recorded audio is pure silence!")
             }
 
             // Resample to 16kHz
@@ -56,19 +56,19 @@ class ShazamRepositoryImpl @Inject constructor(
                 pcmEncoding = AUDIO_FORMAT
             )
             val resampled = AudioResampler.resample(decodedAudio, TARGET_SAMPLE_RATE).getOrThrow()
-            Log.d(TAG, "Resampled to ${resampled.data.size} bytes at 16kHz")
+            SecureLogger.d(TAG, "Resampled to ${resampled.data.size} bytes at 16kHz")
 
             // Generate Signature
             val signature = ShazamSignatureGenerator.fromI16(resampled.data)
             val sampleDurationMs = (resampled.data.size / 2) * 1000L / TARGET_SAMPLE_RATE
 
             // Hit Shazam API
-            Log.d(TAG, "Generated signature (length: ${signature.length}). Sending to API...")
+            SecureLogger.d(TAG, "Generated signature (length: ${signature.length}). Sending to API...")
             val apiResponse = api.recognize(signature, sampleDurationMs).getOrThrow()
-            Log.d(TAG, "API Response: $apiResponse")
+            SecureLogger.d(TAG, "API Response: $apiResponse")
             val domainResult = apiResponse.toDomain() ?: return@withContext Result.failure(Exception("No match found"))
 
-            Log.d(TAG, "Match found: ${domainResult.title} by ${domainResult.artist}")
+            SecureLogger.d(TAG, "Match found: ${domainResult.title} by ${domainResult.artist}")
             Result.success(domainResult)
         } catch (e: Exception) {
             Result.failure(e)
@@ -118,10 +118,10 @@ class ShazamRepositoryImpl @Inject constructor(
                 delay(10) // Small delay to avoid tight loop
             }
             audioRecord.stop()
-            Log.d(TAG, "Recording finished. Max amplitude: $maxAmplitude")
+            SecureLogger.d(TAG, "Recording finished. Max amplitude: $maxAmplitude")
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
-            Log.e(TAG, "Audio recording failed", e)
+            SecureLogger.e(TAG, "Audio recording failed", e)
             return null
         } finally {
             try {
@@ -137,3 +137,4 @@ class ShazamRepositoryImpl @Inject constructor(
         return outputStream.toByteArray()
     }
 }
+

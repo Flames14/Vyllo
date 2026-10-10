@@ -1,7 +1,6 @@
 package com.vyllo.music.presentation.components.share
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,8 +19,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Button
@@ -33,7 +30,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -48,9 +44,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vyllo.music.R
 import com.vyllo.music.core.utils.ShareIntentManager
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.presentation.utils.captureToPicture
@@ -59,11 +57,6 @@ import com.vyllo.music.presentation.utils.rememberPicture
 import com.vyllo.music.presentation.utils.saveBitmapToFile
 import kotlinx.coroutines.launch
 
-enum class ShareCardTemplate(val title: String, val subtitle: String) {
-    OBSIDIAN("Studio Obsidian", "Hi-Fi Card"),
-    GLASS_CANVAS("Glass Canvas", "Editorial Soundwave")
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StoryShareBottomSheet(
@@ -71,7 +64,6 @@ fun StoryShareBottomSheet(
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var selectedTemplate by remember { mutableStateOf(ShareCardTemplate.OBSIDIAN) }
     val picture = rememberPicture()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -105,63 +97,26 @@ fun StoryShareBottomSheet(
             ) {
                 Column {
                     Text(
-                        text = "Share Story",
+                        text = stringResource(R.string.share_title),
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         color = Color.White
                     )
                     Text(
-                        text = "Clean music card for Instagram & WhatsApp",
+                        text = stringResource(R.string.share_story_tagline),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.6f)
                     )
                 }
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Rounded.Close, contentDescription = "Close", tint = Color.White)
+                    Icon(
+                        Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.common_close),
+                        tint = Color.White
+                    )
                 }
             }
 
-            // Template Selector Pills
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                ShareCardTemplate.values().forEach { template ->
-                    val isSelected = selectedTemplate == template
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = if (isSelected) Color.White else Color(0xFF1C1C22),
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(50))
-                            .clickable { selectedTemplate = template }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(vertical = 10.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = if (template == ShareCardTemplate.OBSIDIAN) Icons.Rounded.Headphones else Icons.Rounded.GraphicEq,
-                                contentDescription = null,
-                                tint = if (isSelected) Color.Black else Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = template.title,
-                                color = if (isSelected) Color.Black else Color.White,
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // The Story Frame Preview (Captured exact 9:16 Canvas)
+            // The Story Frame Preview (captured exact 9:16 canvas).
             Box(
                 modifier = Modifier
                     .width(260.dp)
@@ -170,22 +125,11 @@ fun StoryShareBottomSheet(
                     .clip(RoundedCornerShape(22.dp))
                     .captureToPicture(picture)
             ) {
-                when (selectedTemplate) {
-                    ShareCardTemplate.OBSIDIAN -> {
-                        ObsidianStudioStoryCard(
-                            item = item,
-                            imageUrl = imageUrl,
-                            context = context
-                        )
-                    }
-                    ShareCardTemplate.GLASS_CANVAS -> {
-                        GlassCanvasStoryCard(
-                            item = item,
-                            imageUrl = imageUrl,
-                            context = context
-                        )
-                    }
-                }
+                MinimalStoryCard(
+                    item = item,
+                    imageUrl = imageUrl,
+                    context = context
+                )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -225,7 +169,12 @@ fun StoryShareBottomSheet(
                     if (isGenerating) {
                         CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
                     } else {
-                        Text("IG Story", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(
+                            stringResource(R.string.share_ig),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
                     }
                 }
 
@@ -256,7 +205,12 @@ fun StoryShareBottomSheet(
                     if (isGenerating) {
                         CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
                     } else {
-                        Text("WhatsApp", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(
+                            stringResource(R.string.share_whatsapp),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
                     }
                 }
 
@@ -282,7 +236,7 @@ fun StoryShareBottomSheet(
                         .size(42.dp)
                         .background(Color(0xFF22222A), CircleShape)
                 ) {
-                    Icon(Icons.Rounded.Share, contentDescription = "Share Image", tint = Color.White)
+                    Icon(Icons.Rounded.Share, contentDescription = stringResource(R.string.share_image_cd), tint = Color.White)
                 }
             }
 
@@ -308,7 +262,11 @@ fun StoryShareBottomSheet(
                 ) {
                     Icon(Icons.Rounded.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Copy Link", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(
+                        stringResource(R.string.share_copy_link),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
                 }
 
                 // Share Direct Song Link Button
@@ -323,7 +281,12 @@ fun StoryShareBottomSheet(
                 ) {
                     Icon(Icons.Rounded.Link, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimary)
                     Spacer(Modifier.width(6.dp))
-                    Text("Share Link", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(
+                        stringResource(R.string.share_link),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
                 }
             }
         }

@@ -21,8 +21,8 @@ object SecurityMonitor {
     /**
      * Detects if device is rooted using multiple checks
      */
-    fun isDeviceRooted(): Boolean {
-        return checkForRootFiles() || hasRootManagementApps()
+    fun isDeviceRooted(context: Context): Boolean {
+        return checkForRootFiles() || hasRootManagementApps(context)
     }
 
     private fun checkForRootFiles(): Boolean {
@@ -45,7 +45,10 @@ object SecurityMonitor {
         }
     }
 
-    private fun hasRootManagementApps(rootPackages: List<String> = listOf(
+    /** Root-superuser packages we probe for. Must match the <queries> package
+     *  declarations in AndroidManifest.xml — on Android 11+ PackageManager only
+     *  reports packages the manifest asks about. */
+    val rootPackages = listOf(
         "com.noshufou.android.su",
         "com.noshufou.android.su.elite",
         "eu.chainfire.supersu",
@@ -59,18 +62,25 @@ object SecurityMonitor {
         "com.ramdroid.appquarantine",
         "com.ramdroid.appquarantinepro",
         "com.topjohnwu.magisk"
-    )): Boolean {
+    )
+
+    private fun hasRootManagementApps(context: Context): Boolean {
         return try {
-            // Use reflection to get the current application instance
-            val activityThreadClass = Class.forName("android.app.ActivityThread")
-            val currentApplicationMethod = activityThreadClass.getMethod("currentApplication")
-            val context = currentApplicationMethod.invoke(null) as? android.content.Context
-                ?: return false
             val pm = context.packageManager
-            @Suppress("DEPRECATION")
-            val packages = pm.getInstalledPackages(0)
-            val installedPackageNames = packages.map { it.packageName }.toSet()
-            rootPackages.any { it in installedPackageNames }
+            // Package visibility (Android 11+): PackageManager only reports the
+            // packages named in the manifest <queries> block, which lists exactly
+            // these root management apps. Probing each name directly is both more
+            // precise and cheaper than enumerating every installed package, and it
+            // is what the <queries> declarations exist to enable.
+            rootPackages.any { pkg ->
+                try {
+                    @Suppress("DEPRECATION")
+                    pm.getPackageInfo(pkg, 0)
+                    true
+                } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
+                    false
+                }
+            }
         } catch (e: Exception) {
             Log.d(TAG, "Root app check failed: ${e.message}")
             false
@@ -131,7 +141,7 @@ object SecurityMonitor {
         var riskScore = 0
         val riskFactors = mutableListOf<String>()
 
-        if (isDeviceRooted()) {
+        if (isDeviceRooted(context)) {
             riskScore += 3
             riskFactors.add("rooted")
         }

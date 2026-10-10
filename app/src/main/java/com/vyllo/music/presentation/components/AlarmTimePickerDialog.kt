@@ -27,7 +27,7 @@ fun AlarmTimePickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Select Time") },
+        title = { Text(stringResource(R.string.alarm_select_time_title)) },
         text = {
             Column {
                 // Hour picker
@@ -107,12 +107,12 @@ fun AlarmTimePickerDialog(
             TextButton(onClick = {
                 onTimeSelected(selectedHour, selectedMinute)
             }) {
-                Text("OK")
+                Text(stringResource(R.string.common_ok))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )

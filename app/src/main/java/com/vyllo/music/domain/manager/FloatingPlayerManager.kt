@@ -63,11 +63,8 @@ class FloatingPlayerManager @Inject constructor(
     }
 
     private fun hasOverlayPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            android.provider.Settings.canDrawOverlays(context)
-        } else {
-            true 
-        }
+        // Settings.canDrawOverlays is API 23, below minSdk 24 — no guard needed.
+        return android.provider.Settings.canDrawOverlays(context)
     }
 
     fun getOverlayPermissionIntent(): android.content.Intent {
@@ -78,8 +75,7 @@ class FloatingPlayerManager @Inject constructor(
     }
 
     fun needsOverlayPermission(): Boolean {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-                !android.provider.Settings.canDrawOverlays(context)
+        return !android.provider.Settings.canDrawOverlays(context)
     }
 
     fun savePosition(x: Int, y: Int) {

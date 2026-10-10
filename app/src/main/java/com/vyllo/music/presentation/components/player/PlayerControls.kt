@@ -1,4 +1,4 @@
-package com.vyllo.music.presentation.components.player
+﻿package com.vyllo.music.presentation.components.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,10 +26,8 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Replay10
-import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.ThumbDown
@@ -244,9 +242,7 @@ fun PlayerPlaybackControls(
         IconButton(
             onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                val newPos = (currentPosition - 10000L).coerceAtLeast(0L)
-                controller?.seekTo(newPos)
-                onPositionChange(newPos)
+                seekRelative(controller, duration, -10000L) { onPositionChange(it) }
                 onSeekFeedback("-10")
             },
             modifier = Modifier.size(42.dp)
@@ -300,9 +296,7 @@ fun PlayerPlaybackControls(
         IconButton(
             onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                val newPos = (currentPosition + 10000L).coerceAtMost(duration)
-                controller?.seekTo(newPos)
-                onPositionChange(newPos)
+                seekRelative(controller, duration, 10000L) { onPositionChange(it) }
                 onSeekFeedback("+10")
             },
             modifier = Modifier.size(42.dp)
@@ -353,73 +347,4 @@ fun PlayerPlaybackControls(
     }
 }
 
-/**
- * Apple-Style Audio Output Route & Lossless Audio Quality Pills.
- * Decorative status pills (no-op taps) mirroring the Apple Music player.
- */
-@Composable
-fun PlayerAudioPills(
-    expandProgress: Float,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .alpha((1f - (expandProgress * 2.5f)).coerceIn(0f, 1f)),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Route Pill (AirPlay style)
-        Surface(
-            shape = RoundedCornerShape(50),
-            color = Color.White.copy(alpha = 0.08f),
-            border = androidx.compose.foundation.BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f)),
-            modifier = Modifier.iosPressClickable { }
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Rounded.Speaker,
-                    contentDescription = "Audio Output",
-                    tint = Color.White.copy(alpha = 0.75f),
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(Modifier.width(5.dp))
-                Text(
-                    text = "Phone Speaker",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                    color = Color.White.copy(alpha = 0.8f)
-                )
-            }
-        }
 
-        Spacer(Modifier.width(8.dp))
-
-        // Apple Lossless Audio Quality Pill
-        Surface(
-            shape = RoundedCornerShape(50),
-            color = Color.White.copy(alpha = 0.08f),
-            border = androidx.compose.foundation.BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f)),
-            modifier = Modifier.iosPressClickable { }
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Rounded.HighQuality,
-                    contentDescription = "Audio Quality",
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
-                    modifier = Modifier.size(15.dp)
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = "Lossless • 256k",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color.White.copy(alpha = 0.85f)
-                )
-            }
-        }
-    }
-}

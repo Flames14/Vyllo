@@ -29,7 +29,8 @@ import javax.inject.Singleton
 @Singleton
 class DownloadRepository @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val downloadDao: DownloadDao
+    private val downloadDao: DownloadDao,
+    private val preferenceManager: com.vyllo.music.data.manager.PreferenceManager
 ) {
     // SupervisorJob so one failed enqueue doesn't kill subsequent work,
     // and cancellation propagates cleanly if the singleton is ever torn down.
@@ -60,9 +61,16 @@ class DownloadRepository @Inject constructor(
                 )
             )
 
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build()
+            val constraintsBuilder = Constraints.Builder()
+                .setRequiredNetworkType(
+                    if (preferenceManager.wifiOnlyDownloads) NetworkType.UNMETERED
+                    else NetworkType.CONNECTED
+                )
+            if (preferenceManager.downloadsRequireBatteryOk) {
+                constraintsBuilder.setRequiresBatteryNotLow(true)
+                constraintsBuilder.setRequiresStorageNotLow(true)
+            }
+            val constraints = constraintsBuilder.build()
 
             val workRequestBuilder = OneTimeWorkRequestBuilder<DownloadWorker>()
                 .setConstraints(constraints)

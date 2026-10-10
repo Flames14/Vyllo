@@ -1,15 +1,13 @@
-<resources>
+﻿<resources>
+    <string name="exact_alarm_permission_title">Allow exact alarms</string>
+    <string name="exact_alarm_permission_message">Android needs this access so alarms can ring at the time you set. Enable Alarms &amp; reminders for Vyllo, then return and save or enable your alarm.</string>
+    <string name="exact_alarm_permission_action">Open settings</string>
     <!-- App name -->
     <string name="app_name">Vyllo</string>
 
     <!-- Navigation -->
-    <string name="nav_home">Home</string>
-    <string name="nav_explore">Explore</string>
-    <string name="nav_library">Library</string>
 
     <!-- Home screen sections -->
-    <string name="home_title_recommended">Recommended For You</string>
-    <string name="home_title_trending">Trending Now</string>
     <string name="section_listen_again">Listen again</string>
     <string name="section_quick_picks">Quick picks</string>
     <string name="section_mixed_for_you">Mixed for you</string>
@@ -19,38 +17,12 @@
     <string name="section_focus">Focus</string>
 
     <!-- Explore categories -->
-    <string name="explore_category_new_releases">New releases</string>
-    <string name="explore_category_charts">Charts</string>
-    <string name="explore_category_moods">Moods &amp; genres</string>
-    <string name="explore_category_party">Party</string>
-    <string name="explore_category_romance">Romance</string>
-    <string name="explore_category_sleep">Sleep</string>
-    <string name="explore_category_workout">Workout</string>
 
     <!-- Filter chips -->
-    <string name="chip_all">All</string>
-    <string name="chip_relax">Relax</string>
-    <string name="chip_energize">Energize</string>
-    <string name="chip_commute">Commute</string>
 
     <!-- Search -->
-    <string name="search_hint">Search music</string>
-    <string name="search_history">Search history</string>
-    <string name="search_no_results">No results found</string>
-    <string name="search_suggestions">Suggestions</string>
 
     <!-- Library -->
-    <string name="library_title">Library</string>
-    <string name="library_playlists">Playlists</string>
-    <string name="library_downloads">Downloads</string>
-    <string name="library_create_playlist">Create playlist</string>
-    <string name="library_playlist_name_hint">Playlist name</string>
-    <string name="library_create">Create</string>
-    <string name="library_cancel">Cancel</string>
-    <string name="library_delete_playlist_title">Delete playlist?</string>
-    <string name="library_delete_playlist_message">This action cannot be undone.</string>
-    <string name="library_delete">Delete</string>
-    <string name="library_add_to_playlist">Add to playlist</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
@@ -60,123 +32,62 @@
     <string name="settings_theme_mode">Theme</string>
 
     <!-- Player -->
-    <string name="player_stream_error">Stream error - please retry</string>
-    <string name="player_playback_failed">Playback failed: %s</string>
-    <string name="player_playback_error">Playback error: %s</string>
     <string name="player_autoplay">Autoplay</string>
-    <string name="player_related_songs">Related songs</string>
-    <string name="player_lyrics">Lyrics</string>
 
     <!-- Downloads -->
-    <string name="download_title">Downloading Music</string>
-    <string name="download_complete">Download Complete</string>
-    <string name="download_failed">Download failed</string>
-    <string name="download_channel_name">Downloads</string>
-    <string name="download_channel_description">Music download progress</string>
 
     <!-- Alarms -->
-    <string name="alarm_title">Alarms</string>
-    <string name="alarm_add">Add alarm</string>
-    <string name="alarm_label_hint">Alarm label (optional)</string>
-    <string name="alarm_save">Save</string>
     <string name="alarm_dismiss">Dismiss</string>
     <string name="alarm_snooze">Snooze 5 min</string>
-    <string name="alarm_sound_default">Default</string>
-    <string name="alarm_sound_downloaded">Downloaded song</string>
-    <string name="alarm_pick_sound">Pick sound</string>
-    <string name="alarm_time">Alarm time</string>
-    <string name="alarm_repeat">Repeat</string>
-    <string name="alarm_volume">Volume</string>
-    <string name="alarm_vibration">Vibration</string>
-    <string name="alarm_delete_title">Delete alarm?</string>
-    <string name="alarm_delete_message">This alarm will be permanently removed.</string>
-    <string name="alarm_cannot_snooze">Cannot snooze: alarm not found</string>
+    <!-- Defaults shown by AlarmTriggerActivity before the real values arrive -->
+    <string name="alarm_trigger_time_placeholder">7:00 AM</string>
+    <string name="alarm_default_label">Time to wake up!</string>
+    <string name="alarm_trigger_icon_cd">Alarm</string>
 
     <!-- Permissions -->
-    <string name="permission_overlay_required">Grant Overlay permission for Floating Player</string>
-    <string name="permission_notification_denied">Notification permission denied</string>
 
     <!-- Errors -->
-    <string name="error_unknown">Unknown error</string>
-    <string name="error_no_internet">No internet connection</string>
-    <string name="error_stream_unavailable">Stream unavailable</string>
-    <string name="error_check_connection">Check your connection</string>
-    <string name="error_no_results">No results found</string>
 
     <!-- Common -->
-    <string name="common_loading">Loading…</string>
-    <string name="common_retry">Retry</string>
     <string name="common_close">Close</string>
-    <string name="common_save">Save</string>
     <string name="common_cancel">Cancel</string>
-    <string name="common_delete">Delete</string>
-    <string name="common_unknown">Unknown</string>
-    <string name="common_artist">Artist</string>
-    <string name="common_song">Song</string>
 
     <!-- Player full screen -->
-    <string name="player_playing_from">PLAYING FROM</string>
-    <string name="player_search_results">Search Results</string>
-    <string name="player_tab_player">Player</string>
-    <string name="player_tab_lyrics">Lyrics</string>
-    <string name="player_up_next">UP NEXT</string>
-    <string name="player_toggle_video_mode">Toggle Video Mode</string>
-    <string name="player_add_to_playlist">Add to Playlist</string>
     <string name="player_lyrics_sync">Lyrics Sync</string>
     <string name="player_lyrics_reset">Reset</string>
-    <string name="player_lyrics_search">Search lyrics...</string>
-    <string name="player_lyrics_choose">Choose Lyrics</string>
-    <string name="player_lyrics_auto_matched">Auto-matched</string>
-    <string name="player_lyrics_search_results">Search results</string>
-    <string name="player_lyrics_synced">Synced</string>
-    <string name="player_lyrics_plain">Plain</string>
     <string name="player_lyrics_not_found">Lyrics not found</string>
     <string name="player_lyrics_search_button">Search for lyrics</string>
-    <string name="player_lyrics_wrong_lyrics">Wrong lyrics?</string>
     <string name="player_autoplay_description">Keep playing similar songs</string>
     <string name="player_video_hint">Click here to play video</string>
-    <string name="player_refreshing">Refreshing...</string>
-    <string name="player_fetching_content">Fetching latest content</string>
 
     <!-- Alarm screen -->
-    <string name="alarm_screen_title">Alarms</string>
     <string name="alarm_back">Back</string>
     <string name="alarm_add_alarm">Add Alarm</string>
     <string name="alarm_ringing">Alarm is ringing!</string>
     <string name="alarm_tap_to_stop">Tap to stop the sound</string>
     <string name="alarm_stop">STOP</string>
     <string name="alarm_no_alarms">No alarms yet</string>
-    <string name="alarm_wake_songs">Wake up to your favorite songs</string>
 
     <!-- Voice search -->
-    <string name="voice_search_prompt">Say a song name or artist…</string>
-    <string name="voice_search_permission">Microphone permission is needed for voice search</string>
-    <string name="voice_search_not_available">Speech recognition not available on this device</string>
 
     <!-- Floating player -->
-    <string name="floating_player_title">Floating Player Active</string>
-    <string name="floating_player_text">Tap the bubble to return to app</string>
-    <string name="floating_player_music_bubble">Music Bubble</string>
     <string name="equalizer_title">Equalizer</string>
     <string name="equalizer_subtitle">Adjust bass, space, and tone for the current playback session</string>
     <string name="equalizer_bass_boost">Bass boost</string>
     <string name="equalizer_virtualizer">Virtualizer</string>
     <string name="equalizer_reset">Reset</string>
     <string name="equalizer_hint">Changes are saved automatically and applied while audio is playing.</string>
-    <string name="share_music">Share</string>
-    <string name="share_music_subject">Listen to %1$s</string>
-    <string name="share_music_message">Listen to %1$s on YouTube: %2$s</string>
-    <string name="share_music_chooser">Share music</string>
-    <string name="share_music_error">Unable to create a public YouTube link for this track</string>
 
     <!-- Volume Booster and Presets -->
     <string name="volume_booster_title">Volume Booster</string>
-    <string name="equalizer_presets">Presets</string>
 
     <!-- Sleep timer -->
     <string name="sleep_timer_title">Sleep Timer</string>
     <string name="sleep_timer_turn_off">Turn Off Timer</string>
-    <string name="sleep_timer_minutes">%1$d minutes</string>
+    <plurals name="sleep_timer_minutes">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
 
     <!-- Backup & Restore -->
     <string name="backup_title">Backup &amp; Restore</string>
@@ -188,15 +99,15 @@
     <string name="backup_import_error">Failed to import backup</string>
 
     <!-- Recognition -->
-    <string name="recognition_title">Music Recognition</string>
     <string name="recognition_tap_to_recognize">Tap to Recognize</string>
-    <string name="recognition_listening">Listening…</string>
-    <string name="recognition_processing">Identifying…</string>
+    <string name="recognition_listening">Listeningâ€¦</string>
+    <string name="recognition_processing">Identifyingâ€¦</string>
     <string name="recognition_found">Found Match!</string>
     <string name="recognition_no_match">No Match Found</string>
     <string name="recognition_error">Error identifying music</string>
     <string name="recognition_try_again">Try Again</string>
     <string name="recognition_play_song">Play Song</string>
+    <string name="recognition_start_over">Start over</string>
     <string name="recognition_subtitle">Identify the music playing around you</string>
 
     <!-- Accessibility Labels -->
@@ -206,17 +117,10 @@
     <string name="accessibility_skip_previous">Previous track</string>
     <string name="accessibility_repeat">Repeat mode</string>
     <string name="accessibility_shuffle">Shuffle</string>
-    <string name="accessibility_seek_bar">Playback progress bar</string>
-    <string name="accessibility_close">Close</string>
-    <string name="accessibility_expand">Expand</string>
-    <string name="accessibility_collapse">Collapse</string>
-    <string name="accessibility_volume">Volume control</string>
-    <string name="accessibility_favorite">Toggle favorite</string>
     <string name="accessibility_search">Search songs, albums and artists</string>
     <string name="accessibility_recognize">Recognise music</string>
     <string name="accessibility_settings">Settings and themes</string>
     <string name="accessibility_swipe_up">Swipe up</string>
-    <string name="accessibility_add_to_playlist">Add to Playlist</string>
 
     <!-- Playlist dialogs -->
     <string name="playlist_add_to">Add to Playlist</string>
@@ -227,7 +131,7 @@
     <string name="action_cancel">Cancel</string>
 
     <!-- Lyrics UI -->
-    <string name="lyrics_fetching">Fetching lyrics…</string>
+    <string name="lyrics_fetching">Fetching lyricsâ€¦</string>
     <string name="lyrics_search_manual_hint">Try searching manually</string>
     <string name="lyrics_no_results">No results found</string>
     <string name="lyrics_sync_offset_dec">Decrease lyrics sync offset by 0.5s</string>
@@ -236,19 +140,25 @@
 
     <!-- Queue / Up Next -->
     <string name="queue_playing_from">Playing from Queue</string>
-    <string name="queue_track_count">%1$d tracks</string>
+    <plurals name="queue_track_count">
+        <item quantity="one">%1$d track</item>
+        <item quantity="other">%1$d tracks</item>
+    </plurals>
     <string name="queue_swipe_up_hint">Swipe up for Up Next</string>
-    <string name="queue_auto_mix">%1$s • Auto-Mix</string>
+    <string name="queue_auto_mix">%1$s â€¢ Auto-Mix</string>
 
     <!-- Downloads / empty / error states -->
     <string name="download_cd_cancel">Cancel</string>
-    <string name="download_cd_done">Downloaded — long press to remove</string>
+    <string name="download_cd_done">Downloaded â€” long press to remove</string>
     <string name="download_cd_start">Download for offline listening</string>
     <string name="download_cd_remove">Remove download</string>
     <string name="state_error_title">Something went wrong</string>
     <string name="state_try_again">Try again</string>
+    <string name="state_home_failed">Couldn\'t load your home feed. Check your connection and try again.</string>
+    <string name="state_offline_banner">You\'re offline</string>
+    <string name="state_offline_detail">Downloads still play. We\'ll refresh when you reconnect.</string>
     <string name="comments_none">No comments found.</string>
-    <string name="search_placeholder">Search songs, artists…</string>
+    <string name="search_placeholder">Search songs, artistsâ€¦</string>
     <string name="share_story_tagline">Clean music card for Instagram &amp; WhatsApp</string>
     <string name="alarm_cd_edit_time">Edit time</string>
     <string name="alarm_cd_select_sound">Select sound</string>
@@ -262,20 +172,45 @@
     <string name="alarm_cd_dec_minute">Decrease minute</string>
     <string name="alarm_cd_inc_minute">Increase minute</string>
     <string name="comments_load_failed">Failed to load comments</string>
-    <string name="comments_load_more_failed">Failed to load more comments</string>
     <string name="comments_title">Comments</string>
     <string name="comments_title_count">Comments (%1$s)</string>
     <string name="alarm_edit_alarm">Edit Alarm</string>
     <string name="alarm_delete_row_title">Delete Alarm</string>
     <string name="search_placeholder_long">Search songs, albums, artists</string>
-    <string name="menu_add_to_playlist_ellipsis">Add to a Playlist…</string>
+    <string name="menu_add_to_playlist_ellipsis">Add to a Playlistâ€¦</string>
     <string name="menu_download_song">Download Song</string>
     <string name="nav_alarms">Alarms</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_explore">Explore</string>
+    <string name="nav_library">Library</string>
+
+    <!-- Home mood/filter chips. The value passed to onChipSelected stays the
+         stable English key (it drives the search-query mapping in
+         HomeViewModel.onChipSelected); only the label is localized. -->
+    <string name="chip_all">All</string>
+    <string name="chip_relax">Relax</string>
+    <string name="chip_energize">Energize</string>
+    <string name="chip_workout">Workout</string>
+    <string name="chip_focus">Focus</string>
+    <string name="chip_commute">Commute</string>
     <string name="alarm_empty_subtitle">Wake up to your favorite songs</string>
     <string name="alarm_countdown_ringing_now">Ringing now!</string>
     <string name="alarm_countdown_next_hm">Next alarm in %1$d\h %2$d\m</string>
     <string name="alarm_countdown_next_ms">Next alarm in %1$d\m %2$d\s</string>
     <string name="alarm_countdown_next_s">Next alarm in %1$d\s</string>
+    <string name="alarm_hero_next_up">Next up</string>
+    <string name="alarm_hero_nothing">Nothing scheduled</string>
+    <string name="alarm_hero_add">New alarm</string>
+    <string name="alarm_delete_download_cd">Delete downloaded song</string>
+    <string name="share_title">Share</string>
+    <string name="share_ig">Instagram</string>
+    <string name="share_whatsapp">WhatsApp</string>
+    <string name="share_copy_link">Copy Link</string>
+    <string name="share_link">Share Link</string>
+    <string name="share_image_cd">Share image</string>
+    <string name="story_now_playing">Now Playing</string>
+    <string name="story_shared_via">via Vyllo Music</string>
     <string name="pill_like">Like</string>
     <string name="pill_lyrics">Lyrics</string>
     <string name="pill_comments">Comments</string>
@@ -299,4 +234,185 @@
     <string name="header_share_link_cd">Share Link</string>
     <string name="header_copy_link">Copy Song Link</string>
     <string name="header_copy_link_cd">Copy Link</string>
+
+    <!-- Common actions -->
+    <string name="common_save">Save</string>
+    <string name="common_ok">OK</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_clear">Clear</string>
+    <string name="common_later">Later</string>
+    <string name="common_reset">Reset</string>
+    <string name="common_sync">Sync</string>
+
+    <!-- Alarm editor -->
+    <string name="alarm_label_optional">Label (optional)</string>
+    <string name="alarm_label_placeholder">e.g., Wake up, Gym, Work</string>
+    <string name="alarm_vibration">Vibration</string>
+    <string name="alarm_time_label">Time</string>
+    <string name="alarm_repeat">Repeat</string>
+    <string name="alarm_sound_label">Sound</string>
+    <string name="alarm_volume_value">Volume: %1$d%%</string>
+    <string name="alarm_gradual">Gradual</string>
+    <string name="alarm_in_countdown">in %1$s</string>
+    <string name="alarm_select_sound_title">Select Alarm Sound</string>
+    <string name="alarm_default_sound_title">Default Alarm Sound</string>
+    <string name="alarm_your_downloads">Your Downloads</string>
+    <string name="alarm_select_time_title">Select Time</string>
+
+    <!-- Comments -->
+    <string name="comments_error">Error: %1$s</string>
+
+    <!-- Equalizer -->
+    <string name="equalizer_presets">Presets</string>
+    <string name="equalizer_percent">%1$d%%</string>
+    <string name="equalizer_reset_cd">Reset equalizer to flat</string>
+    <string name="eq_band_bass">Bass</string>
+    <string name="eq_band_low_mid">Low Mid</string>
+    <string name="eq_band_mid">Mid</string>
+    <string name="eq_band_upper_mid">Upper Mid</string>
+    <string name="eq_band_treble">Treble</string>
+
+    <!-- Lyrics -->
+    <string name="lyrics_search_action">Search Lyrics</string>
+    <string name="lyrics_search_hint">Artist - Song</string>
+    <plurals name="lyrics_results_count">
+        <item quantity="one">%1$d result</item>
+        <item quantity="other">%1$d results</item>
+    </plurals>
+    <string name="lyrics_synced_mode">Synced</string>
+    <string name="lyrics_plain_mode">Plain</string>
+
+    <!-- Related tracks -->
+    <string name="related_more_from">More from %1$s</string>
+    <string name="related_similar_track">Similar to this track</string>
+    <string name="related_you_might_also_like">You Might Also Like</string>
+
+    <!-- Song context menu -->
+    <string name="context_play_next">Play Next</string>
+    <string name="context_add_to_queue">Add to Playing Queue</string>
+    <string name="context_share_song">Share Song</string>
+    <string name="context_remove_from_playlist">Remove from Playlist</string>
+
+    <!-- Headers and cards -->
+    <string name="header_music_title">Music</string>
+    <string name="hero_best_match">BEST MATCH</string>
+    <string name="magazine_ready">Ready for some tunes?</string>
+
+    <!-- Settings dialog -->
+    <string name="settings_bg_on">Keeps playing with screen off</string>
+    <string name="settings_bg_off">Pauses when you leave the app</string>
+    <string name="settings_bg_battery_title">Background battery access</string>
+    <string name="settings_bg_battery_desc">Needed so songs and alarms keep working overnight</string>
+    <string name="settings_pause_on_mic">Don\'t pause when using mic or camera</string>
+    <string name="settings_show_bubble">Show bubble when leaving app</string>
+    <string name="settings_high_refresh">High Refresh Rate (90Hz/120Hz)</string>
+    <string name="settings_refresh_on">Max display smoothness</string>
+    <string name="settings_refresh_off">Battery saver (60Hz lock)</string>
+    <string name="settings_wifi_only">Wi-Fi only downloads</string>
+    <string name="settings_wifi_only_desc">Only download songs on unmetered Wi-Fi</string>
+    <string name="settings_pause_low_battery">Pause downloads on low battery</string>
+    <string name="settings_pause_low_battery_desc">Wait for healthy battery and storage</string>
+    <string name="settings_support">Support Development</string>
+    <string name="settings_buy_coffee">Buy me a coffee ☕</string>
+    <string name="settings_donate_cd">Donate</string>
+    <string name="settings_check_updates">Check for Updates</string>
+    <string name="settings_check_updates_desc">Download latest features and fixes</string>
+    <string name="settings_update_cd">Update</string>
+
+    <!-- Explore / Home -->
+    <string name="explore_nothing">Nothing to explore here yet</string>
+    <string name="home_trending_now">Trending now</string>
+    <string name="home_recommended">Recommended</string>
+
+    <!-- Library -->
+    <string name="library_alarms_title">Alarms</string>
+    <string name="library_alarms_subtitle">Wake up to your songs</string>
+    <string name="library_playlists_title">Playlists</string>
+    <string name="library_no_playlists">No playlists yet</string>
+    <string name="library_downloads_title">Downloads</string>
+    <string name="library_no_downloads">No downloads yet</string>
+    <string name="library_playlist_empty">This playlist is empty</string>
+
+    <!-- Google account sync (OAuth) -->
+    <string name="oauth_title">Google Account Sync (OAuth 2.0)</string>
+    <string name="oauth_description">Google OAuth connects directly to your Google Account to synchronize all your private and unlisted YouTube playlists.</string>
+    <string name="oauth_configure_first">Please configure your Google Client ID first</string>
+    <string name="oauth_sign_in">Sign in with Google</string>
+    <string name="oauth_edit_client_id">Edit Google Client ID</string>
+    <string name="oauth_client_id_required">Google Cloud OAuth Client ID Required</string>
+    <string name="oauth_instructions">To sign in via Google OAuth, enter your OAuth 2.0 Client ID from Google Cloud Console (Redirect URI: com.vyllo.music://oauth2redirect). Or use the instant import above without any setup!</string>
+    <string name="oauth_configure_client_id">Configure Client ID</string>
+    <string name="oauth_client_id_label">Google Cloud Client ID</string>
+    <string name="oauth_client_id_placeholder">xxxxxx.apps.googleusercontent.com</string>
+    <string name="oauth_client_id_saved">Client ID saved!</string>
+    <string name="oauth_connected">Connected to Google</string>
+    <string name="oauth_your_playlists">Your YouTube Playlists (%1$d)</string>
+    <string name="oauth_tap_refresh">Tap refresh to load playlists</string>
+
+    <!-- Instant playlist import -->
+    <string name="import_title">Instant Playlist Import</string>
+    <string name="import_no_login">No Login Needed</string>
+    <string name="import_description">Paste any YouTube or YouTube Music playlist link to import all tracks into your library immediately with artwork.</string>
+    <string name="import_url_placeholder">https://music.youtube.com/playlist?list=PL…</string>
+    <string name="import_action">Import Playlist Now</string>
+
+    <!-- Remote playlists / YouTube sync -->
+    <plurals name="playlist_tracks_count">
+        <item quantity="one">%1$d track • %2$s</item>
+        <item quantity="other">%1$d tracks • %2$s</item>
+    </plurals>
+    <string name="ytsync_title">YouTube Playlist Sync</string>
+    <string name="ytsync_subtitle">Import YouTube &amp; YouTube Music Playlists</string>
+
+    <!-- Search -->
+    <string name="search_mic_permission">Microphone permission is needed for voice search</string>
+    <string name="search_speech_unavailable">Speech recognition not available on this device</string>
+    <string name="search_recent">Recent searches</string>
+    <string name="search_hint_vyllo">Search Vyllo</string>
+    <string name="search_no_results">No results found</string>
+
+    <!-- App update -->
+    <string name="update_title">App Update</string>
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_available">🚀 A new version is available!</string>
+    <string name="update_current_version">Current Version: %1$s</string>
+    <string name="update_new_version">New Version: %1$s</string>
+    <string name="update_release_date">Release Date: %1$s</string>
+    <string name="update_whats_new">What\'s new:</string>
+    <string name="update_up_to_date">✅ You are on the latest version!</string>
+    <string name="update_failed">❌ Failed to check for updates.</string>
+    <string name="update_downloading">Downloading update in background…</string>
+    <string name="update_download_hint">You will be prompted to install once finished.</string>
+    <string name="update_now">Update Now</string>
+
+    <!-- Sharing -->
+    <string name="share_instagram_missing">Instagram is not installed</string>
+    <string name="share_whatsapp_missing">WhatsApp is not installed</string>
+    <string name="share_story_chooser">Share Music Story</string>
+    <string name="share_failed">Failed to share</string>
+    <string name="share_song_link_chooser">Share Song Link</string>
+    <string name="share_link_failed">Failed to share link</string>
+    <string name="share_link_copied">Link copied to clipboard! 🔗</string>
+    <string name="share_copy_failed">Failed to copy link</string>
+    <string name="share_listening_story">🎵 Listening to \"%1$s\" by %2$s on Vyllo Music\n🔗 %3$s</string>
+    <string name="share_listening_link">🎵 Listening to \"%1$s\" by %2$s on Vyllo Music\n\n🔗 Stream here: %3$s</string>
+    <string name="share_subject">Listen to %1$s on Vyllo Music</string>
+    <string name="share_clip_label">Song Link</string>
+
+    <!-- Permissions -->
+    <string name="permission_grant_overlay">Grant Overlay permission for Floating Player</string>
+    <string name="permission_already_unrestricted">Background playback is already unrestricted</string>
+    <string name="crash_report_subject">Vyllo crash report</string>
+
+    <!-- Notifications -->
+    <string name="notif_alarm_title">Alarm</string>
+    <string name="notif_exact_alarm_title">Alarms need exact-timing access</string>
+    <plurals name="notif_exact_alarm_text">
+        <item quantity="one">%1$d alarm restored inexact after reboot — tap to re-enable exact timing.</item>
+        <item quantity="other">%1$d alarms restored inexact after reboot — tap to re-enable exact timing.</item>
+    </plurals>
+    <string name="notif_download_complete">Download Complete</string>
+    <string name="notif_downloading">Downloading Music</string>
+    <string name="notif_floating_title">Floating Player Active</string>
+    <string name="notif_floating_text">Tap the bubble to return to app</string>
 </resources>

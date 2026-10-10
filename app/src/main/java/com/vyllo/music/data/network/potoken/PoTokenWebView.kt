@@ -4,13 +4,14 @@ import android.content.Context
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import androidx.annotation.MainThread
+import com.vyllo.music.core.security.SecureLogger
 import kotlinx.coroutines.*
+import org.json.JSONObject
 import org.schabi.newpipe.extractor.NewPipe
 import java.time.Instant
 import kotlin.coroutines.resume
@@ -30,8 +31,12 @@ class PoTokenWebView private constructor(
         @Suppress("SetJavaScriptEnabled")
         webViewSettings.javaScriptEnabled = true
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            webViewSettings.safeBrowsingEnabled = false
+            webViewSettings.safeBrowsingEnabled = true
         }
+        webViewSettings.allowFileAccess = false
+        webViewSettings.allowContentAccess = false
+        webViewSettings.allowFileAccessFromFileURLs = false
+        webViewSettings.allowUniversalAccessFromFileURLs = false
         webViewSettings.userAgentString = USER_AGENT
         webViewSettings.blockNetworkLoads = true // The WebView does not need internet access
 
@@ -42,7 +47,7 @@ class PoTokenWebView private constructor(
                 if (m.message().contains("Uncaught")) {
                     val fmt = "\"${m.message()}\", source: ${m.sourceId()} (${m.lineNumber()})"
                     val exception = BadWebViewException(fmt)
-                    Log.e(TAG, "This WebView implementation is broken: $fmt")
+                    SecureLogger.e(TAG, "BotGuard WebView initialization failed")
 
                     onInitializationErrorCloseAndCancel(exception)
                 }
@@ -52,9 +57,7 @@ class PoTokenWebView private constructor(
     }
 
     private fun loadHtmlAndObtainBotguard(context: Context) {
-        if (com.vyllo.music.BuildConfig.DEBUG) {
-            Log.d(TAG, "loadHtmlAndObtainBotguard() called")
-        }
+        SecureLogger.d(TAG) { "Loading BotGuard WebView" }
 
         scope.launch {
             try {
@@ -80,15 +83,19 @@ class PoTokenWebView private constructor(
 
     @JavascriptInterface
     fun downloadAndRunBotguard() {
-        if (com.vyllo.music.BuildConfig.DEBUG) {
-            Log.d(TAG, "downloadAndRunBotguard() called")
-        }
+        SecureLogger.d(TAG) { "Starting BotGuard challenge" }
 
         makeBotguardServiceRequest(
             "https://www.youtube.com/api/jnn/v1/Create",
             "[ \"$REQUEST_KEY\" ]"
         ) { responseBody ->
             val parsedChallengeData = parseChallengeData(responseBody)
+            // Never interpolate raw server text into JS: a MITM'd challenge
+            // could inject script into the privileged bridge context.
+            if (!isValidJsonValue(parsedChallengeData)) {
+                onInitializationErrorCloseAndCancel(BadWebViewException("Invalid challenge data"))
+                return@makeBotguardServiceRequest
+            }
             webView.evaluateJavascript(
                 """try {
                     data = $parsedChallengeData
@@ -108,35 +115,30 @@ class PoTokenWebView private constructor(
 
     @JavascriptInterface
     fun onJsInitializationError(error: String) {
-        if (com.vyllo.music.BuildConfig.DEBUG) {
-            Log.e(TAG, "Initialization error from JavaScript: $error")
-        }
+        SecureLogger.d(TAG) { "BotGuard initialization returned a JavaScript error" }
         onInitializationErrorCloseAndCancel(buildExceptionForJsError(error))
     }
 
     @JavascriptInterface
     fun onRunBotguardResult(botguardResponse: String) {
-        if (com.vyllo.music.BuildConfig.DEBUG) {
-            Log.d(TAG, "botguardResponse: $botguardResponse")
-        }
+        // Challenge responses contain opaque BotGuard data and must never reach logs.
         makeBotguardServiceRequest(
             "https://www.youtube.com/api/jnn/v1/GenerateIT",
             "[ \"$REQUEST_KEY\", \"$botguardResponse\" ]"
         ) { responseBody ->
-            if (com.vyllo.music.BuildConfig.DEBUG) {
-                Log.d(TAG, "GenerateIT response: $responseBody")
-            }
             val (integrityToken, expirationTimeInSeconds) = parseIntegrityTokenData(responseBody)
 
             expirationInstant = Instant.now().plusSeconds(expirationTimeInSeconds - 600)
 
             scope.launch(Dispatchers.Main) {
+                if (!isValidJsonValue(integrityToken)) {
+                    onInitializationErrorCloseAndCancel(BadWebViewException("Invalid integrity token"))
+                    return@launch
+                }
                 webView.evaluateJavascript(
                     "this.integrityToken = $integrityToken"
                 ) {
-                    if (com.vyllo.music.BuildConfig.DEBUG) {
-                        Log.d(TAG, "initialization finished, expiration=${expirationTimeInSeconds}s")
-                    }
+                    SecureLogger.d(TAG) { "BotGuard initialization completed" }
                     initCallback(Result.success(this@PoTokenWebView))
                 }
             }
@@ -149,7 +151,7 @@ class PoTokenWebView private constructor(
             val u8Identifier = stringToU8(identifier)
             webView.evaluateJavascript(
                 """try {
-                        identifier = "$identifier"
+                        identifier = ${JSONObject.quote(identifier)}
                         u8Identifier = $u8Identifier
                         poTokenU8 = obtainPoToken(webPoSignalOutput, integrityToken, u8Identifier)
                         poTokenU8String = ""
@@ -167,9 +169,7 @@ class PoTokenWebView private constructor(
 
     @JavascriptInterface
     fun onObtainPoTokenError(identifier: String, error: String) {
-        if (com.vyllo.music.BuildConfig.DEBUG) {
-            Log.e(TAG, "obtainPoToken error from JavaScript: $error")
-        }
+        SecureLogger.d(TAG) { "PoToken generation returned a JavaScript error" }
         scope.launch(Dispatchers.Main) {
             popPoTokenContinuation(identifier)?.resumeWithException(buildExceptionForJsError(error))
         }
@@ -258,8 +258,23 @@ class PoTokenWebView private constructor(
         }
     }
 
-    private fun onInitializationErrorCloseAndCancel(error: Throwable) {
-        scope.launch(Dispatchers.Main) {
+    private fun isValidJsonValue(raw: String): Boolean {
+        return try {
+            val trimmed = raw.trim()
+            if (trimmed.startsWith("{")) {
+                JSONObject(trimmed)
+            } else if (trimmed.startsWith("[")) {
+                org.json.JSONArray(trimmed)
+            } else {
+                JSONObject.quote(trimmed)
+            }
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun onInitializationErrorCloseAndCancel(error: Throwable) {       scope.launch(Dispatchers.Main) {
             close()
             initCallback(Result.failure(error))
             popAllPoTokenContinuations().forEach { (_, continuation) ->
@@ -282,7 +297,7 @@ class PoTokenWebView private constructor(
     }
 
     companion object : PoTokenGenerator.Factory {
-        private val TAG = PoTokenWebView::class.simpleName
+        private val TAG = PoTokenWebView::class.simpleName ?: "PoTokenWebView"
 
         private const val REQUEST_KEY = "O43z0dpjhgX20SCx4KAo"
         private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +

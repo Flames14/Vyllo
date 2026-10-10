@@ -21,9 +21,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.R
 import com.vyllo.music.*
 import com.vyllo.music.presentation.components.*
 import com.vyllo.music.presentation.theme.VylloRadius
@@ -113,12 +115,12 @@ fun YTMLibraryScreen(
                         Spacer(modifier = Modifier.width(VylloSpacing.lg))
                         Column {
                             Text(
-                                text = "Alarms",
+                                text = stringResource(R.string.library_alarms_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                text = "Wake up to your songs",
+                                text = stringResource(R.string.library_alarms_subtitle),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                             )
@@ -141,7 +143,7 @@ fun YTMLibraryScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Playlists",
+                    text = stringResource(R.string.library_playlists_title),
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onBackground
                 )
@@ -169,7 +171,7 @@ fun YTMLibraryScreen(
             item(key = "empty_playlists", contentType = "empty") {
                 VylloEmptyState(
                     icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
-                    title = "No playlists yet",
+                    title = stringResource(R.string.library_no_playlists),
                     message = "Group the songs you love into playlists you can play anytime.",
                     actionLabel = "Create playlist",
                     onAction = { showCreateDialog = true }
@@ -217,24 +219,16 @@ fun YTMLibraryScreen(
         }
 
         item(key = "downloads_header", contentType = "header") {
-            Column(modifier = Modifier.padding(bottom = 8.dp)) {
-                YTMSectionHeader(title = "Downloads")
-                if (viewModel.downloadedSongs.isNotEmpty()) {
-                    Text(
-                        text = "Long press check icon to delete",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onBackground.copy(0.4f),
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-            }
+              Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                  YTMSectionHeader(title = stringResource(R.string.library_downloads_title))
+              }
         }
         
         if (viewModel.downloadedSongs.isEmpty()) {
             item(key = "empty_downloads", contentType = "empty") {
                 VylloEmptyState(
                     icon = Icons.Rounded.DownloadDone,
-                    title = "No downloads yet",
+                    title = stringResource(R.string.library_no_downloads),
                     message = "Songs you download are stored on this device and play without internet.",
                     actionLabel = "Find music to download",
                     onAction = onSearchClick
@@ -245,15 +239,33 @@ fun YTMLibraryScreen(
                 items = viewModel.downloadedSongs,
                 key = { "download_${it.url}" },
                 contentType = { "song_row" }
-            ) { entry ->
-                val musicItem = MusicItem(entry.title, entry.url, entry.uploader, entry.thumbnailUrl)
-                YTMSongRow(
-                    item = musicItem,
-                    isPlaying = currentPlayingItem?.url == entry.url,
-                    onClick = { onPlay(musicItem) },
-                    isLoading = loadingItemUrl == entry.url
-                )
-            }
+              ) { entry ->
+                  val musicItem = MusicItem(entry.title, entry.url, entry.uploader, entry.thumbnailUrl)
+                  Row(
+                      modifier = Modifier.fillMaxWidth(),
+                      verticalAlignment = Alignment.CenterVertically
+                  ) {
+                      Box(modifier = Modifier.weight(1f)) {
+                          YTMSongRow(
+                              item = musicItem,
+                              isPlaying = currentPlayingItem?.url == entry.url,
+                              onClick = { onPlay(musicItem) },
+                              isLoading = loadingItemUrl == entry.url
+                          )
+                      }
+                      IconButton(
+                          onClick = { viewModel.deleteDownload(entry.url) },
+                          modifier = Modifier.size(40.dp)
+                      ) {
+                          Icon(
+                              Icons.Rounded.Delete,
+                              contentDescription = stringResource(R.string.download_cd_remove),
+                              tint = MaterialTheme.colorScheme.error.copy(alpha = 0.75f),
+                              modifier = Modifier.size(20.dp)
+                          )
+                      }
+                  }
+              }
         }
     }
 }

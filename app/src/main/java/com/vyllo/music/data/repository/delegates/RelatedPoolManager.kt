@@ -1,6 +1,7 @@
-package com.vyllo.music.data.repository.delegates
+﻿package com.vyllo.music.data.repository.delegates
 
 import com.vyllo.music.core.security.SecureLogger
+import com.vyllo.music.data.download.HistoryDao
 import com.vyllo.music.data.network.YouTubeDataSource
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.MusicItemType
@@ -13,376 +14,482 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * A ranked, pre-filtered candidate pool for one anchor track.
+ *
+ * [ranked] is kept sorted by score descending at all times, so expanding the
+ * pool is a single linear merge rather than a re-score-everything pass.
+ */
 class RelatedPool(
     val anchorUrl: String,
-    val items: MutableList<MusicItem>,
-    val seenKeys: MutableSet<String>,
+    val anchor: RecommendationAnchor,
+    val ranked: MutableList<ScoredCandidate> = mutableListOf(),
+    val seenKeys: MutableSet<String> = mutableSetOf(),
     val fetchedAt: Long = System.currentTimeMillis(),
-    var expansionRound: Int = 0
+    var expansionRound: Int = 0,
+    /** Ordered query ladder for this anchor, reused by expansion rounds. */
+    val ladder: List<WeightedQuery> = emptyList()
 )
 
 @Singleton
 class RelatedPoolManager @Inject constructor(
-    private val youtubeDataSource: YouTubeDataSource
+    private val youtubeDataSource: YouTubeDataSource,
+    private val historyDao: HistoryDao,
+    private val trackMetadataResolver: TrackMetadataResolver
 ) {
-    /**
-     * Cached suggestion pool per anchor track so repeated calls (prefetch, autoplay,
-     * Up Next UI) share the same result instead of refetching everything each time.
-     */
-    private val relatedPoolCache = ConcurrentHashMap<String, RelatedPool>()
-
-    private val relatedDemotePattern = Regex(
-        "\\b(lyrics|live|cover|remix|sped|slowed|reverb|karaoke|instrumental|mashup|reaction|loop|\\d+ hour|with lyrics|official lyric)\\b",
-        RegexOption.IGNORE_CASE
-    )
 
     companion object {
         private const val RELATED_POOL_TTL_MS = 15 * 60 * 1000L
         private const val RELATED_MAX_ITEMS = 200
-        private const val EXPANSION_QUERIES_PER_ROUND = 2
+        private const val MAX_CACHED_ANCHORS = 5
+
+        /** Rows of play history used for the taste signal. */
+        private const val TASTE_HISTORY_LIMIT = 50
+
+        /** Up Next continuity: 2 same/similar-artist tracks per discovery track. */
+        const val UPNE_PRIMARY_RUN = 2
+        const val UPNE_DISCOVERY_RUN = 1
+
+        /** Related tab: discovery-leaning, 1 same/similar-artist per 3 others. */
+        const val RELATED_PRIMARY_RUN = 1
+        const val RELATED_DISCOVERY_RUN = 3
+
+        const val DISCOVERY_ORDER_LIMIT = 25
+        const val ARTIST_SECTION_LIMIT = 15
+        const val SIMILAR_SECTION_LIMIT = 20
+
+        private const val MAX_PER_ARTIST_SECTION = 3
     }
 
+    // ---------------------------------------------------------------------
+    // Pool cache (access-ordered LRU over anchors)
+    // ---------------------------------------------------------------------
+
+    private val relatedPoolCache: MutableMap<String, RelatedPool> =
+        object : LinkedHashMap<String, RelatedPool>(8, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, RelatedPool>): Boolean =
+                size > MAX_CACHED_ANCHORS
+        }
+
+    private fun getPool(url: String): RelatedPool? = synchronized(relatedPoolCache) { relatedPoolCache[url] }
+
+    private fun putPool(url: String, pool: RelatedPool) = synchronized(relatedPoolCache) { relatedPoolCache[url] = pool }
+
+    private fun removePool(url: String) = synchronized(relatedPoolCache) { relatedPoolCache.remove(url) }
+
+    private fun isFresh(pool: RelatedPool): Boolean =
+        System.currentTimeMillis() - pool.fetchedAt < RELATED_POOL_TTL_MS
+
+    // ---------------------------------------------------------------------
+    // Listener taste + recent history snapshot
+    // ---------------------------------------------------------------------
+
+    /**
+     * How often each uploader appears in recent play history, plus the tracks seen
+     * there.
+     *
+     * Uploaders bias ordering; track keys are what let the Related tab skip what
+     * the listener just played. Up Next deliberately still allows a repeat after a
+     * long gap — blocking it would starve the queue near the end of a session.
+     */
+    private val userTaste = ConcurrentHashMap<String, Int>()
+    private val recentTrackKeys = ConcurrentHashMap.newKeySet<String>()
+    private val recentUrls = ConcurrentHashMap.newKeySet<String>()
+
+    private suspend fun refreshUserTaste() {
+        try {
+            val counts = HashMap<String, Int>()
+            val keys = HashSet<String>()
+            val urls = HashSet<String>()
+            historyDao.getRecentHistoryList(limit = TASTE_HISTORY_LIMIT).forEach { item ->
+                val uploaderKey = RelatedRanking.sameArtistKey(item.uploader)
+                if (uploaderKey.isNotBlank()) counts[uploaderKey] = (counts[uploaderKey] ?: 0) + 1
+                keys += RelatedRanking.normalizedTrackKey(item.title, item.uploader)
+                if (item.url.isNotBlank()) urls += item.url
+            }
+            userTaste.clear()
+            userTaste.putAll(counts)
+            recentTrackKeys.clear()
+            recentTrackKeys.addAll(keys)
+            recentUrls.clear()
+            recentUrls.addAll(urls)
+        } catch (e: Exception) {
+            SecureLogger.d("RelatedPoolManager") { "taste refresh skipped: ${e.message}" }
+        }
+    }
+
+    private fun tasteCount(uploader: String): Int =
+        userTaste[RelatedRanking.sameArtistKey(uploader)] ?: 0
+
+    // ---------------------------------------------------------------------
+    // Public API
+    // ---------------------------------------------------------------------
+
+    /**
+     * Builds (or returns the cached) ranked pool for [url] and returns it in
+     * **continuity order** — this is what seeds Up Next.
+     */
     suspend fun getRelatedSongs(url: String, force: Boolean): List<MusicItem> = withContext(Dispatchers.IO) {
         try {
-            if (force) {
-                relatedPoolCache.remove(url)
+            val cached = if (force) {
+                removePool(url)
+                null
             } else {
-                relatedPoolCache[url]?.let { pool ->
-                    if (System.currentTimeMillis() - pool.fetchedAt < RELATED_POOL_TTL_MS) {
-                        return@withContext synchronized(pool) { pool.items.toList() }
-                    }
-                    relatedPoolCache.remove(url)
-                }
+                getPool(url)?.takeIf { isFresh(it) }
             }
+            if (cached != null) return@withContext continuityOrder(cached)
 
-            val info = youtubeDataSource.getOrFetchStreamInfo(url, false)
-            val currentTitle = info.name?.trim().orEmpty()
-            val currentUploader = info.uploaderName?.trim().orEmpty()
-            val anchorDurationSecs = info.duration
-
-            // 1) YouTube's own related items (auto-mix, similar videos, etc.)
-            val relatedItems = info.relatedItems.mapNotNull { item ->
-                if (item is org.schabi.newpipe.extractor.stream.StreamInfoItem) {
-                    val bestThumbnail = item.thumbnails?.maxByOrNull { it.width * it.height }?.url
-                        ?: item.thumbnails?.lastOrNull()?.url
-                        ?: item.thumbnails?.firstOrNull()?.url
-                        ?: ""
-                    MusicItem(
-                        title = item.name ?: "",
-                        url = item.url ?: "",
-                        uploader = item.uploaderName ?: "",
-                        thumbnailUrl = bestThumbnail,
-                        type = MusicItemType.SONG,
-                        durationSecs = item.duration
-                    )
-                } else null
+            val pool = buildPool(url)
+            putPool(url, pool)
+            SecureLogger.d("RelatedPoolManager") {
+                "pool=${pool.ranked.size} queries=${pool.ladder.size} url=$url"
             }
-
-            // 2) Targeted searches built from the current track's artist/style so the
-            //    suggestions actually match the user's listening taste.
-            val searchResults = fetchRelatedSearchResults(
-                initialRelatedQueries(currentUploader, currentTitle)
-            )
-
-            val pool = buildRelatedPool(
-                anchorUrl = url,
-                currentTitle = currentTitle,
-                currentUploader = currentUploader,
-                anchorDurationSecs = anchorDurationSecs,
-                searchResults = searchResults,
-                relatedItems = relatedItems
-            )
-            relatedPoolCache[url] = pool
-
-            SecureLogger.d("MusicRepositoryImpl") {
-                "Related songs: ${pool.items.size} (search=${searchResults.size}, youtube=${relatedItems.size}) for url=$url"
-            }
-            pool.items.toList()
+            continuityOrder(pool)
         } catch (e: Exception) {
-            SecureLogger.e("MusicRepositoryImpl", "getRelatedSongs failed", e)
+            SecureLogger.e("RelatedPoolManager", "getRelatedSongs failed", e)
             emptyList()
         }
     }
 
+    /** Expands the pool with another round of the query ladder; returns only the new tracks. */
     suspend fun getMoreRelatedSongs(url: String): List<MusicItem> = withContext(Dispatchers.IO) {
-        val pool = relatedPoolCache[url]
-        if (pool == null || System.currentTimeMillis() - pool.fetchedAt >= RELATED_POOL_TTL_MS) {
-            // Pool missing or stale — rebuild it from scratch.
-            return@withContext getRelatedSongs(url, false)
-        }
-        try {
-            val info = youtubeDataSource.getOrFetchStreamInfo(url, false)
-            val currentTitle = info.name?.trim().orEmpty()
-            val currentUploader = info.uploaderName?.trim().orEmpty()
-            val anchorDurationSecs = info.duration
+        val pool = getPool(url)?.takeIf { isFresh(it) }
+            ?: return@withContext getRelatedSongs(url, force = false)
 
-            val queries = synchronized(pool) {
-                val q = expansionQueries(currentUploader, currentTitle, pool.expansionRound)
-                if (q.isNotEmpty()) pool.expansionRound++
-                q
-            }
-            if (queries.isEmpty()) {
-                SecureLogger.d("MusicRepositoryImpl") { "Related pool fully expanded for $url" }
+        try {
+            val batch = RelatedRanking.buildExpansionLadder(pool.ladder, pool.expansionRound)
+            if (batch.isEmpty()) {
+                SecureLogger.d("RelatedPoolManager") { "pool fully expanded for $url" }
                 return@withContext emptyList()
             }
+            synchronized(pool) { pool.expansionRound++ }
 
-            val newResults = fetchRelatedSearchResults(queries)
-            val added = mutableListOf<MusicItem>()
-            synchronized(pool) {
-                newResults.forEach { item ->
-                    if (isGoodCandidate(item, currentTitle, currentUploader, url) &&
-                        pool.seenKeys.add(normalizedTrackKey(item))
-                    ) {
-                        val score = scoreCandidate(item, currentUploader, anchorDurationSecs)
-                        added.add(item)
-                        val insertAt = pool.items.indexOfFirst {
-                            scoreCandidate(it, currentUploader, anchorDurationSecs) < score
-                        }
-                        if (insertAt == -1) pool.items.add(item) else pool.items.add(insertAt, item)
-                    }
-                }
-                if (pool.items.size > RELATED_MAX_ITEMS) {
-                    pool.items.subList(RELATED_MAX_ITEMS, pool.items.size).clear()
-                }
-            }
-            SecureLogger.d("MusicRepositoryImpl") {
-                "Related expansion: +${added.size} for $url (total ${pool.items.size})"
+            val results = fetchRelatedSearchResults(batch)
+            val added = mergeIntoPool(pool, results)
+            SecureLogger.d("RelatedPoolManager") {
+                "expansion: +${added.size} total=${pool.ranked.size} url=$url"
             }
             added
         } catch (e: Exception) {
-            SecureLogger.e("MusicRepositoryImpl", "getMoreRelatedSongs failed", e)
+            SecureLogger.e("RelatedPoolManager", "getMoreRelatedSongs failed", e)
             emptyList()
         }
     }
 
-    suspend fun getArtistSongs(artist: String): List<MusicItem> = withContext(Dispatchers.IO) {
-        val cleanArtist = artist.replace(" - Topic", "").trim()
+    /**
+     * Discovery ordering for the Related tab. Same pool as Up Next, re-weighted so
+     * new artists surface, with recently played tracks removed.
+     *
+     * Runs synchronously against the cached pool, so the Related tab's third
+     * section costs nothing extra — the pool is already built for Up Next.
+     */
+    fun getDiscoveryOrder(
+        url: String,
+        excludeUrls: Set<String> = emptySet(),
+        limit: Int = DISCOVERY_ORDER_LIMIT
+    ): List<MusicItem> {
+        val pool = getPool(url) ?: return emptyList()
+        val primary = ArrayList<MusicItem>(limit)
+        val discovery = ArrayList<MusicItem>(limit)
+        synchronized(pool) {
+            for (scored in pool.ranked) {
+                val item = scored.item
+                if (excludeUrls.contains(item.url)) continue
+                if (scored.tier == AffinityTier.DISCOVERY) {
+                    // Related is the "show me something new" surface.
+                    if (recentTrackKeys.contains(RelatedRanking.normalizedTrackKey(item))) continue
+                    discovery += item
+                } else {
+                    primary += item
+                }
+            }
+        }
+        return RelatedRanking.interleave(
+            primary = primary,
+            discovery = discovery,
+            primaryRun = RELATED_PRIMARY_RUN,
+            discoveryRun = RELATED_DISCOVERY_RUN,
+            limit = limit
+        )
+    }
+
+    /**
+     * "More from {artist}". Goes through the same acceptance gate as the rest of
+     * the recommender — the previous version returned the raw search results, so
+     * the section could show Shorts, live/cover variants and the current track.
+     */
+    suspend fun getArtistSongs(
+        artist: String,
+        excludeUrls: Set<String> = emptySet(),
+        limit: Int = ARTIST_SECTION_LIMIT
+    ): List<MusicItem> = withContext(Dispatchers.IO) {
+        val cleanArtist = RelatedRanking.cleanArtist(artist).trim()
         if (cleanArtist.isBlank()) return@withContext emptyList()
         try {
-            val results = youtubeDataSource.searchMusic("$cleanArtist top songs tracks", maintainSession = false)
-            results.filter { it.type == MusicItemType.SONG }
-        } catch (e: Exception) {
-            SecureLogger.w("MusicRepositoryImpl", "getArtistSongs failed for $cleanArtist", e)
-            emptyList()
-        }
-    }
-
-    suspend fun getDiscoverSimilarSongs(title: String, artist: String): List<MusicItem> = withContext(Dispatchers.IO) {
-        val cleanArtist = artist.replace(" - Topic", "").trim()
-        try {
-            val queries = listOf(
-                "songs like $title",
-                "artists similar to $cleanArtist music",
-                "trending music similar to $cleanArtist"
+            refreshUserTaste()
+            val results = fetchRelatedSearchResults(
+                RelatedRanking.buildArtistLadder(cleanArtist).take(2)
             )
-            val results = fetchRelatedSearchResults(queries)
-            val cleanLower = cleanArtist.lowercase()
-            results.filter { it.type == MusicItemType.SONG && !it.uploader.lowercase().contains(cleanLower) }
+            acceptPlain(
+                items = results.map { it.item },
+                excludeUrls = excludeUrls
+            ).take(limit)
         } catch (e: Exception) {
-            SecureLogger.w("MusicRepositoryImpl", "getDiscoverSimilarSongs failed", e)
+            SecureLogger.w("RelatedPoolManager", "getArtistSongs failed for $cleanArtist", e)
             emptyList()
         }
     }
 
-    suspend fun fetchRelatedSearchResults(queries: List<String>): List<MusicItem> = coroutineScope {
-        queries.map { query ->
+    /**
+     * "You Might Also Like" — artist-anchored discovery.
+     *
+     * The previous version filtered on `!uploader.contains(artist)`, which
+     * emptied the entire section whenever the uploader name was blank, and it
+     * seeded itself with `"songs like <title>"` and
+     * `"trending music similar to <artist>"` — neither of which is a query shape
+     * YouTube understands, so the section filled with unrelated mainstream hits.
+     */
+    suspend fun getDiscoverSimilarSongs(
+        title: String,
+        artist: String,
+        excludeUrls: Set<String> = emptySet(),
+        excludeUploaders: Set<String> = emptySet(),
+        limit: Int = SIMILAR_SECTION_LIMIT
+    ): List<MusicItem> = withContext(Dispatchers.IO) {
+        try {
+            refreshUserTaste()
+            val ladder = RelatedRanking.buildSimilarArtistsLadder(
+                title = title,
+                artist = RelatedRanking.cleanArtist(artist)
+            )
+            if (ladder.isEmpty()) return@withContext emptyList()
+
+            val results = fetchRelatedSearchResults(ladder.take(3))
+            val accepted = acceptPlain(items = results.map { it.item }, excludeUrls = excludeUrls)
+            val blocked = excludeUploaders.mapTo(HashSet()) { RelatedRanking.sameArtistKey(it) }
+            RelatedRanking.capPerArtist(accepted, MAX_PER_ARTIST_SECTION)
+                .filter { RelatedRanking.sameArtistKey(it.uploader) !in blocked }
+                .take(limit)
+        } catch (e: Exception) {
+            SecureLogger.w("RelatedPoolManager", "getDiscoverSimilarSongs failed", e)
+            emptyList()
+        }
+    }
+
+    /** Clean, deduplicated song list used by the home feed. */
+    fun cleanSongList(items: List<MusicItem>): List<MusicItem> =
+        items.filter {
+            it.type == MusicItemType.SONG &&
+                it.url.isNotBlank() &&
+                it.title.isNotBlank() &&
+                RelatedRanking.isAcceptableDuration(it.durationSecs) &&
+                !RelatedRanking.isShortsUrl(it.url)
+        }.distinctBy { it.url }
+
+    fun capPerArtist(items: List<MusicItem>, maxPerArtist: Int): List<MusicItem> =
+        RelatedRanking.capPerArtist(items, maxPerArtist)
+
+    // ---------------------------------------------------------------------
+    // Pool construction
+    // ---------------------------------------------------------------------
+
+    private suspend fun buildPool(url: String): RelatedPool {
+        refreshUserTaste()
+
+        val info = youtubeDataSource.getOrFetchStreamInfo(url, force = false)
+        val metadata = trackMetadataResolver.extract(info)
+        val anchorTitle = info.name?.trim().orEmpty().ifBlank { metadata.title.orEmpty() }
+        val anchorUploader = info.uploaderName?.trim().orEmpty().ifBlank { metadata.artist.orEmpty() }
+        val anchor = RecommendationAnchor(
+            title = anchorTitle,
+            uploader = anchorUploader,
+            durationSecs = info.duration,
+            language = metadata.language,
+            movie = metadata.movie
+        )
+
+        val languageFragment = trackMetadataResolver.languageQueryFragment(metadata.language)
+        val genres = trackMetadataResolver.extractGenres(
+            tags = info.tags?.map { it.toString() }.orEmpty(),
+            title = anchorTitle
+        )
+        val ladder = RelatedRanking.buildQueryLadder(
+            artist = anchorUploader,
+            language = metadata.language,
+            movie = metadata.movie,
+            isSoundtrack = metadata.isSoundtrack,
+            genres = genres,
+            languageFragment = languageFragment
+        )
+        val batch = ladder.take(RelatedRanking.INITIAL_QUERY_COUNT)
+
+        // YouTube's own related items ride along on the StreamInfo we already hold.
+        val relatedItems = mapRelatedItems(info.relatedItems).map { TaggedItem(it, null) }
+        val searchResults = fetchRelatedSearchResults(batch)
+
+        val pool = RelatedPool(anchorUrl = url, anchor = anchor, ladder = ladder)
+        val scored = scoreCandidates(items = relatedItems + searchResults, anchor = anchor, anchorUrl = url)
+        pool.ranked += scored
+        pool.seenKeys += scored.mapTo(HashSet()) { RelatedRanking.normalizedTrackKey(it.item) }
+        pool.ranked.sortByDescending { it.score }
+        trimToLimit(pool)
+        return pool
+    }
+
+    /**
+     * Scores each new candidate exactly once, then merges into the already-sorted
+     * pool in a single linear pass.
+     */
+    private fun mergeIntoPool(pool: RelatedPool, results: List<TaggedItem>): List<MusicItem> {
+        val fresh = scoreCandidates(
+            items = results,
+            anchor = pool.anchor,
+            anchorUrl = pool.anchorUrl,
+            seenKeys = pool.seenKeys
+        )
+        if (fresh.isEmpty()) return emptyList()
+
+        synchronized(pool) {
+            val knownUrls = pool.ranked.mapTo(HashSet()) { it.item.url }
+            val actuallyNew = fresh.filter { knownUrls.add(it.item.url) }
+            if (actuallyNew.isEmpty()) return emptyList()
+
+            val merged = RelatedRanking.mergeSortedDesc(
+                existing = pool.ranked,
+                incoming = actuallyNew,
+                limit = RELATED_MAX_ITEMS,
+                scoreOf = { it.score }
+            )
+            pool.ranked.clear()
+            pool.ranked += merged
+            pool.seenKeys += fresh.mapTo(HashSet()) { RelatedRanking.normalizedTrackKey(it.item) }
+            return actuallyNew.sortedByDescending { it.score }.map { it.item }
+        }
+    }
+
+    private fun trimToLimit(pool: RelatedPool) {
+        if (pool.ranked.size > RELATED_MAX_ITEMS) {
+            pool.ranked.subList(RELATED_MAX_ITEMS, pool.ranked.size).clear()
+        }
+    }
+
+    private fun continuityOrder(pool: RelatedPool): List<MusicItem> {
+        val primary = ArrayList<MusicItem>(pool.ranked.size)
+        val discovery = ArrayList<MusicItem>(pool.ranked.size)
+        synchronized(pool) {
+            for (scored in pool.ranked) {
+                if (scored.tier == AffinityTier.DISCOVERY) discovery += scored.item else primary += scored.item
+            }
+        }
+        return RelatedRanking.interleave(
+            primary = primary,
+            discovery = discovery,
+            primaryRun = UPNE_PRIMARY_RUN,
+            discoveryRun = UPNE_DISCOVERY_RUN,
+            limit = RELATED_MAX_ITEMS
+        )
+    }
+
+    // ---------------------------------------------------------------------
+    // Candidate acceptance + scoring
+    // ---------------------------------------------------------------------
+
+    /** A candidate plus the language implied by the query that surfaced it. */
+    private data class TaggedItem(val item: MusicItem, val language: String?)
+
+    /**
+     * Scores candidates once each. When [seenKeys] is supplied, already-known
+     * tracks are dropped (used by expansion so a track never appears twice).
+     */
+    private fun scoreCandidates(
+        items: List<TaggedItem>,
+        anchor: RecommendationAnchor,
+        anchorUrl: String,
+        seenKeys: MutableSet<String>? = null
+    ): List<ScoredCandidate> {
+        val out = ArrayList<ScoredCandidate>(items.size)
+        val batchSeen = HashSet<String>()
+        for (tagged in items) {
+            val item = tagged.item
+            if (item.type != MusicItemType.SONG) continue
+            if (!RelatedRanking.isAcceptable(item, anchor.title, anchor.uploader, anchorUrl)) continue
+            if (item.url == anchorUrl) continue
+
+            val key = RelatedRanking.normalizedTrackKey(item)
+            if (seenKeys != null) {
+                if (seenKeys.contains(key)) continue
+            } else if (!batchSeen.add(key)) {
+                continue
+            }
+
+            out += RelatedRanking.toCandidate(
+                item = item,
+                anchor = anchor,
+                itemLanguage = tagged.language,
+                tasteCount = tasteCount(item.uploader)
+            )
+        }
+        return out
+    }
+
+    /**
+     * Acceptance gate for the standalone sections (artist / similar), which are not
+     * scored — just filtered, deduped and capped.
+     */
+    private fun acceptPlain(items: List<MusicItem>, excludeUrls: Set<String>): List<MusicItem> {
+        val out = ArrayList<MusicItem>(items.size)
+        val seenKeys = HashSet<String>()
+        val seenUrls = HashSet<String>()
+        for (item in items) {
+            if (item.type != MusicItemType.SONG) continue
+            if (item.url.isBlank() || item.title.isBlank()) continue
+            if (excludeUrls.contains(item.url)) continue
+            if (!seenUrls.add(item.url)) continue
+            if (RelatedRanking.isShortsUrl(item.url)) continue
+            if (!RelatedRanking.isAcceptableDuration(item.durationSecs)) continue
+            if (!seenKeys.add(RelatedRanking.normalizedTrackKey(item))) continue
+            out += item
+        }
+        return out
+    }
+
+    private fun mapRelatedItems(items: List<org.schabi.newpipe.extractor.InfoItem>): List<MusicItem> =
+        items.mapNotNull { infoItem ->
+            if (infoItem !is org.schabi.newpipe.extractor.stream.StreamInfoItem) return@mapNotNull null
+            MusicItem(
+                title = infoItem.name ?: "",
+                url = infoItem.url ?: "",
+                uploader = infoItem.uploaderName ?: "",
+                thumbnailUrl = infoItem.thumbnails?.maxByOrNull { it.width * it.height }?.url
+                    ?: infoItem.thumbnails?.lastOrNull()?.url
+                    ?: "",
+                type = MusicItemType.SONG,
+                durationSecs = infoItem.duration
+            )
+        }
+
+    // ---------------------------------------------------------------------
+    // Query execution
+    // ---------------------------------------------------------------------
+
+    /**
+     * Runs the weighted queries in parallel, tagging each result with the language
+     * its query implies — a candidate's language for free, since we cannot afford a
+     * StreamInfo fetch per suggestion.
+     */
+    private suspend fun fetchRelatedSearchResults(queries: List<WeightedQuery>): List<TaggedItem> = coroutineScope {
+        if (queries.isEmpty()) return@coroutineScope emptyList()
+        queries.map { weighted ->
             async {
                 try {
-                    youtubeDataSource.searchMusic(query, maintainSession = false)
+                    youtubeDataSource.searchMusic(weighted.query, maintainSession = false)
+                        .filter { it.type == MusicItemType.SONG }
+                        .map { TaggedItem(it, weighted.impliedLanguage) }
                 } catch (e: Exception) {
-                    SecureLogger.w("MusicRepositoryImpl", "Related search failed: $query", e)
+                    SecureLogger.w("RelatedPoolManager", "search failed: ${weighted.query}", e)
                     emptyList()
                 }
             }
         }.awaitAll().flatten()
-    }
-
-    fun initialRelatedQueries(uploader: String, title: String): List<String> = buildList {
-        val cleanUploader = uploader.replace(" - Topic", "").trim()
-        if (cleanUploader.isNotBlank()) {
-            add("songs like $cleanUploader hits")
-            add("artists similar to $cleanUploader music")
-            add("$cleanUploader radio mix")
-            add("best of $cleanUploader and similar")
-        }
-        if (title.isNotBlank()) {
-            add("$title song mix")
-            add("music like $title")
-            add("$title radio playlist")
-        }
-    }.shuffled().take(4)
-
-    fun expansionQueries(uploader: String, title: String, round: Int): List<String> {
-        val cleanUploader = uploader.replace(" - Topic", "").trim()
-        val templates = buildList {
-            if (cleanUploader.isNotBlank()) {
-                add("similar to $cleanUploader radio")
-                add("best songs like $cleanUploader")
-                add("$cleanUploader playlist mix")
-            }
-            if (title.isNotBlank()) {
-                add("$title similar songs")
-                add("$title playlist mix")
-            }
-        }
-        if (templates.isEmpty()) return emptyList()
-        val start = (round * EXPANSION_QUERIES_PER_ROUND).coerceAtMost(templates.size)
-        return templates.drop(start).take(EXPANSION_QUERIES_PER_ROUND)
-    }
-
-    fun buildRelatedPool(
-        anchorUrl: String,
-        currentTitle: String,
-        currentUploader: String,
-        anchorDurationSecs: Long,
-        searchResults: List<MusicItem>,
-        relatedItems: List<MusicItem>
-    ): RelatedPool {
-        val cleanAnchorUploader = currentUploader.replace(" - Topic", "").trim().lowercase()
-
-        val sameArtistList = mutableListOf<MusicItem>()
-        val relatedArtistList = mutableListOf<MusicItem>()
-        val seenTrackKeys = mutableSetOf<String>()
-
-        // Combine YouTube's dynamic related items and search recommendations
-        val allCandidates = (relatedItems + searchResults).filter {
-            isGoodCandidate(it, currentTitle, currentUploader, anchorUrl)
-        }
-
-        allCandidates.forEach { item ->
-            val key = normalizedTrackKey(item)
-            if (seenTrackKeys.add(key)) {
-                val itemUploader = item.uploader.replace(" - Topic", "").trim().lowercase()
-                val isSameArtist = cleanAnchorUploader.isNotBlank() && (
-                    itemUploader == cleanAnchorUploader ||
-                    itemUploader.contains(cleanAnchorUploader) ||
-                    item.title.lowercase().contains(cleanAnchorUploader)
-                )
-
-                if (isSameArtist) {
-                    sameArtistList.add(item)
-                } else {
-                    relatedArtistList.add(item)
-                }
-            }
-        }
-
-        // Interleave for rich variety with dynamic shuffle so each generated mix is fresh and non-repetitive:
-        val shuffledSameArtist = sameArtistList.shuffled()
-        val shuffledRelatedArtist = relatedArtistList.shuffled()
-
-        val pool = RelatedPool(anchorUrl = anchorUrl, items = mutableListOf(), seenKeys = seenTrackKeys)
-        var sameIdx = 0
-        var relIdx = 0
-
-        while (sameIdx < shuffledSameArtist.size || relIdx < shuffledRelatedArtist.size) {
-            // Add 1 from same artist
-            if (sameIdx < shuffledSameArtist.size) {
-                pool.items.add(shuffledSameArtist[sameIdx++])
-            }
-            // Add up to 3 from related artists for rich diversity
-            for (i in 0 until 3) {
-                if (relIdx < shuffledRelatedArtist.size) {
-                    pool.items.add(shuffledRelatedArtist[relIdx++])
-                }
-            }
-        }
-
-        return pool
-    }
-
-    fun isGoodCandidate(
-        item: MusicItem,
-        currentTitle: String,
-        currentUploader: String,
-        anchorUrl: String
-    ): Boolean {
-        if (item.type != MusicItemType.SONG) return false
-        if (item.url.isBlank() || item.title.isBlank()) return false
-        if (item.url == anchorUrl) return false
-        val isSameTrack = item.title.equals(currentTitle, ignoreCase = true) &&
-            item.uploader.equals(currentUploader, ignoreCase = true)
-        if (isSameTrack) return false
-        // Skip Shorts and long-form (podcasts/livestreams); keep unknown durations.
-        return item.durationSecs == 0L || item.durationSecs in 30..900
-    }
-
-    /**
-     * Heuristic score: strong boost for same artist, mild boost for similar
-     * duration, and demotion for variant uploads (lyrics/live/cover/remix...).
-     */
-    fun scoreCandidate(
-        item: MusicItem,
-        currentUploader: String,
-        anchorDurationSecs: Long
-    ): Double {
-        var score = 0.0
-        val titleLower = item.title.lowercase()
-        val uploaderLower = item.uploader.lowercase()
-        val anchorUploader = currentUploader.lowercase()
-
-        if (uploaderLower == anchorUploader) {
-            score += 4.0
-        } else if (anchorUploader.isNotBlank() && uploaderLower.contains(anchorUploader)) {
-            score += 3.0
-        } else if (anchorUploader.isNotBlank() && titleLower.contains(anchorUploader)) {
-            score += 2.0
-        }
-
-        if (anchorDurationSecs in 60..600 && item.durationSecs in 60..600) {
-            val diff = kotlin.math.abs(item.durationSecs - anchorDurationSecs)
-            if (diff < 30) score += 1.5
-            else if (diff < 90) score += 0.75
-        }
-
-        if (relatedDemotePattern.containsMatchIn(item.title)) {
-            score -= 1.0
-        }
-        return score
-    }
-
-    /**
-     * Normalized (title, uploader) key so different uploads of the same song
-     * (official audio, lyric video, live, sped-up...) collapse into one entry.
-     */
-    fun normalizedTrackKey(item: MusicItem): String {
-        val cleanTitle = item.title.lowercase()
-            .replace(Regex("[(\\[][^)\\]}]*[)\\]}]"), " ")
-            .replace(Regex("\\s+"), " ")
-            .trim()
-        val cleanUploader = item.uploader.lowercase()
-            .replace(" - topic", "")
-            .replace(Regex("\\s+"), " ")
-            .trim()
-        return "$cleanTitle|$cleanUploader"
-    }
-
-    /**
-     * Caps how many suggestions a single artist may occupy so the home feed
-     * stays diverse instead of being flooded by one artist's search results.
-     */
-    fun capPerArtist(items: List<MusicItem>, maxPerArtist: Int): List<MusicItem> {
-        val counts = HashMap<String, Int>()
-        return items.filter { item ->
-            val key = item.uploader.lowercase().replace(" - topic", "").trim()
-            val current = counts[key] ?: 0
-            if (current < maxPerArtist) {
-                counts[key] = current + 1
-                true
-            } else {
-                false
-            }
-        }
-    }
-
-    fun cleanSongList(items: List<MusicItem>): List<MusicItem> {
-        return items
-            .filter {
-                it.type == MusicItemType.SONG &&
-                    it.url.isNotBlank() &&
-                    it.title.isNotBlank() &&
-                    (it.durationSecs == 0L || it.durationSecs in 30..900)
-            }
-            .distinctBy { it.url }
     }
 }

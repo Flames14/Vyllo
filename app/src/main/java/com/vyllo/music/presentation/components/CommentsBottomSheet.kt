@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,12 +24,17 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.network.OkHttpDownloader
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.comments.CommentsInfo
 import org.schabi.newpipe.extractor.comments.CommentsInfoItem
+import org.schabi.newpipe.extractor.localization.ContentCountry
+import org.schabi.newpipe.extractor.localization.Localization
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,21 +52,32 @@ fun CommentsBottomSheet(
     
     val coroutineScope = rememberCoroutineScope()
     val loadFailedMessage = stringResource(R.string.comments_load_failed)
+    val listState = rememberLazyListState()
 
     LaunchedEffect(item.url) {
         isLoading = true
         error = null
+        // NewPipe is normally initialized by the data sources, but a track opened
+        // straight from downloads/playlist may reach comments first. Initializing
+        // here (idempotent) avoids a null-downloader crash path entirely.
         try {
-            withContext(Dispatchers.IO) {
-                val urlToFetch = if (item.url.startsWith("http")) item.url else "https://www.youtube.com/watch?v=${item.url}"
-                val info = CommentsInfo.getInfo(ServiceList.YouTube, urlToFetch)
-
-                withContext(Dispatchers.Main) {
-                    currentInfo = info
-                    nextPage = info.nextPage
-                    comments = info.relatedItems ?: emptyList()
-                }
+            if (NewPipe.getDownloader() == null) {
+                NewPipe.init(OkHttpDownloader(), Localization.DEFAULT, ContentCountry.DEFAULT)
             }
+        } catch (e: Exception) {
+            com.vyllo.music.core.security.SecureLogger.e("Comments", "NewPipe init failed", e)
+            error = e.localizedMessage ?: loadFailedMessage
+            isLoading = false
+            return@LaunchedEffect
+        }
+        try {
+            val fetched = withContext(Dispatchers.IO) {
+                val urlToFetch = if (item.url.startsWith("http")) item.url else "https://www.youtube.com/watch?v=${item.url}"
+                CommentsInfo.getInfo(ServiceList.YouTube, urlToFetch)
+            }
+            currentInfo = fetched
+            nextPage = fetched.nextPage
+            comments = fetched.relatedItems ?: emptyList()
         } catch (e: Exception) {
             com.vyllo.music.core.security.SecureLogger.e("Comments", "Failed to load comments", e)
             error = e.localizedMessage ?: loadFailedMessage
@@ -137,7 +155,7 @@ fun CommentsBottomSheet(
             } else if (error != null) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "Error: $error",
+                        text = stringResource(R.string.comments_error, error ?: ""),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -151,23 +169,35 @@ fun CommentsBottomSheet(
                     )
                 }
             } else {
+                // Single pagination trigger driven by scroll position — never a
+                // side-effect inside item content (that pattern refires on every
+                // recomposition and can storm the extractor).
+                LaunchedEffect(listState, comments.size, nextPage, isLoadingMore) {
+                    snapshotFlow {
+                        listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+                    }.distinctUntilChanged().collect { lastVisible ->
+                        if (lastVisible >= 0 &&
+                            lastVisible >= comments.size - 5 &&
+                            nextPage != null && !isLoadingMore
+                        ) {
+                            loadMore()
+                        }
+                    }
+                }
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(bottom = 32.dp)
                 ) {
                     items(
+                        // Index-suffixed: the extractor can return comments that share
+                        // one URL (missing comment IDs) and duplicate keys crash Lazy.
                         count = comments.size,
-                        key = { index -> comments[index].url ?: index }
+                        key = { index -> "${comments.getOrNull(index)?.url ?: "comment"}#$index" }
                     ) { index ->
-                        CommentRow(comments[index])
-                        
-                        // Load more when getting close to the end
-                        if (index >= comments.size - 5 && nextPage != null && !isLoadingMore) {
-                            LaunchedEffect(comments.size) {
-                                loadMore()
-                            }
-                        }
+                        val comment = comments.getOrNull(index) ?: return@items
+                        CommentRow(comment)
                     }
                     
                     if (isLoadingMore) {
@@ -235,7 +265,8 @@ fun CommentRow(comment: CommentsInfoItem) {
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = if (comment.likeCount > 0) comment.likeCount.toString() else "",
+                    text = comment.textualLikeCount
+                        ?: if (comment.likeCount > 0) comment.likeCount.toString() else "",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )

@@ -46,6 +46,10 @@ fun SettingsDialog(
     onThemeModeChange: (String) -> Unit,
     isHighRefreshRateEnabled: Boolean = true,
     onHighRefreshRateChange: (Boolean) -> Unit = {},
+    wifiOnlyDownloads: Boolean = false,
+    onWifiOnlyDownloadsChange: (Boolean) -> Unit = {},
+    downloadsRequireBatteryOk: Boolean = false,
+    onDownloadsRequireBatteryOkChange: (Boolean) -> Unit = {},
     onExportBackupClick: () -> Unit = {},
     onImportBackupClick: () -> Unit = {},
     onCheckUpdateClick: () -> Unit = {}
@@ -107,7 +111,7 @@ fun SettingsDialog(
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            if (isBackgroundEnabled) "Keeps playing with screen off" else "Pauses when you leave the app",
+                            if (isBackgroundEnabled) stringResource(R.string.settings_bg_on) else stringResource(R.string.settings_bg_off),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
                         )
@@ -125,11 +129,11 @@ fun SettingsDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Background battery access",
+                            stringResource(R.string.settings_bg_battery_title),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            "Needed so songs and alarms keep working overnight",
+                            stringResource(R.string.settings_bg_battery_desc),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
                         )
@@ -151,7 +155,7 @@ fun SettingsDialog(
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            "Don't pause when using mic or camera",
+                            stringResource(R.string.settings_pause_on_mic),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
                         )
@@ -173,7 +177,7 @@ fun SettingsDialog(
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            "Show bubble when leaving app",
+                            stringResource(R.string.settings_show_bubble),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
                         )
@@ -191,11 +195,11 @@ fun SettingsDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "High Refresh Rate (90Hz/120Hz)",
+                            stringResource(R.string.settings_high_refresh),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            if (isHighRefreshRateEnabled) "Max display smoothness" else "Battery saver (60Hz lock)",
+                            if (isHighRefreshRateEnabled) stringResource(R.string.settings_refresh_on) else stringResource(R.string.settings_refresh_off),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
                         )
@@ -203,6 +207,50 @@ fun SettingsDialog(
                     Switch(
                         checked = isHighRefreshRateEnabled,
                         onCheckedChange = onHighRefreshRateChange
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.settings_wifi_only),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            stringResource(R.string.settings_wifi_only_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
+                        )
+                    }
+                    Switch(
+                        checked = wifiOnlyDownloads,
+                        onCheckedChange = onWifiOnlyDownloadsChange
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.settings_pause_low_battery),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            stringResource(R.string.settings_pause_low_battery_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
+                        )
+                    }
+                    Switch(
+                        checked = downloadsRequireBatteryOk,
+                        onCheckedChange = onDownloadsRequireBatteryOkChange
                     )
                 }
 
@@ -260,18 +308,18 @@ fun SettingsDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Support Development",
+                            stringResource(R.string.settings_support),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            "Buy me a coffee ☕",
+                            stringResource(R.string.settings_buy_coffee),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
                         )
                     }
                     Icon(
                         Icons.Rounded.Favorite,
-                        contentDescription = "Donate",
+                        contentDescription = stringResource(R.string.settings_donate_cd),
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -287,18 +335,18 @@ fun SettingsDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Check for Updates",
+                            stringResource(R.string.settings_check_updates),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            "Download latest features and fixes",
+                            stringResource(R.string.settings_check_updates_desc),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
                         )
                     }
                     Icon(
                         Icons.Rounded.Update,
-                        contentDescription = "Update",
+                        contentDescription = stringResource(R.string.settings_update_cd),
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }

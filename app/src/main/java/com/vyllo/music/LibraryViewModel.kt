@@ -34,8 +34,6 @@ class LibraryViewModel @Inject constructor(
     application: Application
 ) : AndroidViewModel(application) {
 
-    private val context = application.applicationContext
-
     var allPlaylists by mutableStateOf<List<PlaylistEntity>>(emptyList())
     var currentPlaylistSongs by mutableStateOf<List<PlaylistSongEntity>>(emptyList())
     private var playlistSongsJob: kotlinx.coroutines.Job? = null
@@ -52,6 +50,18 @@ class LibraryViewModel @Inject constructor(
     var showYouTubeSyncSheet by mutableStateOf(false)
 
     var downloadedSongs by mutableStateOf<List<DownloadEntity>>(emptyList())
+
+    /**
+     * O(1) membership test over the downloaded set.
+     *
+     * [com.vyllo.music.presentation.components.common.DownloadButton] sits in
+     * every row of every list, and its previous `downloadedSongs.any { … }`
+     * walked the whole download list once per row per recomposition — a hidden
+     * O(rows x downloads) cost that showed up exactly while scrolling.
+     */
+    var downloadedUrls: Set<String> by mutableStateOf(emptySet())
+        private set
+
     val downloadProgress get() = downloadManager.downloadProgress
 
     var currentPlayingItem by mutableStateOf<MusicItem?>(null)
@@ -77,6 +87,9 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             downloadMusicUseCase.getAllDownloads().collectLatest { downloads ->
                 downloadedSongs = downloads
+                // Rebuilt as a fresh set each emission so every reader sees an
+                // immutable snapshot with no allocation in its own recomposition.
+                downloadedUrls = downloads.mapTo(HashSet(downloads.size)) { it.url }
             }
         }
     }

@@ -43,4 +43,11 @@ class CertPinParserTest {
         assertEquals(3, entries.size)
         assertTrue(entries.all { it.first == "api.github.com" })
     }
+
+    @Test
+    fun secureClientsDoNotFollowTlsDowngradeRedirects() {
+        val config = SecurityConfig()
+        assertFalse(config.createSecureHttpClient().followSslRedirects)
+        assertFalse(config.createFlexibleSecureHttpClient().followSslRedirects)
+    }
 }

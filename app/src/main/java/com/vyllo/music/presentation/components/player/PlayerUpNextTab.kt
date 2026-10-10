@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -98,7 +99,7 @@ fun PlayerUpNextTab(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "• " + stringResource(R.string.queue_track_count, relatedSongs.size),
+                        text = "• " + pluralStringResource(R.plurals.queue_track_count, relatedSongs.size, relatedSongs.size),
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White.copy(alpha = 0.4f)
                     )

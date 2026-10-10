@@ -1,21 +1,21 @@
-package com.vyllo.music.presentation.components
+﻿package com.vyllo.music.presentation.components
 
 import androidx.compose.runtime.Composable
 import com.vyllo.music.HomeViewModel
 import com.vyllo.music.LibraryViewModel
 import com.vyllo.music.domain.model.MusicItem
 
-@Deprecated("Moved to presentation.components.common", ReplaceWith("com.vyllo.music.presentation.components.common.PremiumAccent()"))
+@Deprecated("Moved to presentation.components.common", ReplaceWith("com.vyllo.music.presentation.components.common.premiumAccent()"))
 @Composable
-fun PremiumAccent() = com.vyllo.music.presentation.components.common.PremiumAccent()
+fun premiumAccent() = com.vyllo.music.presentation.components.common.premiumAccent()
 
-@Deprecated("Moved to presentation.components.common", ReplaceWith("com.vyllo.music.presentation.components.common.GlassWhite()"))
+@Deprecated("Moved to presentation.components.common", ReplaceWith("com.vyllo.music.presentation.components.common.glassWhite()"))
 @Composable
-fun GlassWhite() = com.vyllo.music.presentation.components.common.GlassWhite()
+fun glassWhite() = com.vyllo.music.presentation.components.common.glassWhite()
 
-@Deprecated("Moved to presentation.components.common", ReplaceWith("com.vyllo.music.presentation.components.common.GlassBorder()"))
+@Deprecated("Moved to presentation.components.common", ReplaceWith("com.vyllo.music.presentation.components.common.glassBorder()"))
 @Composable
-fun GlassBorder() = com.vyllo.music.presentation.components.common.GlassBorder()
+fun glassBorder() = com.vyllo.music.presentation.components.common.glassBorder()
 
 @Deprecated("Moved to presentation.components.common", ReplaceWith("com.vyllo.music.presentation.components.common.YTMHeader(...)"))
 @Composable

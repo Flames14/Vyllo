@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout 
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -14,7 +14,7 @@
         android:layout_width="120dp"
         android:layout_height="120dp"
         android:src="@drawable/ic_alarm_ring"
-        android:contentDescription="Alarm"
+        android:contentDescription="@string/alarm_trigger_icon_cd"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -25,7 +25,7 @@
         android:id="@+id/alarmTimeText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="7:00 AM"
+        android:text="@string/alarm_trigger_time_placeholder"
         android:textSize="64sp"
         android:textColor="@android:color/white"
         android:textStyle="bold"
@@ -40,7 +40,7 @@
         android:id="@+id/alarmLabelText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Time to wake up!"
+        android:text="@string/alarm_default_label"
         android:textSize="24sp"
         android:textColor="@android:color/white"
         android:alpha="0.9"
@@ -56,7 +56,7 @@
         android:layout_height="80dp"
         android:src="@android:drawable/ic_menu_close_clear_cancel"
         android:background="@drawable/dismiss_button_bg"
-        android:contentDescription="Dismiss"
+        android:contentDescription="@string/alarm_dismiss"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginStart="48dp"
@@ -67,7 +67,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Dismiss"
+        android:text="@string/alarm_dismiss"
         android:textColor="@android:color/white"
         android:textSize="14sp"
         app:layout_constraintTop_toBottomOf="@id/dismissButton"
@@ -82,7 +82,7 @@
         android:layout_height="80dp"
         android:src="@android:drawable/ic_menu_recent_history"
         android:background="@drawable/snooze_button_bg"
-        android:contentDescription="Snooze"
+        android:contentDescription="@string/alarm_snooze"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginEnd="48dp"
@@ -93,7 +93,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Snooze 5m"
+        android:text="@string/alarm_snooze"
         android:textColor="@android:color/white"
         android:textSize="14sp"
         app:layout_constraintTop_toBottomOf="@id/snoozeButton"

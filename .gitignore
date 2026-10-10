@@ -30,6 +30,11 @@ proguard/
 # Log Files
 *.log
 *.txt
+# EXCEPTION: the baseline profile MUST be version-controlled. It ships inside
+# the APK (assets/dexopt/baseline.prof) and AOT-compiles hot scroll paths —
+# without it, release builds JIT during scroll (proven 9.5ms stalls in traces).
+# Regenerate via: ./gradlew :baseline-profile:collectNonMinifiedReleaseBaselineProfile
+!app/src/main/baseline-prof.txt
 
 # Android Studio Navigation editor temp files
 .navigation/

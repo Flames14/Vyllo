@@ -168,7 +168,7 @@ class PlaybackQueueManager @Inject constructor() {
     
     fun getQueueSnapshot(): List<MusicItem> {
         return synchronized(lock) {
-            currentQueue.toList()
+            currentQueue.toList().distinctBy { it.url }
         }
     }
 
@@ -176,7 +176,7 @@ class PlaybackQueueManager @Inject constructor() {
         return synchronized(lock) {
             val nextIndex = currentIndex + 1
             if (nextIndex in currentQueue.indices) {
-                currentQueue.subList(nextIndex, currentQueue.size).toList()
+                currentQueue.subList(nextIndex, currentQueue.size).toList().distinctBy { it.url }
             } else {
                 emptyList()
             }
@@ -235,7 +235,7 @@ class PlaybackQueueManager @Inject constructor() {
             val keepCount = (currentIndex + 1).coerceAtLeast(0)
             val kept = currentQueue.take(keepCount)
             val keptUrls = kept.map { it.url }.toSet()
-            val distinctUpcoming = items.filter { !keptUrls.contains(it.url) }
+            val distinctUpcoming = items.distinctBy { it.url }.filter { !keptUrls.contains(it.url) }
             currentQueue.clear()
             currentQueue.addAll(kept)
             currentQueue.addAll(distinctUpcoming)

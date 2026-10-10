@@ -45,6 +45,7 @@ class YouTubeOAuthManager @Inject constructor(
         private const val KEY_EXPIRES_AT = "expires_at"
         private const val KEY_USER_EMAIL = "user_email"
         private const val KEY_CODE_VERIFIER = "code_verifier"
+        private const val KEY_OAUTH_STATE = "oauth_state"
         private const val KEY_CUSTOM_CLIENT_ID = "custom_client_id"
     }
 
@@ -112,6 +113,12 @@ class YouTubeOAuthManager @Inject constructor(
 
         val codeChallenge = generateCodeChallenge(codeVerifier)
 
+        // CSRF protection: random state verified on redirect.
+        val stateBytes = ByteArray(32)
+        SecureRandom().nextBytes(stateBytes)
+        val state = Base64.encodeToString(stateBytes, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+        prefs.edit().putString(KEY_OAUTH_STATE, state).apply()
+
         return Uri.parse(AUTH_ENDPOINT).buildUpon()
             .appendQueryParameter("client_id", clientId)
             .appendQueryParameter("redirect_uri", REDIRECT_URI)
@@ -121,6 +128,7 @@ class YouTubeOAuthManager @Inject constructor(
             .appendQueryParameter("code_challenge_method", "S256")
             .appendQueryParameter("access_type", "offline")
             .appendQueryParameter("prompt", "consent")
+            .appendQueryParameter("state", state)
             .build()
     }
 
@@ -140,8 +148,19 @@ class YouTubeOAuthManager @Inject constructor(
                 return@withContext Result.failure(Exception("No authorization code received from Google"))
             }
 
+            val expectedState = prefs.getString(KEY_OAUTH_STATE, null)
+            prefs.edit().remove(KEY_OAUTH_STATE).apply()
+            val returnedState = uri.getQueryParameter("state")
+            if (expectedState.isNullOrBlank() || returnedState != expectedState) {
+                SecureLogger.e(TAG, "OAuth state mismatch (possible CSRF)")
+                return@withContext Result.failure(Exception("Sign-in verification failed. Please try again."))
+            }
+
             val codeVerifier = prefs.getString(KEY_CODE_VERIFIER, null)
                 ?: return@withContext Result.failure(Exception("PKCE Code verifier not found"))
+            // PKCE verifiers are single-use credentials. Clear it before the
+            // network exchange so a failed/intercepted redirect cannot be replayed.
+            prefs.edit().remove(KEY_CODE_VERIFIER).apply()
 
             val clientId = getClientId() ?: return@withContext Result.failure(Exception("Google Client ID not configured"))
             val requestBody = FormBody.Builder()
@@ -157,15 +176,14 @@ class YouTubeOAuthManager @Inject constructor(
                 .post(requestBody)
                 .build()
 
-            val response = okHttpClient.newCall(request).execute()
-            val responseBody = response.body?.string()
-
-            if (!response.isSuccessful || responseBody.isNullOrBlank()) {
-                SecureLogger.e(TAG, "Token exchange failed: code=${response.code}, body=$responseBody")
-                return@withContext Result.failure(Exception("Failed to exchange token with Google (HTTP ${response.code})"))
+            val json = okHttpClient.newCall(request).execute().use { response ->
+                val responseBody = response.body?.string()
+                if (!response.isSuccessful || responseBody.isNullOrBlank()) {
+                    SecureLogger.e(TAG, "Token exchange failed: HTTP ${response.code}")
+                    return@withContext Result.failure(Exception("Failed to exchange token with Google (HTTP ${response.code})"))
+                }
+                JSONObject(requireNotNull(responseBody))
             }
-
-            val json = JSONObject(responseBody)
             val accessToken = json.getString("access_token")
             val refreshToken = json.optString("refresh_token", prefs.getString(KEY_REFRESH_TOKEN, ""))
             val expiresIn = json.optLong("expires_in", 3600L)
@@ -175,7 +193,6 @@ class YouTubeOAuthManager @Inject constructor(
                 .putString(KEY_ACCESS_TOKEN, accessToken)
                 .putString(KEY_REFRESH_TOKEN, refreshToken)
                 .putLong(KEY_EXPIRES_AT, expiresAt)
-                .remove(KEY_CODE_VERIFIER)
                 .apply()
 
             _isAuthorized.value = true
@@ -223,11 +240,15 @@ class YouTubeOAuthManager @Inject constructor(
                 .post(requestBody)
                 .build()
 
-            val response = okHttpClient.newCall(request).execute()
-            val responseBody = response.body?.string()
-
-            if (response.isSuccessful && !responseBody.isNullOrBlank()) {
-                val json = JSONObject(responseBody)
+            val json = okHttpClient.newCall(request).execute().use { response ->
+                val responseBody = response.body?.string()
+                if (!response.isSuccessful || responseBody.isNullOrBlank()) {
+                    SecureLogger.w(TAG, "Token refresh failed: HTTP ${response.code}")
+                    return@withContext null
+                }
+                JSONObject(requireNotNull(responseBody))
+            }
+            run {
                 val newAccessToken = json.getString("access_token")
                 val expiresIn = json.optLong("expires_in", 3600L)
                 val expiresAt = System.currentTimeMillis() + (expiresIn * 1000L)
@@ -239,8 +260,6 @@ class YouTubeOAuthManager @Inject constructor(
 
                 _isAuthorized.value = true
                 return@withContext newAccessToken
-            } else {
-                SecureLogger.w(TAG, "Token refresh failed: HTTP ${response.code}")
             }
         } catch (e: Exception) {
             SecureLogger.e(TAG, "Error refreshing token", e)
@@ -254,6 +273,8 @@ class YouTubeOAuthManager @Inject constructor(
             .remove(KEY_REFRESH_TOKEN)
             .remove(KEY_EXPIRES_AT)
             .remove(KEY_USER_EMAIL)
+            .remove(KEY_CODE_VERIFIER)
+            .remove(KEY_OAUTH_STATE)
             .apply()
         _isAuthorized.value = false
         _userEmail.value = null

@@ -76,18 +76,21 @@ class SecurePreferenceManager(private val context: Context) {
     }
 
     /**
-     * Saves search query to encrypted DataStore
+     * Saves search query to encrypted DataStore.
+     * Values are AES-256-GCM encrypted before hitting disk; only the
+     * timestamped key names remain visible in the protobuf file.
      */
     suspend fun saveSearchQuery(query: String) {
         if (query.isBlank()) return
         try {
+            val encrypted = encryptSearchQuery(query) ?: return
             context.dataStore.edit { prefs ->
                 val id = query.toSha256().take(8)
                 val timestamp = System.currentTimeMillis()
                 // Remove existing entry for the same query hash to avoid duplicates
                 val existingKeys = prefs.asMap().keys.filter { it.name.endsWith("_$id") }
                 existingKeys.forEach { prefs.remove(it) }
-                prefs[stringPreferencesKey("search_${timestamp}_$id")] = query
+                prefs[stringPreferencesKey("search_${timestamp}_$id")] = encrypted
             }
             Log.sensitive(TAG, "Saved search query")
         } catch (e: Exception) {
@@ -96,7 +99,8 @@ class SecurePreferenceManager(private val context: Context) {
     }
 
     /**
-     * Gets search history as a Flow (most recent first)
+     * Gets search history as a Flow (most recent first). Entries written by
+     * older plaintext versions are dropped silently.
      */
     fun getSearchHistory(): Flow<List<String>> {
         return context.dataStore.data.map { prefs ->
@@ -104,8 +108,73 @@ class SecurePreferenceManager(private val context: Context) {
                 .filterKeys { it.name.startsWith("search_") }
                 .entries
                 .sortedByDescending { it.key.name } // Most recent timestamp first
-                .map { it.value.toString() }
+                .mapNotNull { decryptSearchQuery(it.value.toString()) }
                 .distinct()
+        }
+    }
+
+    private fun getOrCreateSearchKey(): javax.crypto.SecretKey? {
+        return try {
+            val stored = encryptedPrefs.getString("search_history_key", null)
+            if (stored != null) {
+                javax.crypto.spec.SecretKeySpec(
+                    android.util.Base64.decode(stored, android.util.Base64.NO_WRAP),
+                    "AES"
+                )
+            } else {
+                val random = java.security.SecureRandom()
+                val keyBytes = ByteArray(32)
+                random.nextBytes(keyBytes)
+                encryptedPrefs.edit()
+                    .putString(
+                        "search_history_key",
+                        android.util.Base64.encodeToString(keyBytes, android.util.Base64.NO_WRAP)
+                    )
+                    .apply()
+                javax.crypto.spec.SecretKeySpec(keyBytes, "AES")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Search-history key unavailable", e)
+            null
+        }
+    }
+
+    private fun encryptSearchQuery(plain: String): String? {
+        return try {
+            val key = getOrCreateSearchKey() ?: return null
+            val iv = ByteArray(12)
+            java.security.SecureRandom().nextBytes(iv)
+            val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(
+                javax.crypto.Cipher.ENCRYPT_MODE, key,
+                javax.crypto.spec.GCMParameterSpec(128, iv)
+            )
+            val cipherText = cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
+            val b64 = android.util.Base64.NO_WRAP
+            android.util.Base64.encodeToString(iv, b64) + ":" +
+                android.util.Base64.encodeToString(cipherText, b64)
+        } catch (e: Exception) {
+            Log.e(TAG, "Search-history encrypt failed", e)
+            null
+        }
+    }
+
+    private fun decryptSearchQuery(stored: String): String? {
+        return try {
+            val parts = stored.split(":")
+            if (parts.size != 2) return null // legacy plaintext entry: drop
+            val key = getOrCreateSearchKey() ?: return null
+            val b64 = android.util.Base64.NO_WRAP
+            val iv = android.util.Base64.decode(parts[0], b64)
+            val cipherText = android.util.Base64.decode(parts[1], b64)
+            val cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(
+                javax.crypto.Cipher.DECRYPT_MODE, key,
+                javax.crypto.spec.GCMParameterSpec(128, iv)
+            )
+            String(cipher.doFinal(cipherText), Charsets.UTF_8)
+        } catch (e: Exception) {
+            null
         }
     }
 

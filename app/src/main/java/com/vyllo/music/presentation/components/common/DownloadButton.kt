@@ -29,8 +29,10 @@ import com.vyllo.music.presentation.theme.VylloSize
 fun DownloadButton(item: MusicItem) {
     val viewModel = LocalLibraryViewModel.current
     val itemUrl = item.url
+    // O(1) set membership: a linear scan of every download ran once for every
+    // visible row on every scroll frame of every list that shows this button.
     val isDownloaded by remember(itemUrl) {
-        derivedStateOf { viewModel.downloadedSongs.any { it.url == itemUrl } }
+        derivedStateOf { itemUrl in viewModel.downloadedUrls }
     }
     val progress by remember(itemUrl) {
         derivedStateOf { viewModel.downloadProgress[itemUrl] }

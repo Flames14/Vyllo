@@ -43,6 +43,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import coil.compose.AsyncImage
 import com.google.common.util.concurrent.ListenableFuture
 import com.vyllo.music.MainActivity
+import com.vyllo.music.R
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.core.security.SecureLogger
 import dagger.hilt.android.AndroidEntryPoint
@@ -84,8 +85,8 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
         // Create Notification for Foreground Service
         createNotificationChannel()
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Floating Player Active")
-            .setContentText("Tap the bubble to return to app")
+            .setContentTitle(getString(R.string.notif_floating_title))
+            .setContentText(getString(R.string.notif_floating_text))
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .build()

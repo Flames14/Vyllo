@@ -11,8 +11,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.*
@@ -69,7 +71,7 @@ fun YTMPlaylistScreen(
                 item(key = "empty_playlist_message", contentType = "empty") {
                     VylloEmptyState(
                         icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
-                        title = "This playlist is empty",
+                        title = stringResource(R.string.library_playlist_empty),
                         message = "Add songs with the playlist button on any track.",
                         actionLabel = "Back to library",
                         onAction = onBack

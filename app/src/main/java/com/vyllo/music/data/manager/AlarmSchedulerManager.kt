@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.AlarmModel
 import com.vyllo.music.domain.model.DayOfWeek
@@ -15,13 +16,12 @@ import javax.inject.Singleton
 /**
  * Manager responsible for scheduling and canceling alarms using AlarmManager.
  *
- * CRITICAL: Always uses setAlarmClock() for scheduling — this is the ONLY reliable
- * method for alarms on Android. It:
+ * Uses setAlarmClock() for exact user-facing alarms. It:
  *   - Fires at the exact time (no Doze batching)
  *   - Wakes the device from deep sleep
  *   - Shows the system alarm icon in the status bar
  *   - Grants foreground service start exemption on Android 12+
- *   - Does NOT require SCHEDULE_EXACT_ALARM permission
+ *   - Requires SCHEDULE_EXACT_ALARM special access on Android 12+
  *   - Survives app process death
  *   - Works when screen is locked
  *   - Works when app is killed from recents
@@ -43,11 +43,10 @@ class AlarmSchedulerManager @Inject constructor(
      * Schedule an alarm for an exact wall-clock timestamp.
      * Used for snooze flows where the original hour/minute should not be reinterpreted.
      *
-     * CRITICAL: ALWAYS uses setAlarmClock() — never falls back to setAndAllowWhileIdle().
-     * setAlarmClock() does NOT require the SCHEDULE_EXACT_ALARM permission.
-     * The previous code checked canScheduleExactAlarms() and fell back to an unreliable
-     * method, which caused alarms to silently fail on most Android 12+ devices where
-     * that permission is NOT granted by default.
+     * Uses setAlarmClock() for exact, user-visible alarms. Android 12+ requires
+     * SCHEDULE_EXACT_ALARM special access; callers should request it before enabling
+     * an alarm. A best-effort inexact fallback keeps restored alarms from crashing
+     * if access was revoked while the app was not running.
      */
     fun scheduleAt(alarm: AlarmModel, triggerTime: Long) {
 
@@ -93,16 +92,12 @@ class AlarmSchedulerManager @Inject constructor(
         }
         val showPendingIntent = PendingIntent.getActivity(
             context,
-            alarm.id.toInt() + 10000, // Offset to avoid collision with operation PI
+            requestCodeFor(alarm.id, 10000),
             showIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // ALWAYS use setAlarmClock() — the ONLY reliable method for alarms.
-        //
-        // DO NOT check canScheduleExactAlarms() here!
-        // setAlarmClock() does NOT require SCHEDULE_EXACT_ALARM permission.
-        // Only setExact()/setExactAndAllowWhileIdle() require that permission.
+        // setAlarmClock() represents the user's explicit alarm and wakes through Doze.
         //
         // setAlarmClock() provides:
         // Exact timing (no Doze batching)
@@ -115,25 +110,20 @@ class AlarmSchedulerManager @Inject constructor(
             alarmManager.setAlarmClock(alarmClockInfo, operationPendingIntent)
             SecureLogger.d("AlarmScheduler", "✓ setAlarmClock() SUCCESS for ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(triggerTime))}")
         } catch (e: SecurityException) {
-            SecureLogger.e("AlarmScheduler", "SecurityException in setAlarmClock (should never happen)", e)
-            // Last resort fallback — setAlarmClock should never throw SecurityException
-            // but if it does, try setExactAndAllowWhileIdle as degraded mode
+            SecureLogger.e("AlarmScheduler", "Exact alarm access is unavailable", e)
+            // Inexact fallback is only for alarms restored after access was revoked.
+            // Single guarded attempt: a second identical call cannot succeed where
+            // the first threw, and an unguarded retry would crash the caller
+            // (alarm save flow runs on the UI thread).
             try {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerTime,
-                    operationPendingIntent
-                )
-                SecureLogger.w("AlarmScheduler", "Fallback to setExactAndAllowWhileIdle")
-            } catch (e2: Exception) {
-                SecureLogger.e("AlarmScheduler", "All scheduling methods failed", e2)
-                // Last-last resort
                 alarmManager.setAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerTime,
                     operationPendingIntent
                 )
-                SecureLogger.w("AlarmScheduler", "Final fallback to setAndAllowWhileIdle")
+                SecureLogger.w("AlarmScheduler", "Scheduled a best-effort inexact alarm")
+            } catch (e2: Exception) {
+                SecureLogger.e("AlarmScheduler", "All scheduling methods failed", e2)
             }
         } catch (e: Exception) {
             SecureLogger.e("AlarmScheduler", "Unexpected error scheduling alarm", e)
@@ -218,8 +208,12 @@ class AlarmSchedulerManager @Inject constructor(
 
     /**
      * Get intent to request exact alarm permission (Android 12+).
-     * Note: This is for UI/settings purposes only — setAlarmClock() does NOT need this.
+     * Call only after explaining the special access to the user.
+     *
+     * [android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM] only exists
+     * on S+, so this must not be reached on older devices.
      */
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.S)
     fun getExactAlarmPermissionIntent(): Intent {
         return Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -227,10 +221,23 @@ class AlarmSchedulerManager @Inject constructor(
         }
     }
 
+    fun canScheduleExactAlarms(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
+
+    /**
+     * Stable request code derived from the alarm id. Raw toInt() truncation
+     * collides for ids beyond Int range; the modulo keeps every alarm distinct
+     * within the 32-bit PendingIntent namespace.
+     */
+    private fun requestCodeFor(alarmId: Long, salt: Int = 0): Int {
+        val base = (alarmId % Int.MAX_VALUE).toInt().coerceAtLeast(0)
+        return base + salt
+    }
+
     private fun createPendingIntent(alarmId: Long, intent: Intent): PendingIntent {
         return PendingIntent.getBroadcast(
             context,
-            alarmId.toInt(),
+            requestCodeFor(alarmId),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -239,7 +246,7 @@ class AlarmSchedulerManager @Inject constructor(
     private fun findPendingIntent(alarmId: Long, intent: Intent): PendingIntent? {
         return PendingIntent.getBroadcast(
             context,
-            alarmId.toInt(),
+            requestCodeFor(alarmId),
             intent,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         )

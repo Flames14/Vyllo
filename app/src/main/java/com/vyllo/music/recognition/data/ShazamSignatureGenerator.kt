@@ -1,7 +1,7 @@
-package com.vyllo.music.recognition.data
+﻿package com.vyllo.music.recognition.data
 
 import android.util.Base64
-import android.util.Log
+import com.vyllo.music.core.security.SecureLogger
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -89,7 +89,7 @@ internal object ShazamSignatureGenerator {
                 doPeakSpreadingAndRecognition()
                 offset += 128
             }
-            Log.d("ShazamSignGen", "Total peaks found: $totalPeaks")
+            SecureLogger.d("ShazamSignGen", "Total peaks found: $totalPeaks")
             return encodeSignature()
         }
 
@@ -345,3 +345,4 @@ internal object ShazamSignatureGenerator {
         }
     }
 }
+

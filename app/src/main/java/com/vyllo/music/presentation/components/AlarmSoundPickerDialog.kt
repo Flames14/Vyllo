@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,12 +32,13 @@ fun AlarmSoundPickerDialog(
     selectedSongUrl: String? = null,
     onDismiss: () -> Unit,
     onSelectSong: (String, String) -> Unit,
-    onSelectDefault: () -> Unit
+    onSelectDefault: () -> Unit,
+    onDeleteSong: (String) -> Unit = {}
 ) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Select Alarm Sound") },
+        title = { Text(stringResource(R.string.alarm_select_sound_title)) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth()
@@ -75,7 +77,7 @@ fun AlarmSoundPickerDialog(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "Default Alarm Sound",
+                                    text = stringResource(R.string.alarm_default_sound_title),
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -100,7 +102,7 @@ fun AlarmSoundPickerDialog(
 
                 // Downloaded songs
                 Text(
-                    text = "Your Downloads",
+                    text = stringResource(R.string.alarm_your_downloads),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.padding(vertical = 8.dp)
@@ -168,6 +170,17 @@ fun AlarmSoundPickerDialog(
                                             tint = MaterialTheme.colorScheme.primary
                                         )
                                     }
+                                    IconButton(
+                                        onClick = { onDeleteSong(download.url) },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Rounded.DeleteOutline,
+                                            contentDescription = stringResource(R.string.alarm_delete_download_cd),
+                                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -177,7 +190,7 @@ fun AlarmSoundPickerDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )

@@ -15,7 +15,9 @@ class LyricsController(
     private val lyricsCoordinator: PlayerLyricsCoordinator,
     private val getState: () -> PlayerUiState,
     private val updateState: (((PlayerUiState) -> PlayerUiState)) -> Unit,
-    private val scopeProvider: () -> CoroutineScope
+    private val scopeProvider: () -> CoroutineScope,
+    private val getLyricIndex: () -> Int = { getState().currentLyricIndex },
+    private val setLyricIndex: (Int) -> Unit = {}
 ) {
     fun fetchLyrics(item: MusicItem, durationSecs: Long) {
         lyricsCoordinator.fetchLyrics(
@@ -31,8 +33,8 @@ class LyricsController(
     fun updatePosition(positionMs: Long) {
         val state = getState()
         val index = LyricPositioning.getCurrentLine(state.syncedLyricsLines, positionMs + state.lyricsOffsetMs)
-        if (index != state.currentLyricIndex) {
-            updateState { it.copy(currentLyricIndex = index) }
+        if (index != getLyricIndex()) {
+            setLyricIndex(index)
         }
     }
 

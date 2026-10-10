@@ -85,12 +85,12 @@ fun AlarmRow(
                         contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.common_delete))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel")
+                    TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -137,7 +137,7 @@ fun AlarmRow(
                     if (countdownText.isNotBlank()) {
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "in $countdownText",
+                            text = stringResource(R.string.alarm_in_countdown, countdownText),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary.copy(
                                 alpha = if (alarm.isEnabled) 1f else 0.5f

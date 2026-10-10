@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTextInput
+import androidx.test.core.app.ApplicationProvider
 import com.vyllo.music.SearchViewModel
 import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.domain.model.DownloadEntity
@@ -46,7 +47,12 @@ class SearchScreenTest {
             }
         }
 
-        composeRule.onNodeWithText("Recent searches").assertIsDisplayed()
+        // Resource lookup, not a literal: the emulator carries a per-app locale,
+        // so a hardcoded English label would make this test pass or fail depending
+        // on the device rather than on the code.
+        val recentLabel = ApplicationProvider.getApplicationContext<android.content.Context>()
+            .getString(com.vyllo.music.R.string.search_recent)
+        composeRule.onNodeWithText(recentLabel).assertIsDisplayed()
         composeRule.onNodeWithText("Coldplay").assertIsDisplayed()
         composeRule.onNodeWithText("Adele").assertIsDisplayed()
     }
@@ -121,8 +127,9 @@ private class FakeMusicRepository(
     }
     override fun saveLyricsPreference(videoUrl: String, lrcId: Long) = Unit
     override fun getSavedLyricsId(videoUrl: String): Long? = null
-    override suspend fun getArtistSongs(artist: String): List<MusicItem> = emptyList()
-    override suspend fun getDiscoverSimilarSongs(title: String, artist: String): List<MusicItem> = emptyList()
+    override suspend fun getArtistSongs(artist: String, excludeUrls: Set<String>): List<MusicItem> = emptyList()
+    override suspend fun getDiscoverSimilarSongs(title: String, artist: String, excludeUrls: Set<String>, excludeUploaders: Set<String>): List<MusicItem> = emptyList()
+    override suspend fun getRelatedDiscoveryOrder(url: String, excludeUrls: Set<String>, limit: Int): List<MusicItem> = emptyList()
     override suspend fun getVideoStats(url: String): com.vyllo.music.domain.repository.VideoStats? = null
     override suspend fun getLyrics(title: String, artist: String, duration: Long, url: String): LyricsResponse? = null
 }

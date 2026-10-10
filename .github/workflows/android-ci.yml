@@ -70,11 +70,106 @@ jobs:
         retention-days: 7
         if-no-files-found: ignore
 
+  # R8 minification only runs on release, so a bad proguard rule can pass every
+  # debug job and then ship a broken APK. The `benchmark` build type is identical
+  # to release (same R8/minify/shrink config) but signed with the debug key, so it
+  # needs no secrets and can gate every push/PR instead of only release tags.
+  verify-release-minify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Assemble minified (release-equivalent) APK
+      run: ./gradlew assembleBenchmark --stacktrace
+
+    - name: Verify baseline profile
+      # Same invariant as the release job: a missing baseline.prof means release
+      # builds JIT-stall during scroll with no error anywhere.
+      run: |
+        APK=$(ls app/build/outputs/apk/benchmark/*.apk | head -n 1)
+        if ! unzip -l "$APK" | grep -q "assets/dexopt/baseline.prof"; then
+          echo "::error::baseline.prof missing from $APK — scroll will JIT-stall."
+          exit 1
+        fi
+        echo "Baseline profile verified in $APK"
+
+  instrumented-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Enable KVM
+      # Nested virtualization is off by default on GitHub runners; without this
+      # rule the emulator falls back to software rendering and times out.
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Run instrumented tests
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 34
+        arch: x86_64
+        target: google_apis
+        profile: pixel_6
+        disable-animations: true
+        emulator-options: -no-snapshot -no-window -noaudio -no-boot-anim -camera-back none -camera-front none
+        script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+
+    - name: Upload instrumented test report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: instrumented-test-report
+        path: app/build/reports/androidTests/connected/
+        retention-days: 7
+        if-no-files-found: ignore
+
+    - name: Upload instrumented test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: instrumented-test-results
+        path: app/build/test-results/connected/
+        retention-days: 7
+        if-no-files-found: ignore
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build-and-test
+    needs: [build-and-test, verify-release-minify]
     permissions:
       contents: write
 
@@ -108,6 +203,20 @@ jobs:
         VYLLO_KEYPASSWORD: ${{ secrets.VYLLO_KEYPASSWORD }}
         VYLLO_GOOGLE_API_KEY: ${{ secrets.VYLLO_GOOGLE_API_KEY }}
       run: ./gradlew assembleRelease --stacktrace
+
+    - name: Verify baseline profile in release APK
+      # The baseline profile AOT-compiles hot scroll paths. If it ever goes missing
+      # from the APK (deleted baseline-prof.txt, broken plugin wiring), release builds
+      # silently regress to JIT-during-scroll. Fail loudly instead.
+      # Regenerate locally via:
+      #   ./gradlew :baseline-profile:collectNonMinifiedReleaseBaselineProfile
+      run: |
+        APK=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
+        if ! unzip -l "$APK" | grep -q "assets/dexopt/baseline.prof"; then
+          echo "::error::baseline.prof missing from $APK — scroll will JIT-stall. See comment above this step."
+          exit 1
+        fi
+        echo "Baseline profile verified in $APK"
 
     - name: Create Release
       uses: softprops/action-gh-release@v2

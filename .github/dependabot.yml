@@ -1,0 +1,46 @@
+# Dependency freshness is handled here rather than by lint's GradleDependency
+# check (which is disabled in app/build.gradle.kts). Several libraries are hard
+# pins for the Kotlin 1.9.24 / AGP 8.6.1 toolchain; when that toolchain moves,
+# these PRs are the signal to lift the pins.
+#
+# `patterns` values are regular expressions matched against the dependency name.
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # Keep the blast radius small: one PR per family so a bad upgrade is easy
+    # to identify and revert.
+    groups:
+      androidx-core:
+        patterns:
+          - "androidx\\.(core|appcompat|activity|lifecycle|constraintlayout|datastore|security|startup).*"
+      compose:
+        patterns:
+          - "androidx\\.compose.*"
+      media3:
+        patterns:
+          - "androidx\\.media3.*"
+      background:
+        patterns:
+          - "androidx\\.(work|hilt).*"
+      testing:
+        patterns:
+          - "androidx\\.test.*"
+          - "junit.*"
+          - "org\\.mockito.*"
+      network:
+        patterns:
+          - "com\\.squareup\\.(okhttp3|okio).*"
+      kotlin:
+        patterns:
+          - "org\\.jetbrains\\.(kotlin|kotlinx).*"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

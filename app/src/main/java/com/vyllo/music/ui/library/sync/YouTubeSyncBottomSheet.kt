@@ -36,9 +36,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.LibraryViewModel
+import com.vyllo.music.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,12 +95,12 @@ fun YouTubeSyncBottomSheet(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "YouTube Playlist Sync",
+                            text = stringResource(R.string.ytsync_title),
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Import YouTube & YouTube Music Playlists",
+                            text = stringResource(R.string.ytsync_subtitle),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(0.6f)
                         )

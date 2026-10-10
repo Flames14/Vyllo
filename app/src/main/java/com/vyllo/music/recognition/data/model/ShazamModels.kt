@@ -1,5 +1,6 @@
 package com.vyllo.music.recognition.data.model
 
+import com.vyllo.music.recognition.domain.extractYouTubeVideoId
 import com.vyllo.music.recognition.domain.model.RecognitionResult
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -145,7 +146,6 @@ data class ShazamResponseJson(
 
     fun toDomain(): RecognitionResult? {
         val track = this.track ?: return null
-
         val songSection = track.sections?.find { it?.type == "SONG" }
         val metadata = songSection?.metadata
         val album = metadata?.find { it?.title == "Album" }?.text
@@ -163,14 +163,10 @@ data class ShazamResponseJson(
             it?.caption?.contains("spotify", ignoreCase = true) == true
         }
 
-        val youtubeAction = track.hub?.options?.find {
-            it?.type?.contains("video", ignoreCase = true) == true
-        }?.actions?.firstOrNull()
-        
-        val youtubeVideoId = youtubeAction?.uri?.let { uri ->
-            uri.substringAfterLast("v=", "").takeIf { it.isNotEmpty() }
-                ?: uri.substringAfterLast("/", "").takeIf { it.isNotEmpty() && it.length == 11 }
-        }
+        val youtubeVideoId = track.hub?.options
+            ?.firstOrNull { it?.providername?.contains("youtube", ignoreCase = true) == true }
+            ?.actions?.firstOrNull { !it?.uri.isNullOrBlank() }?.uri
+            ?.let(::extractYouTubeVideoId)
 
         return RecognitionResult(
             trackId = track.key ?: tagid ?: "",

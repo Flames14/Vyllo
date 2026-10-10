@@ -1,4 +1,4 @@
-package com.vyllo.music
+﻿package com.vyllo.music
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -206,6 +206,7 @@ fun VylloNavigation(
                                     viewModel = playerViewModel
                                 )
                             }
+                            com.vyllo.music.presentation.components.VylloOfflineBanner()
                             YTMBottomNavBar(
                                 selectedTab = if (showSearchScreen) 1 else if (homeViewModel.selectedNavTab == 0) 0 else homeViewModel.selectedNavTab + 1,
                                 onTabSelected = { 
@@ -376,6 +377,10 @@ fun VylloNavigation(
                            onThemeModeChange = { settingsViewModel.updateThemeMode(it) },
                            isHighRefreshRateEnabled = settingsViewModel.isHighRefreshRateEnabled,
                            onHighRefreshRateChange = { settingsViewModel.toggleHighRefreshRate(it) },
+                           wifiOnlyDownloads = settingsViewModel.wifiOnlyDownloads,
+                           onWifiOnlyDownloadsChange = { settingsViewModel.toggleWifiOnlyDownloads(it) },
+                           downloadsRequireBatteryOk = settingsViewModel.downloadsRequireBatteryOk,
+                           onDownloadsRequireBatteryOkChange = { settingsViewModel.toggleDownloadsRequireBatteryOk(it) },
                            onExportBackupClick = { exportLauncher.launch("vyllo_backup_${System.currentTimeMillis()}.json") },
                            onImportBackupClick = { importLauncher.launch(arrayOf("application/json", "text/*")) },
                            onCheckUpdateClick = { updateViewModel.checkForUpdates() }
@@ -444,7 +449,7 @@ fun LazyListScope.YTMGridSection(
                 contentType = { "grid_column" }
             ) { columnItems ->
                 Column(
-                    modifier = Modifier.width(340.dp), // Standard width for YT Music compact row columns
+                    modifier = Modifier.width(300.dp), // Standard width for YT Music compact row columns
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     columnItems.forEach { item ->
@@ -463,3 +468,4 @@ fun LazyListScope.YTMGridSection(
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
+

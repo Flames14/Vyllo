@@ -51,6 +51,10 @@ fun SettingsDialog(
     onThemeModeChange: (String) -> Unit,
     isHighRefreshRateEnabled: Boolean = true,
     onHighRefreshRateChange: (Boolean) -> Unit = {},
+    wifiOnlyDownloads: Boolean = false,
+    onWifiOnlyDownloadsChange: (Boolean) -> Unit = {},
+    downloadsRequireBatteryOk: Boolean = false,
+    onDownloadsRequireBatteryOkChange: (Boolean) -> Unit = {},
     onExportBackupClick: () -> Unit = {},
     onImportBackupClick: () -> Unit = {},
     onCheckUpdateClick: () -> Unit = {}
@@ -69,6 +73,10 @@ fun SettingsDialog(
         onThemeModeChange = onThemeModeChange,
         isHighRefreshRateEnabled = isHighRefreshRateEnabled,
         onHighRefreshRateChange = onHighRefreshRateChange,
+        wifiOnlyDownloads = wifiOnlyDownloads,
+        onWifiOnlyDownloadsChange = onWifiOnlyDownloadsChange,
+        downloadsRequireBatteryOk = downloadsRequireBatteryOk,
+        onDownloadsRequireBatteryOkChange = onDownloadsRequireBatteryOkChange,
         onExportBackupClick = onExportBackupClick,
         onImportBackupClick = onImportBackupClick,
         onCheckUpdateClick = onCheckUpdateClick

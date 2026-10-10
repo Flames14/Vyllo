@@ -2,6 +2,8 @@ package com.vyllo.music.recognition.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.vyllo.music.recognition.domain.extractYouTubeVideoId
+import com.vyllo.music.recognition.domain.CandidateScorer
 import com.vyllo.music.recognition.domain.model.RecognitionStatus
 import com.vyllo.music.recognition.domain.usecase.RecognizeMusicUseCase
 import com.vyllo.music.domain.repository.IMusicRepository
@@ -65,7 +67,11 @@ class RecognitionViewModel @Inject constructor(
     }
 
     fun resolveAndPlay(result: com.vyllo.music.recognition.domain.model.RecognitionResult, onResolved: (com.vyllo.music.domain.model.MusicItem) -> Unit) {
-        if (result.youtubeVideoId != null) {
+        // Only trust a strictly-valid video ID. A malformed one plays the wrong
+        // video while the card still shows the right track — worse than searching.
+        val directId = result.youtubeVideoId
+            ?.let(::extractYouTubeVideoId)
+        if (directId != null) {
             onResolved(result.toMusicItem())
             return
         }
@@ -76,7 +82,10 @@ class RecognitionViewModel @Inject constructor(
             try {
                 val searchQuery = "${result.title} ${result.artist}"
                 val searchResults = repository.searchMusic(searchQuery)
-                val firstMatch = searchResults.firstOrNull()
+                // Never blind-play the top hit: reactions/covers/lyric videos
+                // routinely outrank the official upload. Rank by title/artist
+                // similarity and fall back to the raw track when search is empty.
+                val firstMatch = CandidateScorer.best(searchResults, result.title, result.artist)
 
                 if (firstMatch != null) {
                     onResolved(firstMatch)

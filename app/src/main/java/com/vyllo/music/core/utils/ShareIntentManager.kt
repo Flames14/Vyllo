@@ -40,7 +40,7 @@ object ShareIntentManager {
             context.startActivity(intent)
         } catch (e: Exception) {
             SecureLogger.e(TAG, "Instagram share failed", e)
-            Toast.makeText(context, "Instagram is not installed", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.share_instagram_missing), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -50,7 +50,7 @@ object ShareIntentManager {
     fun shareToWhatsApp(context: Context, imageFile: File, item: MusicItem) {
         val uri = getUriForFile(context, imageFile)
         val shareUrl = item.getUniversalShareUrl()
-        val text = "🎵 Listening to \"${item.title}\" by ${item.uploader} on Vyllo Music\n🔗 $shareUrl"
+        val text = context.getString(R.string.share_listening_story, item.title, item.uploader, shareUrl)
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "image/png"
             putExtra(Intent.EXTRA_STREAM, uri)
@@ -69,7 +69,7 @@ object ShareIntentManager {
             context.startActivity(intent)
         } catch (e: Exception) {
             SecureLogger.e(TAG, "WhatsApp share failed", e)
-            Toast.makeText(context, "WhatsApp is not installed", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.share_whatsapp_missing), Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -86,7 +86,7 @@ object ShareIntentManager {
             clipData = android.content.ClipData.newRawUri("Story Background", uri)
         }
         
-        val chooser = Intent.createChooser(intent, "Share Music Story")
+        val chooser = Intent.createChooser(intent, context.getString(R.string.share_story_chooser))
         
         val resInfoList = context.packageManager.queryIntentActivities(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
         for (resolveInfo in resInfoList) {
@@ -98,7 +98,7 @@ object ShareIntentManager {
             context.startActivity(chooser)
         } catch (e: Exception) {
             SecureLogger.e(TAG, "Generic share failed", e)
-            Toast.makeText(context, "Failed to share", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.share_failed), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -107,18 +107,18 @@ object ShareIntentManager {
      */
     fun shareSongLink(context: Context, item: MusicItem) {
         val shareUrl = item.getUniversalShareUrl()
-        val text = "🎵 Listening to \"${item.title}\" by ${item.uploader} on Vyllo Music\n\n🔗 Stream here: $shareUrl"
+        val text = context.getString(R.string.share_listening_link, item.title, item.uploader, shareUrl)
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "Listen to ${item.title} on Vyllo Music")
+            putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.share_subject, item.title))
             putExtra(Intent.EXTRA_TEXT, text)
         }
-        val chooser = Intent.createChooser(intent, "Share Song Link")
+        val chooser = Intent.createChooser(intent, context.getString(R.string.share_song_link_chooser))
         try {
             context.startActivity(chooser)
         } catch (e: Exception) {
             SecureLogger.e(TAG, "Share link failed", e)
-            Toast.makeText(context, "Failed to share link", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.share_link_failed), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -129,12 +129,12 @@ object ShareIntentManager {
         try {
             val shareUrl = item.getUniversalShareUrl()
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-            val clip = android.content.ClipData.newPlainText("Song Link", shareUrl)
+            val clip = android.content.ClipData.newPlainText(context.getString(R.string.share_clip_label), shareUrl)
             clipboard.setPrimaryClip(clip)
-            Toast.makeText(context, "Link copied to clipboard! 🔗", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.share_link_copied), Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             SecureLogger.e(TAG, "Copy link failed", e)
-            Toast.makeText(context, "Failed to copy link", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.share_copy_failed), Toast.LENGTH_SHORT).show()
         }
     }
 

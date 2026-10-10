@@ -126,7 +126,7 @@ fun SongContextMenuSheet(
             ) {
                 IOSActionRow(
                     icon = Icons.AutoMirrored.Rounded.QueueMusic,
-                    title = "Play Next",
+                    title = stringResource(R.string.context_play_next),
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onPlayNext()
@@ -136,7 +136,7 @@ fun SongContextMenuSheet(
                 HorizontalDivider(color = Color.White.copy(alpha = 0.06f), thickness = 0.5.dp)
                 IOSActionRow(
                     icon = Icons.Rounded.PlaylistPlay,
-                    title = "Add to Playing Queue",
+                    title = stringResource(R.string.context_add_to_queue),
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onAddToQueue()
@@ -176,7 +176,7 @@ fun SongContextMenuSheet(
                 HorizontalDivider(color = Color.White.copy(alpha = 0.06f), thickness = 0.5.dp)
                 IOSActionRow(
                     icon = Icons.Rounded.Share,
-                    title = "Share Song",
+                    title = stringResource(R.string.context_share_song),
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onShare()
@@ -188,7 +188,7 @@ fun SongContextMenuSheet(
                     HorizontalDivider(color = Color.White.copy(alpha = 0.06f), thickness = 0.5.dp)
                     IOSActionRow(
                         icon = Icons.Rounded.DeleteOutline,
-                        title = "Remove from Playlist",
+                        title = stringResource(R.string.context_remove_from_playlist),
                         isDestructive = true,
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)

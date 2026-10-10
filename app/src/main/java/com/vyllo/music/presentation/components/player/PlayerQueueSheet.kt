@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,13 +41,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.sp
@@ -57,6 +56,7 @@ import coil.compose.AsyncImage
 import com.vyllo.music.LocalLibraryViewModel
 import com.vyllo.music.PlayerUiState
 import com.vyllo.music.PlayerViewModel
+import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -85,6 +85,10 @@ fun PlayerQueueSheet(
     // ==========================================
     val queueSheetHeightDp = (configuration.screenHeightDp * 0.78f).dp
 
+    // Drag is confined to the header column below — never to the LazyColumn of
+    // queue rows. Wrapping the whole drawer made every scroll gesture inside the
+    // list also drive sheetOffsetY, so a list fling and the drawer animation
+    // fought for the same frame.
     val sheetDraggableState = rememberDraggableState { delta ->
         coroutineScope.launch {
             sheetOffsetY.snapTo((sheetOffsetY.value + delta).coerceIn(0f, sheetMaxOffset))
@@ -114,7 +118,9 @@ fun PlayerQueueSheet(
         modifier = modifier
             .fillMaxWidth()
             .height(queueSheetHeightDp)
-            .offset { IntOffset(0, sheetOffsetY.value.toInt()) }
+            // GPU transform: dragging translates a cached layer instead of
+            // re-measuring/re-laying-out the whole drawer every frame (60 Hz).
+            .graphicsLayer { translationY = sheetOffsetY.value }
             .shadow(28.dp, RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp), spotColor = Color.Black.copy(alpha = 0.5f))
             .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
             .background(Color(0xFF1E1E22).copy(alpha = 0.96f))
@@ -213,7 +219,7 @@ fun PlayerQueueSheet(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(Modifier.width(4.dp))
-                                Text("Save", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                                Text(stringResource(R.string.common_save), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                             }
                         }
                     }
@@ -325,8 +331,13 @@ fun QueueSongRowItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isActive) Color.White.copy(alpha = 0.08f) else Color.Transparent)
+            // background(shape) rather than clip(shape) + background: no child
+            // crosses the row bounds, so the clip was only ever a way to round
+            // a fill — and clip() costs an unconditional render layer per row.
+            .background(
+                if (isActive) Color.White.copy(alpha = 0.08f) else Color.Transparent,
+                RoundedCornerShape(8.dp)
+            )
             .clickable { onClick() }
             .padding(horizontal = 8.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically

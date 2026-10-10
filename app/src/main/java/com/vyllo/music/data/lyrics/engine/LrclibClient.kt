@@ -114,7 +114,7 @@ object LrclibClient {
                 // Synced lyrics bonus
                 if (!synced.isNullOrBlank()) score += 2.0
 
-                SecureLogger.d(TAG, "    Candidate: '${result.trackName}' score=$score (titleSim=${String.format("%.2f", titleSim)})")
+                SecureLogger.d(TAG, "    Candidate: '${result.trackName}' score=$score (titleSim=${String.format(java.util.Locale.ROOT, "%.2f", titleSim)})")
 
                 if (score > bestScore) {
                     bestScore = score

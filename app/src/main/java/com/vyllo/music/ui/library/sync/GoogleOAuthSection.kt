@@ -44,9 +44,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.LibraryViewModel
+import com.vyllo.music.R
 
 @Composable
 fun GoogleOAuthSection(
@@ -81,7 +83,7 @@ fun GoogleOAuthSection(
                     Icon(Icons.Rounded.Lock, contentDescription = "Google Account Sync", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Google Account Sync (OAuth 2.0)",
+                        text = stringResource(R.string.oauth_title),
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -96,7 +98,7 @@ fun GoogleOAuthSection(
                 Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
                     if (!isConnected) {
                         Text(
-                            text = "Google OAuth connects directly to your Google Account to synchronize all your private and unlisted YouTube playlists.",
+                            text = stringResource(R.string.oauth_description),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -111,7 +113,7 @@ fun GoogleOAuthSection(
                                         val browserIntent = Intent(Intent.ACTION_VIEW, authUri)
                                         context.startActivity(browserIntent)
                                     } else {
-                                        Toast.makeText(context, "Please configure your Google Client ID first", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, context.getString(R.string.oauth_configure_first), Toast.LENGTH_LONG).show()
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth().height(46.dp),
@@ -120,7 +122,7 @@ fun GoogleOAuthSection(
                             ) {
                                 Icon(Icons.Rounded.AccountCircle, null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Sign in with Google", fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.oauth_sign_in), fontWeight = FontWeight.Bold)
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -131,7 +133,7 @@ fun GoogleOAuthSection(
                             ) {
                                 Icon(Icons.Rounded.Settings, null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Edit Google Client ID", style = MaterialTheme.typography.labelMedium)
+                                Text(stringResource(R.string.oauth_edit_client_id), style = MaterialTheme.typography.labelMedium)
                             }
                         } else {
                             Surface(
@@ -141,13 +143,13 @@ fun GoogleOAuthSection(
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text(
-                                        text = "Google Cloud OAuth Client ID Required",
+                                        text = stringResource(R.string.oauth_client_id_required),
                                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "To sign in via Google OAuth, enter your OAuth 2.0 Client ID from Google Cloud Console (Redirect URI: com.vyllo.music://oauth2redirect). Or use the instant import above without any setup!",
+                                        text = stringResource(R.string.oauth_instructions),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurface.copy(0.8f)
                                     )
@@ -163,7 +165,7 @@ fun GoogleOAuthSection(
                             ) {
                                 Icon(Icons.Rounded.Key, null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Configure Client ID")
+                                Text(stringResource(R.string.oauth_configure_client_id))
                             }
                         }
 
@@ -172,8 +174,8 @@ fun GoogleOAuthSection(
                                 OutlinedTextField(
                                     value = customClientIdInput,
                                     onValueChange = onCustomClientIdChange,
-                                    label = { Text("Google Cloud Client ID") },
-                                    placeholder = { Text("xxxxxx.apps.googleusercontent.com") },
+                                    label = { Text(stringResource(R.string.oauth_client_id_label)) },
+                                    placeholder = { Text(stringResource(R.string.oauth_client_id_placeholder)) },
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(10.dp)
@@ -188,18 +190,18 @@ fun GoogleOAuthSection(
                                         viewModel.setGoogleClientId(null)
                                         onClientIdExpandedChange(false)
                                     }) {
-                                        Text("Reset")
+                                        Text(stringResource(R.string.common_reset))
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Button(
                                         onClick = {
                                             viewModel.setGoogleClientId(customClientIdInput.trim())
                                             onClientIdExpandedChange(false)
-                                            Toast.makeText(context, "Client ID saved!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.oauth_client_id_saved), Toast.LENGTH_SHORT).show()
                                         },
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
-                                        Text("Save")
+                                        Text(stringResource(R.string.common_save))
                                     }
                                 }
                             }
@@ -216,7 +218,7 @@ fun GoogleOAuthSection(
                                     Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF4CAF50)))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "Connected to Google",
+                                        text = stringResource(R.string.oauth_connected),
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
@@ -242,7 +244,7 @@ fun GoogleOAuthSection(
 
                         // Remote Playlists
                         Text(
-                            text = "Your YouTube Playlists (${viewModel.remoteYouTubePlaylists.size})",
+                            text = stringResource(R.string.oauth_your_playlists, viewModel.remoteYouTubePlaylists.size),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             modifier = Modifier.padding(vertical = 6.dp)
                         )
@@ -253,7 +255,7 @@ fun GoogleOAuthSection(
                             }
                         } else if (viewModel.remoteYouTubePlaylists.isEmpty()) {
                             Box(modifier = Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) {
-                                Text("Tap refresh to load playlists", color = MaterialTheme.colorScheme.onSurface.copy(0.5f))
+                                Text(stringResource(R.string.oauth_tap_refresh), color = MaterialTheme.colorScheme.onSurface.copy(0.5f))
                             }
                         } else {
                             Column(

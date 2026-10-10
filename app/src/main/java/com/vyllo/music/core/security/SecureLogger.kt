@@ -14,6 +14,14 @@ object SecureLogger {
     private const val TAG = "Vyllo"
 
     /**
+     * True when debug logging is compiled in.
+     *
+     * Lets callers skip building expensive log payloads (stream lists, header maps)
+     * without paying for the string construction first.
+     */
+    val isDebugEnabled: Boolean get() = BuildConfig.DEBUG
+
+    /**
      * Debug level - stripped in release
      */
     fun d(tag: String, message: String, throwable: Throwable? = null) {
@@ -41,31 +49,43 @@ object SecureLogger {
     }
 
     /**
-     * Warning level - kept in release for monitoring
+     * Warning logs are restricted to debug builds. Logcat is readable on some
+     * rooted and diagnostic environments, so release builds must not emit
+     * request, account, or error details.
      */
     fun w(tag: String, message: String, throwable: Throwable? = null) {
-        Log.w(TAG, "[$tag] $message", throwable)
+        if (BuildConfig.DEBUG) {
+            Log.w(TAG, "[$tag] $message", throwable)
+        }
     }
 
     /**
-     * Error level - kept in release for crash reporting
+     * Error logs are restricted to debug builds. Crashes still reach Android's
+     * normal uncaught-exception handling; this avoids persisting sensitive
+     * operational context in production Logcat.
      */
     fun e(tag: String, message: String, throwable: Throwable? = null) {
-        Log.e(TAG, "[$tag] $message", throwable)
+        if (BuildConfig.DEBUG) {
+            Log.e(TAG, "[$tag] $message", throwable)
+        }
     }
 
     /**
      * Error level with lazy message evaluation
      */
     fun e(tag: String, message: () -> String, throwable: Throwable? = null) {
-        Log.e(TAG, "[$tag] ${message()}", throwable)
+        if (BuildConfig.DEBUG) {
+            Log.e(TAG, "[$tag] ${message()}", throwable)
+        }
     }
 
     /**
-     * Security-specific warning (always logged)
+     * Security-specific warning for development diagnostics.
      */
     fun security(tag: String, message: String) {
-        Log.w(TAG, "[SECURITY][$tag] $message")
+        if (BuildConfig.DEBUG) {
+            Log.w(TAG, "[SECURITY][$tag] $message")
+        }
     }
 
     /**

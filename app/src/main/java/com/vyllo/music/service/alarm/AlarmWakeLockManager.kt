@@ -22,6 +22,9 @@ class AlarmWakeLockManager(private val context: Context) {
      * and the full-screen notification intent.
      */
     fun acquire() {
+        // Guard: a second onStartCommand (overlapping alarm, service restart)
+        // must not orphan the first locks. Matches the 10-minute auto-dismiss.
+        if (cpuWakeLock?.isHeld == true || screenWakeLock?.isHeld == true) return
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
 
         // CPU wake lock — keeps CPU running, works reliably with screen off
@@ -29,7 +32,7 @@ class AlarmWakeLockManager(private val context: Context) {
             PowerManager.PARTIAL_WAKE_LOCK,
             "Vyllo::AlarmCpuWakeLock"
         ).apply {
-            acquire(15 * 60 * 1000L) // 15 minutes max
+            acquire(10 * 60 * 1000L) // 10 minutes max (matches auto-dismiss)
         }
 
         // Screen wake lock — turns screen on and keeps it on
@@ -41,7 +44,7 @@ class AlarmWakeLockManager(private val context: Context) {
             PowerManager.ON_AFTER_RELEASE,
             "Vyllo::AlarmScreenWakeLock"
         ).apply {
-            acquire(15 * 60 * 1000L) // 15 minutes max
+            acquire(10 * 60 * 1000L) // 10 minutes max (matches auto-dismiss)
         }
 
         SecureLogger.d("AlarmTriggerService", "Wake locks acquired (CPU + Screen)")

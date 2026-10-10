@@ -1,7 +1,7 @@
 package com.vyllo.music.update
 
-import android.util.Log
 import com.vyllo.music.BuildConfig
+import com.vyllo.music.core.security.SecureLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -26,7 +26,7 @@ class AppUpdateRepository @Inject constructor(
     private val LATEST_RELEASE_URL = "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest"
 
     suspend fun checkForUpdates(): UpdateResult = withContext(Dispatchers.IO) {
-        Log.d("AppUpdate", "Checking for updates at: $LATEST_RELEASE_URL")
+        SecureLogger.d("AppUpdate") { "Checking for release updates" }
         try {
             val request = Request.Builder()
                 .url(LATEST_RELEASE_URL)
@@ -91,8 +91,7 @@ class AppUpdateRepository @Inject constructor(
             "github.com",
             "api.github.com",
             "objects.githubusercontent.com",
-            "release-assets.githubusercontent.com",
-            "raw.githubusercontent.com"
+            "release-assets.githubusercontent.com"
         )
 
         /**

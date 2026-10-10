@@ -30,6 +30,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -141,10 +142,10 @@ class MusicService : MediaSessionService() {
                         val response = chain.proceed(playbackRequest)
                         if (!response.isSuccessful) {
                             // Log response headers for diagnosis
-                            val respHdrs = response.headers.toMultimap().entries.joinToString { "${it.key}=${it.value}" }
+                            val headerNames = response.headers.toMultimap().keys.joinToString()
                             SecureLogger.w(
                                 "MusicService",
-                                "googlevideo REJECTED: code=${response.code}, client=${clientNameFromUrl(url)}, resp_headers=[$respHdrs]"
+                                "googlevideo REJECTED: code=${response.code}, client=${clientNameFromUrl(url)}, header_names=[$headerNames]"
                             )
                         } else {
                             SecureLogger.d("MusicService") { "googlevideo ACCEPTED: code=${response.code}, client=${clientNameFromUrl(url)}" }
@@ -163,10 +164,24 @@ class MusicService : MediaSessionService() {
             .setUpstreamDataSourceFactory(upstreamFactory)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
-        // Configure LoadControl
-        val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(30000, 60000, 1500, 5000)
-            .build()
+        // Configure LoadControl: full 30s/60s buffers on capable devices;
+        // halved on low-RAM devices to cut steady-state memory + radio bursts.
+        //
+        // bufferForPlaybackMs was 1500ms, which starts playback fast but leaves too
+        // little margin: any single rebuffer is audible as a stall. 2500ms costs
+        // ~125ms more start latency on a fast connection and removes that class of
+        // glitch; the after-rebuffer target went up more, because rebuffering is
+        // where an audible gap actually happens.
+        val lowRamPlayback = com.vyllo.music.core.utils.DevicePerf.isLowRamDevice(this)
+        val loadControl = if (lowRamPlayback) {
+            DefaultLoadControl.Builder()
+                .setBufferDurationsMs(15000, 30000, 2000, 4000)
+                .build()
+        } else {
+            DefaultLoadControl.Builder()
+                .setBufferDurationsMs(30000, 60000, 2500, 6000)
+                .build()
+        }
 
         val keepAudioPlaying = preferenceManager.isKeepAudioPlayingEnabled
 
@@ -184,6 +199,10 @@ class MusicService : MediaSessionService() {
                 AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).setUsage(C.USAGE_MEDIA).build(),
                 !keepAudioPlaying // Re-enable automatic audio focus if keepAudioPlaying is false
             )
+            // WAKE_MODE_NETWORK keeps both the CPU and the Wi-Fi radio awake
+            // while the screen is off so mid-track rebuffering never stalls
+            // (the failure mode we hit with WAKE_MODE_LOCAL during long
+            // screen-off sessions).
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .setHandleAudioBecomingNoisy(true)
             .build()
@@ -215,6 +234,40 @@ class MusicService : MediaSessionService() {
             playbackQueueManager.queueVersion.collectLatest {
                 playbackQueueOrchestrator.prefetchUpcomingStreams(serviceScope, player)
             }
+        }
+
+        // Restore last session's queue (process death / reboot). No autoplay:
+        // items are restored for Up Next continuity only.
+        serviceScope.launch {
+            try {
+                if (playbackQueueManager.getQueueSnapshot().isEmpty()) {
+                    com.vyllo.music.data.manager.QueuePersistence
+                        .restore(preferenceManager.preferences)
+                        ?.let { (items, index) ->
+                            playbackQueueManager.replaceQueue(items, index)
+                        }
+                }
+            } catch (e: Exception) {
+                com.vyllo.music.core.security.SecureLogger.w("MusicService", "queue restore failed", e)
+            }
+        }
+
+        // Persist the queue on every structural change (debounced by the
+        // collector: saves are cheap SharedPreferences writes).
+        serviceScope.launch {
+            playbackQueueManager.queueVersion
+                .debounce(2000L)
+                .collectLatest {
+                    try {
+                        com.vyllo.music.data.manager.QueuePersistence.save(
+                            preferenceManager.preferences,
+                            playbackQueueManager.getQueueSnapshot(),
+                            playbackQueueManager.currentIndex
+                        )
+                    } catch (e: Exception) {
+                        com.vyllo.music.core.security.SecureLogger.w("MusicService", "queue save failed", e)
+                    }
+                }
         }
 
         val openIntent = Intent(this, MainActivity::class.java)

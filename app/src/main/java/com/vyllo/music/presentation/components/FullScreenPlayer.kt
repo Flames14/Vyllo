@@ -1,4 +1,4 @@
-package com.vyllo.music.presentation.components
+﻿package com.vyllo.music.presentation.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
@@ -47,7 +47,6 @@ import com.vyllo.music.data.LyricsEngine
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.presentation.components.player.PlayerActionPills
 import com.vyllo.music.presentation.components.player.PlayerArtwork
-import com.vyllo.music.presentation.components.player.PlayerAudioPills
 import com.vyllo.music.presentation.components.player.PlayerEqualizerSheet
 import com.vyllo.music.presentation.components.player.PlayerFullscreenVideoOverlay
 import com.vyllo.music.presentation.components.player.PlayerHeader
@@ -133,13 +132,13 @@ fun PremiumFullScreenPlayer(
     LaunchedEffect(controller, isPlaying) {
         if (!isPlaying || controller == null) {
             if (controller != null) {
-                currentPosition = controller.currentPosition.coerceAtLeast(0L)
+                if (!com.vyllo.music.presentation.components.player.isSeekHoldActive()) currentPosition = controller.currentPosition.coerceAtLeast(0L)
                 duration = controller.duration.coerceAtLeast(0L)
             }
             return@LaunchedEffect
         }
         while (isActive && isPlaying) {
-            currentPosition = controller.currentPosition.coerceAtLeast(0L)
+                if (!com.vyllo.music.presentation.components.player.isSeekHoldActive()) currentPosition = controller.currentPosition.coerceAtLeast(0L)
             duration = controller.duration.coerceAtLeast(0L)
             val lineIdx = LyricsEngine.getCurrentLyricLine(
                 playerUiState.syncedLyricsLines, currentPosition + playerUiState.lyricsOffsetMs
@@ -207,26 +206,6 @@ fun PremiumFullScreenPlayer(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0F0F0F))
-            .draggable(
-                orientation = Orientation.Vertical,
-                state = rememberDraggableState { delta ->
-                    coroutineScope.launch {
-                        val newTarget = (sheetOffsetY.value + delta).coerceIn(0f, sheetMaxOffset)
-                        sheetOffsetY.snapTo(newTarget)
-                    }
-                },
-                onDragStopped = { velocity ->
-                    coroutineScope.launch {
-                        if (!isSheetExpanded && velocity > 800f) {
-                            onCollapse()
-                        } else if (velocity < -400f || sheetOffsetY.value < sheetMaxOffset * 0.5f) {
-                            sheetOffsetY.animateTo(0f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
-                        } else {
-                            sheetOffsetY.animateTo(sheetMaxOffset, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
-                        }
-                    }
-                }
-            )
     ) {
         // Apple Music living fluid mesh backdrop (ported from Apple-style pass)
         AppleFluidBackdrop(
@@ -236,8 +215,36 @@ fun PremiumFullScreenPlayer(
         PlayerEqualizerSheet(show = showEqualizerSheet, playerUiState = playerUiState, viewModel = viewModel, onDismiss = { showEqualizerSheet = false })
         PlayerSleepTimerDialog(show = showSleepTimerDialog, playerUiState = playerUiState, viewModel = viewModel, controller = controller, onDismiss = { showSleepTimerDialog = false })
         Column(
-            modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
-                .padding(top = 8.dp, bottom = 72.dp, start = 20.dp, end = 20.dp),
+            modifier = Modifier.fillMaxSize()
+                // The "swipe anywhere to open the queue" gesture lives here, on
+                // the player controls — not on the root Box. On the root it also
+                // wrapped the queue drawer's own LazyColumn, so a fling inside
+                // "Up Next" was consumed by both the list and this draggable,
+                // and every drag tick mutated sheetOffsetY (read by
+                // expandProgress, which drives artwork/seek/controls) on the very
+                // frame the list was trying to scroll.
+                .statusBarsPadding().navigationBarsPadding()
+                .padding(top = 8.dp, bottom = 72.dp, start = 20.dp, end = 20.dp)
+                .draggable(
+                    orientation = Orientation.Vertical,
+                    state = rememberDraggableState { delta ->
+                        coroutineScope.launch {
+                            val newTarget = (sheetOffsetY.value + delta).coerceIn(0f, sheetMaxOffset)
+                            sheetOffsetY.snapTo(newTarget)
+                        }
+                    },
+                    onDragStopped = { velocity ->
+                        coroutineScope.launch {
+                            if (!isSheetExpanded && velocity > 800f) {
+                                onCollapse()
+                            } else if (velocity < -400f || sheetOffsetY.value < sheetMaxOffset * 0.5f) {
+                                sheetOffsetY.animateTo(0f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
+                            } else {
+                                sheetOffsetY.animateTo(sheetMaxOffset, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
+                            }
+                        }
+                    }
+                ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
         ) {
@@ -252,7 +259,6 @@ fun PremiumFullScreenPlayer(
             Spacer(modifier = Modifier.height(6.dp))
             PlayerPlaybackControls(isPlaying = isPlaying, isLoading = isLoading, currentPosition = currentPosition, duration = duration, controller = controller, shuffleModeEnabled = shuffleModeEnabled, repeatMode = repeatMode, expandProgress = expandProgress, onTogglePlay = onTogglePlay, onNext = onNext, onPrev = onPrev, onShuffleChange = { shuffleModeEnabled = it }, onRepeatChange = { repeatMode = it }, onPositionChange = { currentPosition = it }, onSeekFeedback = { seekFeedback = it })
             Spacer(modifier = Modifier.height(6.dp))
-            PlayerAudioPills(expandProgress = expandProgress)
         }
         PlayerQueueSheet(item = item, relatedSongs = relatedSongs, playerUiState = playerUiState, viewModel = viewModel, controller = controller, sheetOffsetY = sheetOffsetY, sheetMaxOffset = sheetMaxOffset, expandProgress = expandProgress, isSheetExpanded = isSheetExpanded, selectedDrawerTab = selectedDrawerTab, onTabSelected = { selectedDrawerTab = it }, onPlayRelated = onPlayRelated, coroutineScope = coroutineScope, modifier = Modifier.align(Alignment.BottomCenter))
     }
@@ -270,3 +276,4 @@ fun QueueSongRowItem(item: MusicItem, isActive: Boolean, onClick: () -> Unit) {
 fun YtmPillButton(icon: ImageVector, label: String, onClick: () -> Unit) {
     com.vyllo.music.presentation.components.player.YtmPillButton(icon = icon, label = label, onClick = onClick)
 }
+

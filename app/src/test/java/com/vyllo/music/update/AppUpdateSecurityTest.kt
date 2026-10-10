@@ -12,7 +12,6 @@ class AppUpdateSecurityTest {
         assertTrue(AppUpdateRepository.isTrustedApkHost("https://api.github.com/repos/Flames14/Vyllo/releases/assets/1"))
         assertTrue(AppUpdateRepository.isTrustedApkHost("https://objects.githubusercontent.com/github-production-release-asset-2e65be/x.apk"))
         assertTrue(AppUpdateRepository.isTrustedApkHost("https://release-assets.githubusercontent.com/github-production-release-asset/x"))
-        assertTrue(AppUpdateRepository.isTrustedApkHost("https://raw.githubusercontent.com/Flames14/Vyllo/main/a.apk"))
     }
 
     @Test
@@ -22,6 +21,7 @@ class AppUpdateSecurityTest {
         assertFalse(AppUpdateRepository.isTrustedApkHost("https://github.com.evil.com/x.apk"))
         assertFalse(AppUpdateRepository.isTrustedApkHost("https://notgithub.com/x.apk"))
         assertFalse(AppUpdateRepository.isTrustedApkHost("ftp://github.com/x.apk"))
+        assertFalse(AppUpdateRepository.isTrustedApkHost("https://raw.githubusercontent.com/Flames14/Vyllo/main/a.apk"))
         assertFalse(AppUpdateRepository.isTrustedApkHost("not-a-url"))
         assertFalse(AppUpdateRepository.isTrustedApkHost(""))
     }
@@ -31,5 +31,12 @@ class AppUpdateSecurityTest {
         // host must equal a trusted host or end with .trusted — not startswith tricks
         assertFalse(AppUpdateRepository.isTrustedApkHost("https://evilgithub.com/x.apk"))
         assertFalse(AppUpdateRepository.isTrustedApkHost("https://attacker.objects.githubusercontent.com.attacker.io/x.apk"))
+    }
+
+    @Test
+    fun `update download size is bounded`() {
+        assertTrue(UpdateDownloader.isAllowedDownloadSize(-1L))
+        assertTrue(UpdateDownloader.isAllowedDownloadSize(UpdateDownloader.MAX_APK_BYTES))
+        assertFalse(UpdateDownloader.isAllowedDownloadSize(UpdateDownloader.MAX_APK_BYTES + 1L))
     }
 }

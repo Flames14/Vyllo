@@ -50,6 +50,9 @@ class WakeLockManager @Inject constructor(
      */
     fun acquire(timeoutMs: Long = TRANSITION_TIMEOUT_MS) {
         try {
+            // Reference-counted: nested withLocks() pairs balance correctly.
+            // WifiLock has no timeout overload, so its bound is the CPU
+            // timeout paired with withLocks()' finally -> release().
             wakeLock.acquire(timeoutMs)
             wifiLock.acquire()
         } catch (e: Exception) {
@@ -100,10 +103,10 @@ class WakeLockManager @Inject constructor(
     companion object {
         /**
          * How long a transition may hold the locks before the failsafe timeout
-         * drops them. Deliberately generous: a NewPipe resolve plus stream
-         * probes can take tens of seconds on a throttled lock-screen network,
-         * and an early release is exactly what stalls the queue until unlock.
+         * drops them. 3 minutes covers a NewPipe resolve plus stream probes
+         * even on a throttled lock-screen network; longer holds only burn
+         * battery on genuinely stuck transitions.
          */
-        const val TRANSITION_TIMEOUT_MS = 10 * 60 * 1000L
+        const val TRANSITION_TIMEOUT_MS = 3 * 60 * 1000L
     }
 }

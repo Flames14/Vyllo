@@ -11,10 +11,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface DownloadDao {
     
-    @Query("SELECT * FROM downloads WHERE status = 'COMPLETED' ORDER BY downloadedAt DESC")
+    @Query("SELECT * FROM downloads WHERE status = 'COMPLETED' ORDER BY downloadedAt DESC LIMIT 500")
     fun getAllDownloads(): Flow<List<DownloadEntity>>
     
-    @Query("SELECT * FROM downloads WHERE status = 'COMPLETED' ORDER BY downloadedAt DESC")
+    @Query("SELECT * FROM downloads WHERE status = 'COMPLETED' ORDER BY downloadedAt DESC LIMIT 500")
     suspend fun getAllDownloadsList(): List<DownloadEntity>
     
     @Query("SELECT * FROM downloads WHERE url = :url LIMIT 1")

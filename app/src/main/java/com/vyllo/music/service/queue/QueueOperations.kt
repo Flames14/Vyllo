@@ -24,6 +24,18 @@ class QueueOperations(
     private val streamUrlCache: StreamUrlCache,
     private val state: QueueState
 ) {
+    companion object {
+        /**
+         * How many upcoming tracks to keep resolved and enqueued.
+         *
+         * Two rather than one: with a single lookahead, the handoff depends on
+         * ExoPlayer having finished buffering item N+1 before item N ends. Two gives
+         * one spare while the first is still filling, and every repeat lookup is a
+         * free StreamUrlCache hit rather than a new request.
+         */
+        const val LOOKAHEAD_COUNT = 2
+    }
+
     /**
      * Warms the stream-URL caches for the upcoming track and, when possible,
      * enqueues it behind the current item so the handoff is seamless.
@@ -57,6 +69,16 @@ class QueueOperations(
         }
     }
 
+    /**
+     * Tops the player's playlist back up to [LOOKAHEAD_COUNT] resolved items ahead
+     * of the current one.
+     *
+     * Deliberately NOT wrapped in [WakeLockManager.withLocks]. Holding a CPU
+     * wakelock stops the CPU idling, which competes with the UI thread and hurts
+     * frame pacing; a speculative prefetch that misses one wake-lock window simply
+     * costs one more cache hit later. Locks are reserved for work that is actually
+     * blocking the audible track — see [playTrackAtIndexInternal].
+     */
     suspend fun ensureNextEnqueued(player: ExoPlayer?) {
         val p = player ?: return
         try {
@@ -73,41 +95,57 @@ class QueueOperations(
         // ("Up Next") renders getUpcomingSnapshot() from the same manager, so
         // ExoPlayer's lookahead must match manager.nextItem exactly — otherwise
         // seekToNextMediaItem plays a stale entry the user never saw.
-        val expectedNext = playbackQueueManager.nextItem
-        pruneLookaheadToMatchQueue(p, expectedNext?.url) ?: return
+        val expectedUrls = upcomingUrls(LOOKAHEAD_COUNT)
+        pruneLookaheadToMatchQueue(p, expectedUrls)
 
-        if (expectedNext == null) {
+        if (expectedUrls.isEmpty()) {
             // Queue exhausted — warm autoplay discovery in the background so a
             // cold network fetch is not needed the moment the track ends.
             state.warmAutoplayDiscovery()
             return
         }
 
-        wakeLockManager.withLocks {
-            // Re-check after acquiring: a concurrent transition may have changed things.
-            if (state.isMediaIdEnqueued(p, expectedNext.url)) return@withLocks
-            if (playbackQueueManager.nextItem?.url != expectedNext.url) return@withLocks
-            val resolved = state.resolveStreamUrl(expectedNext.url)
-            if (resolved != null &&
-                playbackQueueManager.nextItem?.url == expectedNext.url &&
-                p.currentMediaItem?.mediaId != expectedNext.url
-            ) {
-                try {
-                    with(state) { p.addMediaItem(expectedNext.toMediaItem(resolved)) }
-                    SecureLogger.d("MusicService") { "Lookahead enqueued: ${expectedNext.title}" }
-                } catch (e: Exception) {
-                    SecureLogger.w("MusicService", "Failed to enqueue lookahead: ${e.message}")
-                }
+        val currentId = try {
+            p.currentMediaItem?.mediaId
+        } catch (e: Exception) {
+            null
+        }
+        SecureLogger.d("MusicService") { "lookahead window=$expectedUrls current=$currentId" }
+
+        // Already covered by the playlist — nothing to resolve.
+        val alreadyEnqueued = expectedUrls.filter { state.isMediaIdEnqueued(p, it) }.toSet()
+        val toResolve = expectedUrls.filter { it !in alreadyEnqueued }.take(LOOKAHEAD_COUNT)
+        if (toResolve.isEmpty()) return
+
+        for (url in toResolve) {
+            // The queue may have moved under us while resolving the previous entry.
+            if (!upcomingUrls(LOOKAHEAD_COUNT).contains(url)) continue
+            val resolved = state.resolveStreamUrl(url)
+            if (resolved == null) continue
+            if (state.isMediaIdEnqueued(p, url)) continue
+            if (p.currentMediaItem?.mediaId == url) continue
+            try {
+                val item = upcomingItemFor(url) ?: continue
+                with(state) { p.addMediaItem(item.toMediaItem(resolved)) }
+                SecureLogger.d("MusicService") { "Lookahead enqueued: ${item.title}" }
+            } catch (e: Exception) {
+                SecureLogger.w("MusicService", "Failed to enqueue lookahead: ${e.message}")
             }
         }
     }
 
+    /** The next [count] queue URLs after the playhead, in order. */
+    private fun upcomingUrls(count: Int): List<String> =
+        playbackQueueManager.getUpcomingSnapshot().take(count).map { it.url }
+
+    private fun upcomingItemFor(url: String) =
+        playbackQueueManager.getUpcomingSnapshot().firstOrNull { it.url == url }
+
     /**
      * Drops every playlist entry after the current one unless it is exactly the
-     * manager's next item. Returns null when the player is unusable so callers
-     * can bail out.
+     * manager's upcoming window, so a stale lookahead can never be seeked into.
      */
-    private fun pruneLookaheadToMatchQueue(player: ExoPlayer, expectedNextUrl: String?): Boolean {
+    private fun pruneLookaheadToMatchQueue(player: ExoPlayer, expectedUrls: List<String>): Boolean {
         return try {
             val currentIdx = player.currentMediaItemIndex
             if (currentIdx < 0) return true
@@ -116,15 +154,15 @@ class QueueOperations(
 
             val lookaheadIds = (firstLookahead until player.mediaItemCount)
                 .map { player.getMediaItemAt(it).mediaId }
-            val matchesQueue = expectedNextUrl != null &&
-                lookaheadIds.size == 1 &&
-                lookaheadIds[0] == expectedNextUrl
+            // Keep the player's window only if it matches the queue's window
+            // exactly — the common case is "already correct", which is a no-op.
+            val matchesQueue = lookaheadIds == expectedUrls
             if (matchesQueue) {
                 true
             } else {
                 player.removeMediaItems(firstLookahead, player.mediaItemCount)
                 SecureLogger.d("MusicService") {
-                    "Pruned stale lookahead (expected=$expectedNextUrl, was=$lookaheadIds)"
+                    "Pruned stale lookahead (expected=$expectedUrls, was=$lookaheadIds)"
                 }
                 true
             }

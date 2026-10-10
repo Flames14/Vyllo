@@ -1,4 +1,4 @@
-package com.vyllo.music
+﻿package com.vyllo.music
 
 import android.app.PictureInPictureParams
 import android.content.res.Configuration
@@ -34,6 +34,7 @@ import coil.compose.LocalImageLoader
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import androidx.compose.ui.platform.LocalContext
+import com.vyllo.music.R
 import com.vyllo.music.VylloNavigation
 import com.vyllo.music.domain.manager.PlaybackManager
 import com.vyllo.music.domain.model.MusicItem
@@ -46,6 +47,8 @@ import com.vyllo.music.presentation.theme.ThemeManager
 import com.vyllo.music.core.security.SecureLogger
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 import android.Manifest
@@ -55,6 +58,16 @@ import androidx.core.content.ContextCompat
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    /**
+     * Monotonic id for the newest tap.
+     *
+     * The play flow used to take a Mutex, which serialised every tap behind the
+     * previous one's full network resolve — tapping again felt dead. Now each tap
+     * claims a generation and bails the moment a newer one exists, so the *last*
+     * tap always wins and superseded resolves stop immediately instead of waiting.
+     */
+    private var playRequestSeq: Long = 0L
+    private var lastPlayRequestAt: Long = 0L
 
     private val homeViewModel: HomeViewModel by viewModels()
     private val searchViewModel: SearchViewModel by viewModels()
@@ -92,6 +105,7 @@ class MainActivity : ComponentActivity() {
         
         setupDisplayMode()
         checkPermissions()
+        maybePromptBatteryExemption()
         
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
@@ -114,6 +128,10 @@ class MainActivity : ComponentActivity() {
         playbackManager.initialize()
 
         handleIncomingIntent(intent)
+
+        // Captured so the composition below can reach back into the activity
+        // without casting LocalContext (which would be null-safe noise).
+        val self = this
 
         setContent {
             val isDark = ThemeManager.isDarkTheme(settingsViewModel.themeMode, isSystemInDarkTheme())
@@ -149,6 +167,14 @@ class MainActivity : ComponentActivity() {
                     )
 
                     val playerState by playerViewModel.uiState.collectAsState()
+
+                    // Android 12+ PiP auto-enter follows the real playback mode:
+                    // on for video with something loaded, off the moment either
+                    // goes away, so backgrounding never pops a stale video tile.
+                    LaunchedEffect(playerState.isVideoMode, playerState.currentPlayingItem) {
+                        self.syncPipAutoEnter()
+                    }
+
                     com.vyllo.music.presentation.components.VolumeBoosterOverlay(
                         isVisible = playerState.isVolumeBoosterUIVisible,
                         multiplier = playerState.volumeBoostMultiplier,
@@ -215,13 +241,46 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * One-time rationale dialog before the system battery-exemption prompt.
+     * Explains why (uninterrupted background playback + reliable alarms) and
+     * never nags again once shown.
+     */
+    private fun maybePromptBatteryExemption() {
+        if (com.vyllo.music.core.utils.BatteryOptimizationHelper.isIgnoringBatteryOptimizations(this)) return
+        if (preferenceManager.batteryRationaleShown) return
+        preferenceManager.batteryRationaleShown = true
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            if (isFinishing || isDestroyed) return@postDelayed
+            android.app.AlertDialog.Builder(this)
+                .setTitle("Uninterrupted playback")
+                .setMessage(
+                    "Vyllo plays music with the screen off and can wake you with an alarm. " +
+                    "Allow Vyllo to run unrestricted in the background so playback and " +
+                    "alarms keep working during long sleep?"
+                )
+                .setPositiveButton("Allow") { _, _ ->
+                    com.vyllo.music.core.utils.BatteryOptimizationHelper.requestExemptionIfNeeded(this)
+                }
+                .setNegativeButton("Not now", null)
+                .show()
+        }, 1500L)
+    }
+
     private fun playMusic(item: MusicItem, fromQueue: Boolean = false) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastPlayRequestAt < 250L) return
+        lastPlayRequestAt = now
+        val mySeq = ++playRequestSeq
         val isVideo = playerViewModel.isVideoMode
         // Set loading state immediately so the player UI shows the spinner while resolving URL
         playerViewModel.setPlaybackLoading(true, item.url)
         lifecycleScope.launch {
             try {
                 val result = playMusicUseCase.execute(item, isVideo = isVideo, keepQueue = fromQueue)
+                // A newer tap has taken over: drop this result rather than showing a
+                // toast or loading the related list for a track the user moved on from.
+                if (mySeq != playRequestSeq) return@launch
                 when (result) {
                     is PlayResult.Success -> {
                         homeViewModel.addToRecentlyPlayed(item)
@@ -240,7 +299,9 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             } finally {
-                playerViewModel.setPlaybackLoading(false)
+                if (mySeq == playRequestSeq) {
+                    playerViewModel.setPlaybackLoading(false)
+                }
             }
         }
     }
@@ -266,7 +327,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         // Release the MediaController connection when the Activity is permanently destroyed.
-        // Only do this if playback is not active — if music is playing, the MusicService
+        // Only do this if playback is not active ΓÇö if music is playing, the MusicService
         // keeps running independently and will clean up on its own.
         if (!playbackManager.isPlaying() && isFinishing) {
             playbackManager.release()
@@ -288,7 +349,65 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun isInPictureInPictureModeCompat(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) isInPictureInPictureMode else false
+        // Activity#isInPictureInPictureMode is API 24 == minSdk; no guard.
+        return isInPictureInPictureMode
+    }
+
+    private fun supportsPip(): Boolean =
+        packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)
+
+    /**
+     * Picture-in-picture parameters for the current state.
+     *
+     * API 31+ additionally wants a source-rect hint (which region of the window
+     * morphs into the PiP tile) and an auto-enter flag (re-enter PiP the next
+     * time the app is backgrounded). Auto-enter is deliberately state-driven
+     * rather than switched on once: leaving it on would pop a video tile even
+     * after the user switches back to audio-only.
+     */
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.O)
+    private fun buildPipParams(autoEnter: Boolean): PictureInPictureParams {
+        val builder = PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            videoSurfaceRectInWindow()?.let { builder.setSourceRectHint(it) }
+            builder.setAutoEnterEnabled(autoEnter)
+        }
+        return builder.build()
+    }
+
+    /** Called whenever playback mode changes so auto-enter tracks real state. */
+    private fun syncPipAutoEnter() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val enabled = playerViewModel.isVideoMode && playerViewModel.currentPlayingItem != null
+        runCatching { setPictureInPictureParams(buildPipParams(enabled)) }
+            .onFailure { SecureLogger.w("MainActivity", "setPictureInPictureParams failed", it) }
+    }
+
+    /** Bounds of the Media3 video surface, in window coordinates. */
+    private fun videoSurfaceRectInWindow(): android.graphics.Rect? {
+        val target = findVideoSurfaceView() ?: return null
+        if (target.width <= 0 || target.height <= 0) return null
+        val location = IntArray(2)
+        target.getLocationInWindow(location)
+        return android.graphics.Rect(
+            location[0],
+            location[1],
+            location[0] + target.width,
+            location[1] + target.height
+        )
+    }
+
+    private fun findVideoSurfaceView(): android.view.View? {
+        fun walk(view: android.view.View?): android.view.View? = when (view) {
+            null -> null
+            is androidx.media3.ui.PlayerView -> view
+            is android.view.ViewGroup -> {
+                for (i in 0 until view.childCount) walk(view.getChildAt(i))?.let { return it }
+                null
+            }
+            else -> null
+        }
+        return walk(window.decorView)
     }
 
     override fun onUserLeaveHint() {
@@ -301,12 +420,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun enterPipMode() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val params = PictureInPictureParams.Builder()
-                .setAspectRatio(Rational(16, 9))
-                .build()
-            enterPictureInPictureMode(params)
-        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        // enterPictureInPictureMode throws IllegalStateException on devices
+        // without the PiP feature; there is nothing to enter into.
+        if (!supportsPip()) return
+        runCatching { enterPictureInPictureMode(buildPipParams(autoEnter = true)) }
+            .onFailure { SecureLogger.w("MainActivity", "enterPictureInPictureMode failed", it) }
     }
 
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.O)
@@ -316,6 +435,9 @@ class MainActivity : ComponentActivity() {
     ) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         playerViewModel.setPipMode(isInPictureInPictureMode)
+        // Leaving PiP: re-evaluate auto-enter from the *current* state, so a
+        // user who switched to audio while in PiP does not re-enter next time.
+        if (!isInPictureInPictureMode) syncPipAutoEnter()
         if (isInPictureInPictureMode) {
             // Hide anything that shouldn't be seen in PiP
         } else {
@@ -331,8 +453,8 @@ class MainActivity : ComponentActivity() {
 
     private fun checkOverlayPermissionAndStartService() {
         val intent = android.content.Intent(this, com.vyllo.music.service.FloatingWindowService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Grant Overlay permission for Floating Player", Toast.LENGTH_LONG).show()
+        if (!android.provider.Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, getString(R.string.permission_grant_overlay), Toast.LENGTH_LONG).show()
             val overlayIntent = android.content.Intent(
                 android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 android.net.Uri.parse("package:$packageName")

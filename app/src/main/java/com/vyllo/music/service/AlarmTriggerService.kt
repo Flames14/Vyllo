@@ -25,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -48,6 +49,9 @@ class AlarmTriggerService : Service() {
 
     @Inject
     lateinit var downloadDao: DownloadDao
+
+    @Inject
+    lateinit var historyDao: com.vyllo.music.data.download.HistoryDao
 
     @Inject
     lateinit var alarmSchedulerManager: AlarmSchedulerManager
@@ -140,20 +144,26 @@ class AlarmTriggerService : Service() {
         }
 
         val action = intent.action
+        // Prefer the id carried by the action intent itself: with overlapping
+        // alarms the service fields may already belong to a newer trigger.
+        val actionAlarmId = intent.getLongExtra(EXTRA_ALARM_ID, -1L)
         if (action == ACTION_DISMISS) {
-            dismissAlarm()
+            dismissAlarm(if (actionAlarmId > 0) actionAlarmId else alarmId)
             return START_NOT_STICKY
         } else if (action == ACTION_SNOOZE) {
-            snoozeAlarm()
+            snoozeAlarm(if (actionAlarmId > 0) actionAlarmId else alarmId)
             return START_NOT_STICKY
         }
 
-        // Extract alarm data from intent extras
-        alarmId = intent.getLongExtra(EXTRA_ALARM_ID, 0)
-        alarmLabel = intent.getStringExtra(EXTRA_ALARM_LABEL) ?: ""
-        soundType = SoundType.valueOf(intent.getStringExtra(EXTRA_SOUND_TYPE) ?: SoundType.DEFAULT.name)
-        songUrl = intent.getStringExtra(EXTRA_SONG_URL)
-        volume = intent.getIntExtra(EXTRA_VOLUME, 80)
+        // Extract alarm data from intent extras (all validated: a malformed
+        // PendingIntent must never crash the service at 3 AM).
+        alarmId = intent.getLongExtra(EXTRA_ALARM_ID, 0).coerceAtLeast(0)
+        alarmLabel = intent.getStringExtra(EXTRA_ALARM_LABEL).orEmpty().take(120)
+        soundType = runCatching {
+            SoundType.valueOf(intent.getStringExtra(EXTRA_SOUND_TYPE) ?: SoundType.DEFAULT.name)
+        }.getOrDefault(SoundType.DEFAULT)
+        songUrl = intent.getStringExtra(EXTRA_SONG_URL)?.takeIf { it.isNotBlank() }
+        volume = intent.getIntExtra(EXTRA_VOLUME, 80).coerceIn(0, 100)
         gradualVolume = intent.getBooleanExtra(EXTRA_GRADUAL_VOLUME, true)
         vibrationEnabled = intent.getBooleanExtra(EXTRA_VIBRATION_ENABLED, true)
 
@@ -197,6 +207,9 @@ class AlarmTriggerService : Service() {
         // Now safe to do async work — the service is already in foreground
         playbackController.playAlarm(soundType, songUrl, gradualVolume, vibrationEnabled, vibrator)
 
+        // Record the alarm song in Listen Again history (downloaded-song alarms).
+        recordAlarmListen(songUrl)
+
         // Schedule auto-dismiss after 10 minutes as safety net
         handler.removeCallbacks(autoDismissRunnable)
         handler.postDelayed(autoDismissRunnable, AUTO_DISMISS_MS)
@@ -209,22 +222,43 @@ class AlarmTriggerService : Service() {
     /**
      * Handle dismiss action.
      */
-    private fun dismissAlarm() {
-        schedulerHelper.dismissAlarm(alarmId) { stopSelf() }
+    private fun dismissAlarm(actionAlarmId: Long = alarmId) {
+        schedulerHelper.dismissAlarm(actionAlarmId) { stopSelf() }
     }
 
     /**
      * Handle snooze action — reschedules the alarm for 5 minutes from now.
      */
-    private fun snoozeAlarm() {
-        schedulerHelper.snoozeAlarm(alarmId) { stopSelf() }
+    private fun snoozeAlarm(actionAlarmId: Long = alarmId) {
+        schedulerHelper.snoozeAlarm(actionAlarmId) { stopSelf() }
     }
 
     /**
      * Stop alarm playback and cleanup everything.
      */
     private fun stopAlarm() {
+        volumeController.cancelGradualVolumeIncrease()
         schedulerHelper.stopAlarm()
+    }
+
+    private fun recordAlarmListen(url: String?) {
+        val songUrl = url ?: return
+        serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val download = downloadDao.getDownloadByUrl(songUrl) ?: return@launch
+                historyDao.insertHistory(
+                    com.vyllo.music.data.download.HistoryEntity(
+                        url = download.url,
+                        title = download.title,
+                        uploader = download.uploader,
+                        thumbnailUrl = download.thumbnailUrl,
+                        type = com.vyllo.music.domain.model.MusicItemType.SONG
+                    )
+                )
+            } catch (e: Exception) {
+                SecureLogger.w(TAG, "alarm history record failed", e)
+            }
+        }
     }
 
     override fun onDestroy() {

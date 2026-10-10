@@ -87,6 +87,9 @@ class BackupRestoreManager @Inject constructor(
 
     suspend fun restoreBackupJson(jsonString: String): Result<Unit> {
         return runCatching {
+            if (jsonString.length > 10 * 1024 * 1024) {
+                throw IllegalArgumentException("Backup file too large")
+            }
             val root = JSONObject(jsonString)
             val version = root.optInt("version", 1)
             if (version < 1) {
@@ -105,12 +108,13 @@ class BackupRestoreManager @Inject constructor(
                 if (prefs.has("isQueueSticky")) preferenceManager.isQueueSticky = prefs.getBoolean("isQueueSticky")
             }
 
-            // Restore playlists
+            // Restore playlists (capped: a crafted file must not OOM the restore)
             if (root.has("playlists")) {
                 val playlistsArray = root.getJSONArray("playlists")
-                for (i in 0 until playlistsArray.length()) {
+                for (i in 0 until minOf(playlistsArray.length(), 200)) {
                     val playlistObj = playlistsArray.getJSONObject(i)
-                    val name = playlistObj.getString("name")
+                    val name = playlistObj.optString("name", "").take(120)
+                    if (name.isBlank()) continue
 
                     var playlist = playlistDao.getPlaylistByName(name)
                     val playlistId = if (playlist != null) {
@@ -122,14 +126,17 @@ class BackupRestoreManager @Inject constructor(
                     if (playlistObj.has("songs")) {
                         val songsArray = playlistObj.getJSONArray("songs")
                         val songsList = mutableListOf<PlaylistSongEntity>()
-                        for (j in 0 until songsArray.length()) {
+                        for (j in 0 until minOf(songsArray.length(), 500)) {
                             val songObj = songsArray.getJSONObject(j)
+                            val title = songObj.optString("title", "").take(300)
+                            val url = songObj.optString("url", "")
+                            if (title.isBlank() || url.isBlank()) continue
                             songsList.add(
                                 PlaylistSongEntity(
                                     playlistId = playlistId,
-                                    title = songObj.getString("title"),
-                                    url = songObj.getString("url"),
-                                    uploader = songObj.optString("uploader", ""),
+                                    title = title,
+                                    url = url,
+                                    uploader = songObj.optString("uploader", "").take(200),
                                     thumbnailUrl = songObj.optString("thumbnailUrl", ""),
                                     addedAt = songObj.optLong("addedAt", System.currentTimeMillis())
                                 )
@@ -142,10 +149,10 @@ class BackupRestoreManager @Inject constructor(
                 }
             }
 
-            // Restore alarms
+            // Restore alarms (capped + range-checked)
             if (root.has("alarms")) {
                 val alarmsArray = root.getJSONArray("alarms")
-                for (i in 0 until alarmsArray.length()) {
+                for (i in 0 until minOf(alarmsArray.length(), 100)) {
                     val alarmObj = alarmsArray.getJSONObject(i)
                     val repeatDaysStr = when {
                         alarmObj.has("repeatDaysString") -> alarmObj.getString("repeatDaysString")
@@ -163,15 +170,15 @@ class BackupRestoreManager @Inject constructor(
                     val soundType = alarmObj.optString("soundType", "DEFAULT")
 
                     val entity = AlarmEntity(
-                        hour = alarmObj.getInt("hour"),
-                        minute = alarmObj.getInt("minute"),
+                        hour = alarmObj.optInt("hour", 7).coerceIn(0, 23),
+                        minute = alarmObj.optInt("minute", 0).coerceIn(0, 59),
                         isEnabled = alarmObj.optBoolean("isEnabled", true),
-                        label = alarmObj.optString("label", ""),
+                        label = alarmObj.optString("label", "").take(120),
                         repeatDaysString = repeatDaysStr,
                         soundType = soundType,
                         downloadedSongUrl = alarmObj.optString("downloadedSongUrl").takeIf { it.isNotBlank() },
                         downloadedSongTitle = alarmObj.optString("downloadedSongTitle").takeIf { it.isNotBlank() },
-                        volume = alarmObj.optInt("volume", 80),
+                        volume = alarmObj.optInt("volume", 80).coerceIn(0, 100),
                         gradualVolume = alarmObj.optBoolean("gradualVolume", true),
                         vibrationEnabled = alarmObj.optBoolean("vibrationEnabled", true),
                         createdAt = System.currentTimeMillis()

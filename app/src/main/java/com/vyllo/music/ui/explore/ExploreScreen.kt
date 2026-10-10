@@ -15,7 +15,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.*
 import com.vyllo.music.presentation.components.*
@@ -95,7 +97,7 @@ fun YTMExploreScreen(
             item(key = "explore_empty", contentType = "empty") {
                 VylloEmptyState(
                     icon = Icons.Rounded.Explore,
-                    title = "Nothing to explore here yet",
+                    title = stringResource(R.string.explore_nothing),
                     message = "No music is available here right now. Try another category or search for a song.",
                     actionLabel = "Search music",
                     onAction = onSearchClick

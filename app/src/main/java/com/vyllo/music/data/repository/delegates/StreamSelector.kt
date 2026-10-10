@@ -1,6 +1,10 @@
 package com.vyllo.music.data.repository.delegates
 
 import com.vyllo.music.core.security.SecureLogger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.schabi.newpipe.extractor.stream.AudioStream
@@ -9,8 +13,11 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Singleton
-class StreamSelector @Inject constructor() {
+/**
+ * Open so the probe behaviour can be substituted in unit tests — the concurrency
+ * contract of [firstPlayableStreamUrl] is not observable without hitting a real host.
+ */
+open class StreamSelector @Inject constructor() {
     private val streamProbeClient = OkHttpClient.Builder()
         .followRedirects(true)
         .followSslRedirects(true)
@@ -18,45 +25,74 @@ class StreamSelector @Inject constructor() {
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
 
-    fun selectPlayableAudioUrl(streams: List<AudioStream>): String? {
-        streams.forEach { stream ->
-            SecureLogger.d("MusicRepositoryImpl") { "Available stream: format=${stream.format}, bitrate=${stream.averageBitrate}, url=${stream.url}" }
-        }
-        return streams
-            .asSequence()
-            .filter { it.isUrl && !it.url.isNullOrBlank() }
-            .sortedByDescending { it.averageBitrate }
-            .mapNotNull { it.url }
-            .firstOrNull(::isPlayableStreamUrl)
-    }
+    /**
+ * Recovery path for a rejected stream URL.
+ *
+ * Probes every candidate **concurrently** and returns the first that answers, so
+ * the serial probe chain that used to sit on the tap path costs one round trip
+ * instead of N.
+ */
+suspend fun firstPlayableStreamUrl(candidates: List<String>): String? {
+    if (candidates.isEmpty()) return null
+    if (candidates.size == 1) return candidates.first().takeIf { isPlayableStreamUrl(it) }
 
-    fun selectPlayableVideoUrl(streams: List<VideoStream>): String? {
-        streams.forEach { stream ->
-            SecureLogger.d("MusicRepositoryImpl") { "Available video stream: format=${stream.format}, bitrate=${stream.bitrate}, url=${stream.url}" }
+    return coroutineScope {
+        val probes = candidates.map { url ->
+            async(Dispatchers.IO) { url to isPlayableStreamUrl(url) }
         }
-        return streams
-            .asSequence()
-            .filter { it.isUrl && !it.url.isNullOrBlank() }
-            .sortedByDescending { it.bitrate }
-            .mapNotNull { it.url }
-            .firstOrNull(::isPlayableStreamUrl)
+        // awaitAll keeps every probe concurrent; the first *successful* candidate in
+        // original preference order wins, so quality ordering is preserved.
+        probes.awaitAll().firstOrNull { it.second }?.first
     }
+}
 
-    fun selectPlayableVideoUrlForAudio(streams: List<VideoStream>): String? {
-        streams.forEach { stream ->
-            SecureLogger.d("MusicRepositoryImpl") { "Available video stream for audio: format=${stream.format}, bitrate=${stream.bitrate}, url=${stream.url}" }
-        }
-        return streams
-            .asSequence()
-            .filter { it.isUrl && !it.url.isNullOrBlank() }
-            // Sort by ascending bitrate to get the lowest-resolution video stream
-            // to save bandwidth, while maintaining standard audio quality.
-            .sortedBy { it.bitrate }
-            .mapNotNull { it.url }
-            .firstOrNull(::isPlayableStreamUrl)
-    }
+/**
+ * Audio stream URLs in preference order (highest bitrate first).
+ *
+ * Selection is deliberately **probe-free**: this used to issue a real
+ * `bytes=0-1` HTTP request per candidate until one answered, adding one or more
+ * round trips to every single tap. The happy path now just takes the first entry
+ * and lets ExoPlayer surface a 403 through `PlayerErrorListener`, which re-enters
+ * via `force = true` and uses [firstPlayableStreamUrl].
+ */
+fun audioCandidates(streams: List<AudioStream>): List<String> {
+    logStreams(streams) { "${it.format}, bitrate=${it.averageBitrate}" }
+    return streams.asSequence()
+        .filter { it.isUrl && !it.url.isNullOrBlank() }
+        .sortedByDescending { it.averageBitrate }
+        .mapNotNull { it.url }
+        .toList()
+}
 
-    fun isPlayableStreamUrl(streamUrl: String): Boolean {
+/** Video stream URLs, highest bitrate first. Same lazy-validation contract. */
+fun videoCandidates(streams: List<VideoStream>): List<String> {
+    logStreams(streams) { "${it.format}, bitrate=${it.bitrate}" }
+    return streams.asSequence()
+        .filter { it.isUrl && !it.url.isNullOrBlank() }
+        .sortedByDescending { it.bitrate }
+        .mapNotNull { it.url }
+        .toList()
+}
+
+/**
+ * Audio fallback when no audio-only stream exists: lowest-resolution video stream
+ * first, since only its audio is used and bandwidth matters.
+ */
+fun videoCandidatesForAudio(streams: List<VideoStream>): List<String> {
+    logStreams(streams) { "${it.format}, bitrate=${it.bitrate}" }
+    return streams.asSequence()
+        .filter { it.isUrl && !it.url.isNullOrBlank() }
+        .sortedBy { it.bitrate }
+        .mapNotNull { it.url }
+        .toList()
+}
+
+private fun <T> logStreams(streams: List<T>, describe: (T) -> String) {
+    if (!SecureLogger.isDebugEnabled) return
+    streams.forEach { s -> SecureLogger.d("MusicRepositoryImpl") { "Available stream: ${describe(s)}" } }
+}
+
+    open fun isPlayableStreamUrl(streamUrl: String): Boolean {
         return try {
             val ua = userAgentForStreamUrl(streamUrl)
             val request = Request.Builder()

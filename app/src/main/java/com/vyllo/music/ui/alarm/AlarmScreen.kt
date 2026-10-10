@@ -1,4 +1,4 @@
-package com.vyllo.music.ui.alarm
+﻿package com.vyllo.music.ui.alarm
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,10 +14,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vyllo.music.R
 import com.vyllo.music.domain.model.AlarmModel
@@ -36,6 +39,7 @@ fun AlarmScreen(
     viewModel: AlarmViewModel = hiltViewModel(),
     onBackClick: () -> Unit
 ) {
+    var showExactAlarmPermissionDialog by remember { mutableStateOf(false) }
     val uiState by remember {
         derivedStateOf {
             AlarmUiState(
@@ -63,11 +67,19 @@ fun AlarmScreen(
     }
 
     // Handle errors
+    val screenContext = androidx.compose.ui.platform.LocalContext.current
     uiState.error?.let { error ->
         LaunchedEffect(error) {
             // Show error snackbar (implement in parent)
             viewModel.clearError()
         }
+    }
+
+    // Next enabled alarm drives the hero card.
+    val nextAlarm = remember(uiState.alarms) {
+        uiState.alarms
+            .filter { it.isEnabled }
+            .minByOrNull { it.calculateNextTriggerTime() }
     }
 
     Box(
@@ -78,13 +90,44 @@ fun AlarmScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Header
+            // Slim top bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        androidx.compose.material.icons.Icons.Rounded.ArrowBack,
+                        contentDescription = stringResource(R.string.alarm_back)
+                    )
+                }
+
+                Text(
+                    text = stringResource(R.string.nav_alarms),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                IconButton(onClick = { viewModel.openAddAlarmDialog() }) {
+                    Icon(
+                        androidx.compose.material.icons.Icons.Rounded.Add,
+                        contentDescription = stringResource(R.string.alarm_add_alarm),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            // Hero: next alarm at a glance
             val context = androidx.compose.ui.platform.LocalContext.current
-            AlarmHeader(
-                onBackClick = onBackClick,
-                onAddClick = { viewModel.openAddAlarmDialog() },
+            AlarmHeroCard(
+                nextAlarm = nextAlarm,
                 countdownText = uiState.timeUntilNextAlarm,
                 isAlarmRinging = uiState.isAlarmRinging,
+                onAddClick = { viewModel.openAddAlarmDialog() },
                 onStopActiveAlarm = { viewModel.dismissActiveAlarm(context) }
             )
 
@@ -103,7 +146,13 @@ fun AlarmScreen(
             } else {
                 AlarmList(
                     alarms = uiState.alarms,
-                    onToggleAlarm = { viewModel.toggleAlarm(it) },
+                    onToggleAlarm = {
+                        if (!it.isEnabled && !viewModel.canScheduleExactAlarms()) {
+                            showExactAlarmPermissionDialog = true
+                        } else {
+                            viewModel.toggleAlarm(it)
+                        }
+                    },
                     onEditAlarm = { viewModel.openEditAlarmDialog(it) },
                     onDeleteAlarm = { viewModel.deleteAlarm(it) }
                 )
@@ -115,7 +164,37 @@ fun AlarmScreen(
             AlarmEditDialog(
                 viewModel = viewModel,
                 onDismiss = { viewModel.closeDialog() },
-                onSave = { viewModel.saveAlarm() }
+                onSave = {
+                    if (viewModel.exactAlarmPermissionRequiredForSave &&
+                        !viewModel.canScheduleExactAlarms()
+                    ) {
+                        showExactAlarmPermissionDialog = true
+                    } else {
+                        viewModel.saveAlarm()
+                        com.vyllo.music.core.utils.BatteryOptimizationHelper.requestExemptionIfNeeded(screenContext)
+                    }
+                }
+            )
+        }
+
+        if (showExactAlarmPermissionDialog) {
+            AlertDialog(
+                onDismissRequest = { showExactAlarmPermissionDialog = false },
+                title = { Text(stringResource(R.string.exact_alarm_permission_title)) },
+                text = { Text(stringResource(R.string.exact_alarm_permission_message)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showExactAlarmPermissionDialog = false
+                        viewModel.openExactAlarmSettings()
+                    }) {
+                        Text(stringResource(R.string.exact_alarm_permission_action))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExactAlarmPermissionDialog = false }) {
+                        Text(stringResource(R.string.common_cancel))
+                    }
+                }
             )
         }
 
@@ -126,7 +205,8 @@ fun AlarmScreen(
                 selectedSongUrl = viewModel.selectedSongUrl,
                 onDismiss = { viewModel.closeSoundPicker() },
                 onSelectSong = { url, title -> viewModel.selectSong(url, title) },
-                onSelectDefault = { viewModel.selectDefaultSound() }
+                onSelectDefault = { viewModel.selectDefaultSound() },
+                onDeleteSong = { url -> viewModel.deleteDownloadedSong(url) }
             )
         }
 
@@ -142,103 +222,171 @@ fun AlarmScreen(
 }
 
 /**
- * Alarm screen header with back button and add button.
+ * Hero card: gradient panel with the next alarm time, live countdown and a
+ * ringing-state stop action. Gives the screen a single focal point instead of
+ * a flat list with a bare header.
  */
 @Composable
-private fun AlarmHeader(
-    onBackClick: () -> Unit,
+private fun AlarmHeroCard(
+    nextAlarm: AlarmModel?,
+    countdownText: String,
+    isAlarmRinging: Boolean,
     onAddClick: () -> Unit,
-    countdownText: String = "",
-    isAlarmRinging: Boolean = false,
-    onStopActiveAlarm: () -> Unit = {}
+    onStopActiveAlarm: () -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth()
+    val gradient = Brush.linearGradient(
+        colors = listOf(
+            MaterialTheme.colorScheme.primaryContainer,
+            MaterialTheme.colorScheme.secondaryContainer
+        )
+    )
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
-        // Top bar with back and add buttons
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .background(gradient)
+                .padding(20.dp)
         ) {
-            IconButton(onClick = onBackClick) {
-                Icon(
-                    androidx.compose.material.icons.Icons.Rounded.ArrowBack,
-                    "Back"
-                )
-            }
-
-            Text(
-                text = stringResource(R.string.nav_alarms),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            IconButton(onClick = onAddClick) {
-                Icon(
-                    androidx.compose.material.icons.Icons.Rounded.Add,
-                    stringResource(R.string.alarm_add_alarm),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
-
-        // Emergency Stop UI
-        if (isAlarmRinging) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
+            if (isAlarmRinging) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Alarm is ringing!",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onErrorContainer
+                            text = stringResource(R.string.alarm_ringing),
+                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            text = "Tap to stop the sound",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                            text = stringResource(R.string.alarm_tap_to_stop),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
                         )
                     }
-                    
                     Button(
                         onClick = onStopActiveAlarm,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            stringResource(R.string.alarm_stop),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+            } else if (nextAlarm != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.alarm_hero_next_up).uppercase(),
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.5.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = remember(nextAlarm) {
+                                java.text.SimpleDateFormat(
+                                    "h:mm a",
+                                    java.util.Locale.getDefault()
+                                ).format(java.util.Date(nextAlarm.calculateNextTriggerTime()))
+                            },
+                            style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.ExtraBold),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            maxLines = 1
+                        )
+                        if (nextAlarm.label.isNotBlank()) {
+                            Text(
+                                text = nextAlarm.label,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (countdownText.isNotBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.16f)
+                            ) {
+                                Text(
+                                    text = countdownText,
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                    FilledIconButton(
+                        onClick = onAddClick,
+                        modifier = Modifier.size(52.dp),
+                        shape = CircleShape,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
-                        Text("STOP")
+                        Icon(
+                            Icons.Rounded.Add,
+                            contentDescription = stringResource(R.string.alarm_hero_add),
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.alarm_hero_nothing),
+                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = stringResource(R.string.alarm_empty_subtitle),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                        )
+                    }
+                    FilledIconButton(
+                        onClick = onAddClick,
+                        modifier = Modifier.size(52.dp),
+                        shape = CircleShape,
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(
+                            Icons.Rounded.Add,
+                            contentDescription = stringResource(R.string.alarm_hero_add),
+                            modifier = Modifier.size(26.dp)
+                        )
                     }
                 }
             }
-        }
-
-        // Countdown display
-        if (countdownText.isNotBlank() && !isAlarmRinging) {
-            Text(
-                text = countdownText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-            )
         }
     }
 }
@@ -283,19 +431,27 @@ private fun EmptyAlarmsView(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(32.dp)
         ) {
-            Icon(
-                Icons.Rounded.Alarm,
-                contentDescription = null,
-                modifier = Modifier.size(80.dp),
-                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.3f)
-            )
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Rounded.Alarm,
+                    contentDescription = null,
+                    modifier = Modifier.size(44.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "No alarms yet",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                text = stringResource(R.string.alarm_no_alarms),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onBackground
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -303,12 +459,15 @@ private fun EmptyAlarmsView(
             Text(
                 text = stringResource(R.string.alarm_empty_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f)
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f)
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            Button(onClick = onAddClick) {
+            Button(
+                onClick = onAddClick,
+                shape = RoundedCornerShape(16.dp)
+            ) {
                 Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.alarm_add_alarm))
@@ -341,3 +500,4 @@ data class AlarmUiState(
     val timeUntilNextAlarm: String = "",
     val isAlarmRinging: Boolean = false
 )
+

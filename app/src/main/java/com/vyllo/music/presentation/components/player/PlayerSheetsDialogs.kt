@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -138,7 +139,7 @@ fun PlayerSleepTimerDialog(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                stringResource(R.string.sleep_timer_minutes, mins),
+                                pluralStringResource(R.plurals.sleep_timer_minutes, mins, mins),
                                 color = Color.White,
                                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
                             )
@@ -234,11 +235,12 @@ fun PlayerFullscreenVideoOverlay(
                 onTogglePlay = onTogglePlay,
                 onSeek = { newPercent ->
                     val newPos = (newPercent * duration).toLong()
+                    markManualSeek()
                     controller?.seekTo(newPos)
                     onPositionChange(newPos)
                 },
-                onForward = { controller?.seekTo((currentPosition + 10000).coerceAtMost(duration)) },
-                onRewind = { controller?.seekTo((currentPosition - 10000).coerceAtLeast(0)) },
+                onForward = { seekRelative(controller, duration, 10000L) { onPositionChange(it) } },
+                onRewind = { seekRelative(controller, duration, -10000L) { onPositionChange(it) } },
                 onToggleFullScreen = { viewModel.setFullScreenVideo(false) }
             )
 
@@ -282,3 +284,6 @@ fun PlayerFullscreenVideoOverlay(
         }
     }
 }
+
+
+

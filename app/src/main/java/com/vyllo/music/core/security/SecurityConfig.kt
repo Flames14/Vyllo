@@ -1,10 +1,7 @@
 package com.vyllo.music.core.security
 
 import okhttp3.CertificatePinner
-import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
-import okhttp3.dnsoverhttps.DnsOverHttps
-import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -99,7 +96,9 @@ class SecurityConfig @Inject constructor() {
                 )
             )
             .followRedirects(true)
-            .followSslRedirects(true)
+            // Do not permit a redirect from HTTPS to HTTP. A caller can handle
+            // a required redirect explicitly after validating its destination.
+            .followSslRedirects(false)
             .addInterceptor(SecurityHeaderInterceptor())
             .retryOnConnectionFailure(true)
 
@@ -108,29 +107,6 @@ class SecurityConfig @Inject constructor() {
         }
 
         return builder.build()
-    }
-
-    /**
-     * Creates DNS-over-HTTPS configuration for privacy
-     */
-    private fun createDnsOverHttps(): DnsOverHttps {
-        val url = HttpUrl.Builder()
-            .scheme("https")
-            .host("dns.google")
-            .addPathSegment("dns-query")
-            .build()
-
-        return DnsOverHttps.Builder()
-            .client(OkHttpClient.Builder().build())
-            .url(url)
-            .includeIPv6(true)
-            .bootstrapDnsHosts(
-                InetAddress.getByName("8.8.8.8"),
-                InetAddress.getByName("8.8.4.4"),
-                InetAddress.getByName("2001:4860:4860::8888"),
-                InetAddress.getByName("2001:4860:4860::8844")
-            )
-            .build()
     }
 
     /**
@@ -151,9 +127,9 @@ class SecurityConfig @Inject constructor() {
                 )
             )
 
-            // Follow HTTPS redirects
+            // Preserve TLS when following redirects.
             .followRedirects(true)
-            .followSslRedirects(true)
+            .followSslRedirects(false)
 
             .addInterceptor(SecurityHeaderInterceptor())
 

@@ -1,4 +1,4 @@
-package com.vyllo.music.presentation.components.player
+﻿package com.vyllo.music.presentation.components.player
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -70,6 +70,7 @@ fun PlayerSeekBar(
             onValueChange = { newPercent ->
                 isScrubbing = true
                 val newPos = (newPercent * duration).toLong()
+                markManualSeek()
                 controller?.seekTo(newPos)
                 onPositionChange(newPos)
             },
@@ -133,3 +134,4 @@ fun PlayerSeekBar(
         }
     }
 }
+

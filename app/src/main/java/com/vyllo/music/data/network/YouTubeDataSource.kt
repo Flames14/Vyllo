@@ -28,7 +28,6 @@ import javax.inject.Singleton
 class YouTubeDataSource @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    private var isInitialized = false
 
     private var currentSearchExtractor: org.schabi.newpipe.extractor.ListExtractor<*>? = null
     private var nextSearchPage: Page? = null
@@ -36,8 +35,25 @@ class YouTubeDataSource @Inject constructor(
     private var currentListExtractor: org.schabi.newpipe.extractor.ListExtractor<*>? = null
     private var nextListPage: Page? = null
 
-    private val extractorDispatcher = Executors.newFixedThreadPool(3) { r ->
-        Thread(r).apply { priority = Thread.NORM_PRIORITY }
+    /**
+     * Feed lane: browsing work (home, search, trending, recommendation queries).
+     * Deliberately small — these are bulk, latency-tolerant requests that should
+     * never be able to starve playback.
+     */
+    private val feedDispatcher = Executors.newFixedThreadPool(FEED_LANE_THREADS) { r ->
+        Thread(r).apply { name = "vyllo-feed"; priority = Thread.NORM_PRIORITY }
+    }.asCoroutineDispatcher()
+
+    /**
+     * Playback lane: stream extraction only.
+     *
+     * This is the fix for slow taps. Previously *every* extractor call shared one
+     * three-thread pool, so while Home was loading six-plus searches a tap sat in
+     * the executor queue and the user waited for it. A tap now has its own lane and
+     * never queues behind feed work.
+     */
+    private val playbackDispatcher = Executors.newFixedThreadPool(PLAYBACK_LANE_THREADS) { r ->
+        Thread(r).apply { name = "vyllo-playback"; priority = Thread.NORM_PRIORITY }
     }.asCoroutineDispatcher()
 
     private data class CachedStreamInfo(
@@ -52,46 +68,94 @@ class YouTubeDataSource @Inject constructor(
         }
     }
 
+    init {
+        ensureNewPipeInitialized(context)
+    }
+
     companion object {
         private const val CACHE_TTL_MS = 10 * 60 * 1000L
-    }
 
-    init {
-        initNewPipe()
-    }
+        /**
+         * Feed lane size. Kept at the original three: these are the browsing
+         * requests that used to saturate the pool and make taps slow.
+         */
+        private const val FEED_LANE_THREADS = 3
 
-    private fun initNewPipe() {
-        if (!isInitialized) {
-            synchronized(this) {
-                if (!isInitialized) {
-                    NewPipe.init(OkHttpDownloader(), Localization.DEFAULT, ContentCountry.DEFAULT)
-                    YoutubeStreamExtractor.setFetchIosClient(false)
-                    PoTokenProviderImpl.init(context)
-                    YoutubeStreamExtractor.setPoTokenProvider(PoTokenProviderImpl)
-                    isInitialized = true
-                }
+        /**
+         * Playback lane size. Stream extraction is what a tap blocks on, and the
+         * lookahead prefetches one extra track at a time, so two is enough to keep a
+         * resolve running while a lookahead resolve is in flight.
+         */
+        private const val PLAYBACK_LANE_THREADS = 2
+
+        /** Valid YouTube kiosk id in newpipeextractor 0.26.x. */
+        private const val TRENDING_MUSIC_KIOSK_ID = "trending_music"
+
+        /** Used when the charts kiosk is unavailable or region-restricted. */
+        private const val TRENDING_FALLBACK_QUERY = "trending music hits"
+
+        @Volatile
+        private var newPipeReady = false
+
+        /**
+         * Idempotent, thread-safe NewPipe + PoToken bootstrap.
+         *
+         * Called from the Application before any extractor work so the first
+         * search/play does not pay for static initialisation mid-gesture, and
+         * again from this data source's constructor as a safety net (unit
+         * tests and non-app entry points construct it directly).
+         */
+        fun ensureNewPipeInitialized(context: Context) {
+            if (newPipeReady) return
+            synchronized(YouTubeDataSource::class.java) {
+                if (newPipeReady) return
+                NewPipe.init(OkHttpDownloader(), Localization.DEFAULT, ContentCountry.DEFAULT)
+                YoutubeStreamExtractor.setFetchIosClient(false)
+                PoTokenProviderImpl.init(context.applicationContext)
+                YoutubeStreamExtractor.setPoTokenProvider(PoTokenProviderImpl)
+                newPipeReady = true
             }
+        }
+
+        /**
+         * Boots NewPipe and then pre-warms the poToken generator off the main
+         * thread, so the first user-initiated play skips the cold cost.
+         */
+        fun warmUpPoToken(context: Context) {
+            ensureNewPipeInitialized(context)
+            PoTokenProviderImpl.warmUpAsync()
         }
     }
 
-    suspend fun searchMusic(query: String, maintainSession: Boolean = true): List<MusicItem> = withContext(extractorDispatcher) {
-        try {
+    suspend fun searchMusic(query: String, maintainSession: Boolean = true): List<MusicItem> = withContext(feedDispatcher) {
+        searchMusicRaw(query, maintainSession)
+    }
+
+    /**
+     * Search body without a dispatcher hop.
+     *
+     * Split out so callers already running on [feedDispatcher] can reuse it. Calling
+     * the public searchMusic from inside a feedDispatcher block would re-enter the
+     * same bounded pool and can deadlock once all three threads are occupied.
+     */
+    private suspend fun searchMusicRaw(query: String, maintainSession: Boolean): List<MusicItem> {
+        return try {
             val service = ServiceList.YouTube
             val searchExtractor = service.getSearchExtractor(query, emptyList(), "")
             searchExtractor.fetchPage()
-            
+
             if (maintainSession) {
                 currentSearchExtractor = searchExtractor
                 nextSearchPage = searchExtractor.initialPage.nextPage
             }
-            return@withContext mapItems(searchExtractor.initialPage.items)
+            return mapItems(searchExtractor.initialPage.items)
         } catch (e: Exception) {
             SecureLogger.e("YouTubeDataSource", "Search failed for query: $query", e)
-            return@withContext emptyList()
+            return emptyList()
         }
     }
 
-    suspend fun loadMoreResults(): List<MusicItem> = withContext(extractorDispatcher) {
+    suspend fun loadMoreResults(): List<MusicItem> = withContext(feedDispatcher) {
         try {
             val extractor = currentSearchExtractor ?: return@withContext emptyList()
             val page = nextSearchPage ?: return@withContext emptyList()
@@ -106,7 +170,7 @@ class YouTubeDataSource @Inject constructor(
         }
     }
 
-    suspend fun fetchItemsWithPagination(query: String): List<MusicItem> = withContext(extractorDispatcher) {
+    suspend fun fetchItemsWithPagination(query: String): List<MusicItem> = withContext(feedDispatcher) {
         try {
             val service = ServiceList.YouTube
             val extractor = service.getSearchExtractor(query, emptyList(), "")
@@ -122,7 +186,7 @@ class YouTubeDataSource @Inject constructor(
         }
     }
 
-    suspend fun loadMoreItems(): List<MusicItem> = withContext(extractorDispatcher) {
+    suspend fun loadMoreItems(): List<MusicItem> = withContext(feedDispatcher) {
         try {
             val extractor = currentListExtractor ?: return@withContext emptyList()
             val page = nextListPage ?: return@withContext emptyList()
@@ -137,43 +201,45 @@ class YouTubeDataSource @Inject constructor(
         }
     }
 
-    suspend fun getTrendingMusic(): List<MusicItem> = withContext(extractorDispatcher) {
-        try {
-            val youtube = ServiceList.YouTube
-            val kioskList = youtube.kioskList
-            
-            // Using reflection here because the 'trending' ID isn't directly exposed in all NewPipe versions
-            val extractor = findKioskExtractor(kioskList, "trending_music")
-
-            if (extractor != null) {
-                extractor.fetchPage()
-                return@withContext mapItems(extractor.initialPage.items)
-            }
-            return@withContext emptyList()
-        } catch (e: Exception) {
-            SecureLogger.e("YouTubeDataSource", "Trending fetch failed", e)
-            return@withContext emptyList()
-        }
-    }
-
     /**
-     * Helper to find a kiosk extractor by ID using reflection. 
-     * This is a bit of a hack but it works across different library versions.
-     */
-    private fun findKioskExtractor(
-        kioskList: org.schabi.newpipe.extractor.kiosk.KioskList, 
-        id: String
-    ): org.schabi.newpipe.extractor.ListExtractor<org.schabi.newpipe.extractor.InfoItem>? {
-        return try {
-            val method = kioskList.javaClass.getMethod("getExtractorById", String::class.java, Page::class.java)
-            @Suppress("UNCHECKED_CAST")
-            method.invoke(kioskList, id, null) as? org.schabi.newpipe.extractor.ListExtractor<org.schabi.newpipe.extractor.InfoItem>
-        } catch (e: Exception) {
-            null
-        }
+ * YouTube Music charts.
+ *
+ * This used to reach the kiosk extractor through reflection and swallow every
+ * failure, so any breakage left the Home feed's trending section silently empty —
+ * indistinguishable from "still loading" in the UI. Three changes:
+ *
+ * 1. Typed API instead of reflection (`kioskList.getExtractorById`), which is not
+ *    signature-fragile across NewPipe versions.
+ * 2. A failure here is logged, not swallowed.
+ * 3. A search fallback, so the section always has *something* rather than being
+ *    blank. YouTube Music charts are also region/format restricted and can return
+ *    zero items on their own, which the fallback covers too.
+ */
+suspend fun getTrendingMusic(): List<MusicItem> = withContext(feedDispatcher) {
+    val kiosk = try {
+        ServiceList.YouTube.kioskList.getExtractorById(TRENDING_MUSIC_KIOSK_ID, null)
+    } catch (e: Exception) {
+        SecureLogger.w("YouTubeDataSource", "Trending kiosk unavailable, using search fallback", e)
+        null
     }
 
-    suspend fun getOrFetchStreamInfo(url: String, force: Boolean): StreamInfo = withContext(extractorDispatcher) {
+    if (kiosk != null) {
+        val fromKiosk = try {
+            kiosk.fetchPage()
+            mapItems(kiosk.initialPage.items)
+        } catch (e: Exception) {
+            SecureLogger.w("YouTubeDataSource", "Trending kiosk fetch failed, using search fallback", e)
+            emptyList()
+        }
+        if (fromKiosk.isNotEmpty()) return@withContext fromKiosk
+        SecureLogger.d("YouTubeDataSource") { "Trending kiosk returned no items, using search fallback" }
+    }
+
+    // Runs on this same thread — never re-enters the bounded feed pool.
+    searchMusicRaw(TRENDING_FALLBACK_QUERY, maintainSession = false)
+}
+
+    suspend fun getOrFetchStreamInfo(url: String, force: Boolean): StreamInfo = withContext(playbackDispatcher) {
         if (!force) {
             val cached = synchronized(streamInfoCacheLock) {
                 streamInfoCache[url]?.takeIf { (System.currentTimeMillis() - it.fetchedAt) < CACHE_TTL_MS }

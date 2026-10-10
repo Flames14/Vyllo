@@ -24,8 +24,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.vyllo.music.R
 import com.vyllo.music.presentation.theme.VylloMotion
 import com.vyllo.music.presentation.theme.VylloSize
 
@@ -34,11 +36,12 @@ fun YTMBottomNavBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit
 ) {
+    // Stable tab index is the navigation contract; the label is presentation only.
     val tabs = listOf(
-        Pair("Home", Icons.Rounded.Home),
-        Pair("Search", Icons.Rounded.Search),
-        Pair("Explore", Icons.Rounded.Explore),
-        Pair("Library", Icons.Rounded.LibraryMusic)
+        Pair(R.string.nav_home, Icons.Rounded.Home),
+        Pair(R.string.nav_search, Icons.Rounded.Search),
+        Pair(R.string.nav_explore, Icons.Rounded.Explore),
+        Pair(R.string.nav_library, Icons.Rounded.LibraryMusic)
     )
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -54,8 +57,9 @@ fun YTMBottomNavBar(
             contentColor = MaterialTheme.colorScheme.onBackground,
             tonalElevation = 0.dp
         ) {
-            tabs.forEachIndexed { index, (label, icon) ->
-                val isSelected = selectedTab == index
+        tabs.forEachIndexed { index, (labelRes, icon) ->
+            val isSelected = selectedTab == index
+            val label = stringResource(labelRes)
 
                 // Selection eases in rather than snapping, which makes tab switching
                 // feel like one continuous gesture.

@@ -29,12 +29,33 @@ import com.vyllo.music.presentation.components.HomeSkeleton
 import com.vyllo.music.presentation.components.YTMFilterChip
 import com.vyllo.music.presentation.components.YTMSectionHeader
 import com.vyllo.music.presentation.components.YTMSongRow
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
+import com.vyllo.music.presentation.components.VylloArtwork
 
 @Composable
 fun HomeFilterChipsRow(
     filterChips: List<String>,
     selectedChip: String,
-    onChipSelected: (String) -> Unit
+    onChipSelected: (String) -> Unit,
+    chipLabel: (String) -> String = { it }
 ) {
     LazyRow(
         modifier = Modifier.padding(vertical = 8.dp),
@@ -47,9 +68,141 @@ fun HomeFilterChipsRow(
             contentType = { "filter_chip" }
         ) { index ->
             YTMFilterChip(
-                text = filterChips[index],
+                // filterChips holds stable keys; the visible label is localized.
+                text = chipLabel(filterChips[index]),
                 isSelected = selectedChip == filterChips[index],
                 onClick = { onChipSelected(filterChips[index]) }
+            )
+        }
+    }
+}
+
+@Composable
+fun ListenAgainGrid(
+    items: List<MusicItem>,
+    currentPlayingItem: MusicItem?,
+    onPlay: (MusicItem) -> Unit,
+    homeViewModel: HomeViewModel?,
+    loadingItemUrl: String?
+) {
+    if (items.isEmpty()) return
+    val pages = items.take(50).chunked(9)
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { pages.size })
+    Column(modifier = Modifier.fillMaxWidth()) {
+        androidx.compose.foundation.pager.HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            pageSpacing = 12.dp,
+            key = { page -> pages[page].firstOrNull()?.url ?: page.toString() }
+        ) { page ->
+            val pageItems = pages[page]
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val cell = (maxWidth - 16.dp) / 3
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pageItems.chunked(3).forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowItems.forEach { item ->
+                                ListenAgainCard(
+                                    item = item,
+                                    isCurrent = item.url == currentPlayingItem?.url,
+                                    onPlay = onPlay,
+                                    modifier = Modifier.size(cell)
+                                )
+                            }
+                            repeat(3 - rowItems.size) {
+                                Spacer(modifier = Modifier.size(cell))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (pages.size > 1) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(pages.size) { index ->
+                    val selected = pagerState.currentPage == index
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 3.dp)
+                            .size(if (selected) 7.dp else 5.dp)
+                            .clip(CircleShape)
+                            .background(if (selected) Color.White else Color.White.copy(alpha = 0.35f))
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ListenAgainCard(
+    item: MusicItem,
+    isCurrent: Boolean,
+    onPlay: (MusicItem) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.08f))
+            .clickable { onPlay(item) }
+    ) {
+        VylloArtwork(
+            thumbnailUrl = item.thumbnailUrl,
+            contentDescription = item.title,
+            requestSizePx = 256,
+            modifier = Modifier.fillMaxSize()
+        )
+        if (isCurrent) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(2.dp, Color.White, RoundedCornerShape(12.dp))
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.15f),
+                            Color.Black.copy(alpha = 0.75f)
+                        )
+                    )
+                )
+        )
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(start = 8.dp, end = 4.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            androidx.compose.material3.Text(
+                text = item.title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = Color.White,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.8f),
+                modifier = Modifier.size(16.dp)
             )
         }
     }
@@ -68,12 +221,11 @@ fun LazyListScope.HomeListSections(
         item(key = "listen_again_header", contentType = "header") {
             YTMSectionHeader(title = stringResource(R.string.section_listen_again))
         }
-        item(key = "listen_again_row", contentType = "horizontal_section") {
-            OptimizedHorizontalSection(
+        item(key = "listen_again_grid", contentType = "grid_section") {
+            ListenAgainGrid(
                 items = uiState.listenAgainItems,
                 currentPlayingItem = currentPlayingItem,
                 onPlay = onPlay,
-                isLargeCard = false,
                 homeViewModel = viewModel,
                 loadingItemUrl = loadingItemUrl
             )
@@ -81,11 +233,16 @@ fun LazyListScope.HomeListSections(
     }
 
     // Quick Picks Section
-    if (uiState.quickPicksRows.isNotEmpty()) {
+    // The header renders while the section is still loading so the feed does not
+    // appear to start midway down the page — sections now emit independently, which
+    // means a section can be pending for seconds after its neighbour has painted.
+    if (uiState.quickPicksRows.isNotEmpty() || uiState.isLoadingRecommendations) {
         item(key = "quick_picks_header", contentType = "header") {
             Spacer(modifier = Modifier.height(24.dp))
             YTMSectionHeader(title = stringResource(R.string.section_quick_picks))
         }
+    }
+    if (uiState.quickPicksRows.isNotEmpty()) {
         YTMGridSection(
             rows = uiState.quickPicksRows.take(3),
             currentPlayingItem = currentPlayingItem,
@@ -97,7 +254,7 @@ fun LazyListScope.HomeListSections(
     }
 
     // Chill Vibes Section
-    if (uiState.chillItems.isNotEmpty()) {
+    if (uiState.chillItems.isNotEmpty() || uiState.isLoadingMoods) {
         item(key = "chill_header", contentType = "header") {
             Spacer(modifier = Modifier.height(24.dp))
             YTMSectionHeader(title = stringResource(R.string.section_chill_vibes))
@@ -169,11 +326,13 @@ fun LazyListScope.HomeListSections(
     }
 
     // Trending Now Section
-    if (uiState.trendingNowRows.isNotEmpty()) {
+    if (uiState.trendingNowRows.isNotEmpty() || uiState.isLoadingTrending) {
         item(key = "trending_header", contentType = "header") {
             Spacer(modifier = Modifier.height(24.dp))
-            YTMSectionHeader(title = "Trending now")
+            YTMSectionHeader(title = stringResource(R.string.home_trending_now))
         }
+    }
+    if (uiState.trendingNowRows.isNotEmpty()) {
         YTMGridSection(
             rows = uiState.trendingNowRows.take(3),
             currentPlayingItem = currentPlayingItem,
@@ -185,7 +344,7 @@ fun LazyListScope.HomeListSections(
     }
 
     // New Releases Section
-    if (uiState.newReleasesItems.isNotEmpty()) {
+    if (uiState.newReleasesItems.isNotEmpty() || uiState.isLoadingNewReleases) {
         item(key = "new_releases_header", contentType = "header") {
             Spacer(modifier = Modifier.height(24.dp))
             YTMSectionHeader(title = stringResource(R.string.section_new_releases))
@@ -206,7 +365,7 @@ fun LazyListScope.HomeListSections(
     if (uiState.quickPicksItems.isNotEmpty()) {
         item(key = "recommended_header", contentType = "header") {
             Spacer(modifier = Modifier.height(24.dp))
-            YTMSectionHeader(title = "Recommended")
+            YTMSectionHeader(title = stringResource(R.string.home_recommended))
         }
         items(
             items = recommendedItems,
@@ -241,22 +400,12 @@ fun LazyListScope.HomeListSections(
         }
     }
 
-    // Loading Indicator
-    // On a cold start we show a skeleton that mirrors the real layout instead of a
-    // lone spinner at the bottom of an otherwise empty screen.
-    if (uiState.isLoading) {
-        val hasNoContentYet = uiState.listenAgainItems.isEmpty() &&
-            uiState.quickPicksItems.isEmpty() &&
-            uiState.chillItems.isEmpty() &&
-            uiState.workoutItems.isEmpty() &&
-            uiState.focusItems.isEmpty() &&
-            uiState.newReleasesItems.isEmpty()
+    // Full-screen skeleton, shown only while the feed is completely empty. Uses the
+    // shared hasAnyContent predicate so this cannot drift out of sync with the
+    // ViewModel's own "is anything renderable yet" decision.
+    if (!uiState.hasAnyContent && !uiState.isRefreshing) {
         item(key = "loading_indicator", contentType = "loading") {
-            if (hasNoContentYet) {
-                HomeSkeleton()
-            } else {
-                VylloLoadingIndicator()
-            }
+            HomeSkeleton()
         }
     }
 }

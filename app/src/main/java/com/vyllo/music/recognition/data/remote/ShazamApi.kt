@@ -1,8 +1,8 @@
-package com.vyllo.music.recognition.data.remote
+﻿package com.vyllo.music.recognition.data.remote
 
 import com.vyllo.music.recognition.data.model.ShazamRequestJson
 import com.vyllo.music.recognition.data.model.ShazamResponseJson
-import android.util.Log
+import com.vyllo.music.core.security.SecureLogger
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 import okhttp3.MediaType.Companion.toMediaType
@@ -56,7 +56,7 @@ class ShazamApi @Inject constructor(
         )
 
         val jsonString = json.encodeToString(requestBody)
-        Log.d("ShazamApi", "Request JSON: $jsonString")
+        SecureLogger.d("ShazamApi", "Sending recognition request (${jsonString.length} chars)")
         val body = jsonString.toRequestBody("application/json".toMediaType())
 
         val url = "https://amp.shazam.com/discovery/v5/en/US/android/-/tag/$uuid1/$uuid2?sync=true&webv3=true&sampling=true&connected=&shazamapiversion=v3&sharehub=true&video=v3"
@@ -74,11 +74,11 @@ class ShazamApi @Inject constructor(
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     val errorBody = response.body?.string()
-                    Log.e("ShazamApi", "Shazam API error: ${response.code}, body: $errorBody")
+                    SecureLogger.e("ShazamApi", "Shazam API error: ${response.code}")
                     return Result.failure(Exception("Shazam API error: ${response.code}"))
                 }
                 val responseBody = response.body?.string() ?: return Result.failure(Exception("Empty response"))
-                Log.d("ShazamApi", "Response JSON: $responseBody")
+                SecureLogger.d("ShazamApi", "Response received (${responseBody.length} chars)")
                 val shazamResponse = json.decodeFromString<ShazamResponseJson>(responseBody)
                 Result.success(shazamResponse)
             }
@@ -87,3 +87,4 @@ class ShazamApi @Inject constructor(
         }
     }
 }
+

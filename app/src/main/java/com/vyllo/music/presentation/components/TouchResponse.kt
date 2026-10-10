@@ -25,6 +25,10 @@ import androidx.compose.ui.platform.LocalHapticFeedback
  * Performance-engineered:
  * - Scale is applied purely at the RenderNode / GPU layer via `graphicsLayer`,
  *   guaranteeing zero layout re-measurement and zero recomposition overhead during 60Hz/120Hz flings.
+ *   The layer itself is only installed while `scale != 1f`: Compose has no identity
+ *   fast-path for `graphicsLayer`, so an unconditional call would allocate a RenderNode
+ *   per row for the whole duration of a scroll — a per-frame GPU cost on every visible
+ *   item. Pressing a row pays a single-row re-measure instead.
  * - When a vertical scroll begins, `PressInteraction.Cancel` resets the scale immediately
  *   so gestures never stick or stutter list scrolling.
  */
@@ -50,10 +54,11 @@ fun Modifier.iosPressClickable(
         label = "ios_press_scale"
     )
 
-    val scaledModifier = this.graphicsLayer {
-        scaleX = scale
-        scaleY = scale
-    }
+    // Only install the scaling layer while a press animation is actually in
+    // flight. An idle row — which is every row during a fling — then carries no
+    // render layer at all, instead of allocating one RenderNode per row and
+    // paying the composite cost on every frame the list moves.
+    val scaledModifier = if (scale == 1f) this else this.graphicsLayer(scaleX = scale, scaleY = scale)
 
     return if (onLongClick != null) {
         scaledModifier.combinedClickable(
@@ -125,8 +130,11 @@ fun Modifier.pressScaleClickable(
         label = "press_scale"
     )
 
-    return this
-        .graphicsLayer { scaleX = scale; scaleY = scale }
+    // Same rule as iosPressClickable: no RenderNode while idle, so rows that
+    // use this modifier cost nothing on scroll frames.
+    val scaledModifier = if (scale == 1f) this else this.graphicsLayer(scaleX = scale, scaleY = scale)
+
+    return scaledModifier
         .clickable(
             interactionSource = interactionSource,
             indication = LocalIndication.current,
@@ -156,8 +164,10 @@ fun Modifier.pressFadeClickable(
         label = "press_alpha"
     )
 
-    return this
-        .graphicsLayer { this.alpha = alpha }
+    // No RenderNode while idle — see pressScaleClickable above.
+    val fadedModifier = if (alpha == 1f) this else this.graphicsLayer { this.alpha = alpha }
+
+    return fadedModifier
         .clickable(
             interactionSource = interactionSource,
             indication = LocalIndication.current,

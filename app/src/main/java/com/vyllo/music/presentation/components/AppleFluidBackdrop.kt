@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -43,6 +44,12 @@ fun AppleFluidBackdrop(
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val secondaryColor = MaterialTheme.colorScheme.tertiary
+
+    val backdropContext = LocalContext.current
+    val lowRamBackdrop = remember(backdropContext) {
+        com.vyllo.music.core.utils.DevicePerf.isLowRamDevice(backdropContext)
+    }
+    val artworkBlur = if (lowRamBackdrop) 18.dp else 48.dp
 
     val infiniteTransition = rememberInfiniteTransition(label = "apple_fluid_motion")
 
@@ -84,7 +91,7 @@ fun AppleFluidBackdrop(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
-                    .blur(48.dp)
+                    .blur(artworkBlur)
                     .alpha(0.40f)
             )
         }

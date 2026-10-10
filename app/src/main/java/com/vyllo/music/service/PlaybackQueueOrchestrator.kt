@@ -8,6 +8,7 @@ import com.vyllo.music.domain.manager.StreamUrlCache
 import com.vyllo.music.service.queue.QueueOperations
 import com.vyllo.music.service.queue.QueueState
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -71,6 +72,22 @@ class PlaybackQueueOrchestrator @Inject constructor(
      */
     fun prefetchUpcomingStreams(scope: CoroutineScope, player: ExoPlayer?) {
         operations.prefetchUpcomingStreams(scope, player)
+    }
+
+    /**
+     * Tops the lookahead back up.
+     *
+     * Called from the player listener once a new item reaches STATE_READY. The
+     * queueVersion collector alone was racy: a user tap does `replaceQueue` (bumps
+     * the version, lookahead enqueued) and *then* `setMediaItems`, which wipes the
+     * playlist — and nothing bumped the version again, so the lookahead stayed gone
+     * until the next transition. Hooking the post-prepare state closes that window.
+     * Repeat calls are free: already-resolved URLs are StreamUrlCache hits.
+     */
+    fun ensureLookahead(scope: CoroutineScope, player: ExoPlayer?) {
+        scope.launch {
+            operations.ensureNextEnqueued(player)
+        }
     }
 
     /**

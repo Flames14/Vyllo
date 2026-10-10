@@ -3,18 +3,46 @@ package com.vyllo.music.data.network.potoken
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import android.os.MessageQueue
+import com.vyllo.music.core.security.SecureLogger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.services.youtube.InnertubeClientRequestInfo
 import org.schabi.newpipe.extractor.services.youtube.PoTokenProvider
 import org.schabi.newpipe.extractor.services.youtube.PoTokenResult
 import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper
+import kotlin.coroutines.resume
 
 object PoTokenProviderImpl : PoTokenProvider {
-    private val TAG = PoTokenProviderImpl::class.simpleName
+    private val TAG = PoTokenProviderImpl::class.simpleName ?: "PoToken"
     private lateinit var appContext: Context
     private var webViewBadImpl = false // whether the system has a bad WebView implementation
+
+    /** Identifier used only to mint (and immediately discard) a warm-up token. */
+    private const val WARM_UP_IDENTIFIER = "vyllo:warmup"
+
+    /** Clears the launch animation before the warm-up is even considered. */
+    private const val WARM_UP_DELAY_MS = 900L
+
+    /**
+     * Upper bound on waiting for an idle main queue. If the user is scrolling
+     * continuously for this long we give up and run anyway — the warm-up must
+     * always happen eventually, even if it costs one frame.
+     */
+    private const val MAIN_IDLE_TIMEOUT_MS = 3_000L
+
+    /** Background worker for [warmUpAsync]; keeps the launch frames clean. */
+    private val warmUpScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    @Volatile
+    private var warmUpRequested = false
 
     private object WebPoTokenGenLock
     private var webPoTokenVisitorData: String? = null
@@ -23,6 +51,82 @@ object PoTokenProviderImpl : PoTokenProvider {
 
     fun init(context: Context) {
         appContext = context.applicationContext
+    }
+
+    /**
+     * Pre-warms the WebView/BotGuard generator on a background worker.
+     *
+     * Building the generator is the expensive part of the first play of a
+     * session (spawn WebView, load the BotGuard bundle, Create + GenerateIT,
+     * then mint the streaming token) and it used to happen inline, inside the
+     * synchronous [getWebClientPoToken] contract, while the user waited. Doing
+     * it once at launch removes that cold cost from the first tap.
+     *
+     * Idempotent and safe from any thread. Failures are only logged: the
+     * on-demand path below stays the authoritative one.
+     */
+    fun warmUpAsync() {
+        if (!isWebViewSupported() || webViewBadImpl) return
+        synchronized(WebPoTokenGenLock) {
+            if (warmUpRequested) return
+            warmUpRequested = true
+        }
+        warmUpScope.launch {
+            try {
+                // Never compete with the launch frames…
+                delay(WARM_UP_DELAY_MS)
+                // …and never land inside a scroll either: the generator builds
+                // its WebView on the main thread, so let the queue go quiet
+                // first. This is what keeps "warm up in the background" from
+                // simply moving a frame hitch from the first play to one second
+                // after launch.
+                awaitMainThreadIdle()
+                if (!::appContext.isInitialized || webViewBadImpl) return@launch
+                val startedAt = android.os.SystemClock.elapsedRealtime()
+                getWebClientPoToken(videoId = WARM_UP_IDENTIFIER, forceRecreate = false)
+                SecureLogger.d(
+                    TAG,
+                    "poToken warm-up ready in ${android.os.SystemClock.elapsedRealtime() - startedAt} ms"
+                )
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                SecureLogger.w(TAG, "poToken warm-up failed; will retry on demand", t)
+            }
+        }
+    }
+
+    /**
+     * Suspends until the main message queue has nothing left to process.
+     *
+     * The generator's WebView can only be constructed on a Looper thread, and
+     * the app builds it on the main one — so a warm-up that fires while a fling
+     * is in flight would drop the very frames this optimisation exists to
+     * protect. An IdleHandler is exactly that signal.
+     *
+     * Bounded by [timeoutMs]: a queue that never goes idle still gets the
+     * warm-up (a cold first play beats an eternal wait for idle).
+     */
+    private suspend fun awaitMainThreadIdle(timeoutMs: Long = MAIN_IDLE_TIMEOUT_MS) {
+        withTimeoutOrNull(timeoutMs) {
+            suspendCancellableCoroutine<Unit> { continuation ->
+                Handler(Looper.getMainLooper()).post {
+                    // Both Looper.myQueue() and addIdleHandler() must run on
+                    // the main thread, so registration happens inside the post.
+                    val queue: MessageQueue = Looper.myQueue()
+                    val idleHandler = object : MessageQueue.IdleHandler {
+                        override fun queueIdle(): Boolean {
+                            queue.removeIdleHandler(this)
+                            if (continuation.isActive) continuation.resume(Unit)
+                            return false // one-shot: MessageQueue removes us anyway
+                        }
+                    }
+                    if (continuation.isActive) {
+                        queue.addIdleHandler(idleHandler)
+                        continuation.invokeOnCancellation { queue.removeIdleHandler(idleHandler) }
+                    }
+                }
+            }
+        }
     }
 
     private fun isWebViewSupported(): Boolean {
@@ -43,7 +147,7 @@ object PoTokenProviderImpl : PoTokenProvider {
         // forced by the extractor contract (not a coroutine design choice).
         // Never block the main thread: fail gracefully instead of ANR-ing.
         if (Looper.myLooper() == Looper.getMainLooper()) {
-            Log.w(TAG, "PoToken requested on main thread; returning null to avoid ANR")
+            SecureLogger.w(TAG, "PoToken requested on main thread; returning null to avoid ANR")
             return null
         }
 
@@ -53,7 +157,7 @@ object PoTokenProviderImpl : PoTokenProvider {
             // Unpack wrapped exceptions
             when (val cause = e.cause) {
                 is BadWebViewException -> {
-                    Log.e(TAG, "Could not obtain poToken because WebView is broken", e)
+                    SecureLogger.e(TAG, "Could not obtain poToken because WebView is broken", e)
                     webViewBadImpl = true
                     return null
                 }
@@ -134,16 +238,15 @@ object PoTokenProviderImpl : PoTokenProvider {
                 throw throwable
             } else {
                 // retry, this time recreating the [webPoTokenGenerator] from scratch
-                Log.e(TAG, "Failed to obtain poToken, retrying", throwable)
+                SecureLogger.e(TAG, "Failed to obtain poToken, retrying", throwable)
                 return getWebClientPoToken(videoId = videoId, forceRecreate = true)
             }
         }
 
         if (com.vyllo.music.BuildConfig.DEBUG) {
-            Log.d(
+            SecureLogger.d(
                 TAG,
-                "poToken for $videoId: playerPot=$playerPot, " +
-                    "streamingPot=$streamingPot, visitor_data=$visitorData"
+                "poToken obtained for video ${videoId.take(11)}"
             )
         }
 

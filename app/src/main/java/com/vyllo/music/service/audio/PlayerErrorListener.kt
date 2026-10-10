@@ -41,6 +41,12 @@ class PlayerErrorListener(
             Player.STATE_READY -> {
                 SecureLogger.d("MusicService", "Playback STATE_READY")
                 playbackErrorHandler.resetOnSuccess()
+                // Reliable post-prepare hook: the UI play path replaces the whole
+                // ExoPlayer playlist via setMediaItems, which drops any lookahead the
+                // queueVersion collector had already enqueued. Tops it back up now
+                // that the playlist is final. Cheap when already correct — the URL is
+                // in StreamUrlCache.
+                playbackQueueOrchestrator.ensureLookahead(serviceScope, playerProvider())
             }
             Player.STATE_ENDED -> {
                 SecureLogger.d("MusicService", "Playback STATE_ENDED reached")

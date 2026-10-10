@@ -74,6 +74,10 @@ data class MusicItem(
         return candidate.length >= 11 && candidate.all { it.isLetterOrDigit() || it == '-' || it == '_' }
     }
 
+    /** @see normalizeArtistKey */
+    val normalizedArtistKey: String
+        get() = normalizeArtistKey(uploader)
+
     /**
      * Attempts to get the highest resolution thumbnail from YouTube or Google CDN thumbnail URLs.
      */
@@ -126,3 +130,20 @@ data class MusicItem(
         return listOf(thumbnailUrl)
     }
 }
+
+private val TOPIC_SUFFIX = Regex("\\s*-\\s*topic\\s*$", RegexOption.IGNORE_CASE)
+private val WHITESPACE = Regex("\\s+")
+
+/**
+ * Canonical artist key: strips YouTube's " - Topic" channel suffix and collapses
+ * whitespace, so "Arijit Singh - Topic" and "Arijit  Singh" compare equal.
+ *
+ * Lives in the domain model so the player layer can compare artists without
+ * depending on the data layer's ranking code.
+ */
+fun normalizeArtistKey(uploader: String): String =
+    uploader.replace(TOPIC_SUFFIX, "")
+        .trim()
+        .lowercase()
+        .replace(WHITESPACE, " ")
+        .trim()

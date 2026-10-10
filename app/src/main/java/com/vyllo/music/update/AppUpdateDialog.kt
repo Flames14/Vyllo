@@ -10,9 +10,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.BuildConfig
+import com.vyllo.music.R
 
 @Composable
 fun AppUpdateDialog(
@@ -25,14 +27,19 @@ fun AppUpdateDialog(
     androidx.compose.runtime.LaunchedEffect(state) {
         if (state is AppUpdateState.DownloadComplete) {
             val file = (state as AppUpdateState.DownloadComplete).file
-            val uri = androidx.core.content.FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.provider",
-                file
-            )
-            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            if (!ApkInstallValidator.ensureUnknownSourcesAllowed(context)) {
+                com.vyllo.music.core.security.SecureLogger.w(
+                    "AppUpdate", "Unknown-sources not allowed; sent user to settings"
+                )
+                viewModel.resetState()
+                onDismiss()
+                return@LaunchedEffect
+            }
+            val intent = ApkInstallValidator.buildInstallIntent(context, file)
+            if (intent == null) {
+                viewModel.resetState()
+                onDismiss()
+                return@LaunchedEffect
             }
             try {
                 context.startActivity(intent)
@@ -55,7 +62,7 @@ fun AppUpdateDialog(
         },
         title = {
             Text(
-                "App Update",
+                stringResource(R.string.update_title),
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
             )
         },
@@ -70,7 +77,7 @@ fun AppUpdateDialog(
                         ) {
                             CircularProgressIndicator()
                             Spacer(Modifier.height(16.dp))
-                            Text("Checking for updates...")
+                            Text(stringResource(R.string.update_checking))
                         }
                     }
                     is AppUpdateState.UpdateAvailable -> {
@@ -82,16 +89,16 @@ fun AppUpdateDialog(
                             val currentVer = BuildConfig.VERSION_NAME
                             val newVer = currentState.release.tagName
                             Text(
-                                "🚀 A new version is available!",
+                                stringResource(R.string.update_available),
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(Modifier.height(8.dp))
-                            Text("Current Version: $currentVer")
-                            Text("New Version: $newVer")
-                            Text("Release Date: ${currentState.release.publishedAt.substringBefore("T")}")
+                            Text(stringResource(R.string.update_current_version, currentVer))
+                            Text(stringResource(R.string.update_new_version, newVer))
+                            Text(stringResource(R.string.update_release_date, currentState.release.publishedAt.substringBefore("T")))
                             Spacer(Modifier.height(16.dp))
-                            Text("What's new:", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                            Text(stringResource(R.string.update_whats_new), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                             Spacer(Modifier.height(4.dp))
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
@@ -113,7 +120,7 @@ fun AppUpdateDialog(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                "✅ You are on the latest version!",
+                                stringResource(R.string.update_up_to_date),
                                 style = MaterialTheme.typography.titleMedium
                             )
                         }
@@ -125,7 +132,7 @@ fun AppUpdateDialog(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                "❌ Failed to check for updates.",
+                                stringResource(R.string.update_failed),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.error
                             )
@@ -142,11 +149,11 @@ fun AppUpdateDialog(
                             CircularProgressIndicator()
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                "Downloading update in background...",
+                                stringResource(R.string.update_downloading),
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Text(
-                                "You will be prompted to install once finished.",
+                                stringResource(R.string.update_download_hint),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
@@ -160,7 +167,7 @@ fun AppUpdateDialog(
             when (val currentState = state) {
                 is AppUpdateState.UpdateAvailable -> {
                     Button(onClick = { viewModel.startDownload(currentState.apkUrl) }) {
-                        Text("Update Now")
+                        Text(stringResource(R.string.update_now))
                     }
                 }
                 is AppUpdateState.UpToDate, is AppUpdateState.Error, is AppUpdateState.Downloading -> {
@@ -168,7 +175,7 @@ fun AppUpdateDialog(
                         viewModel.resetState()
                         onDismiss()
                     }) {
-                        Text("OK")
+                        Text(stringResource(R.string.common_ok))
                     }
                 }
                 is AppUpdateState.DownloadComplete -> {}
@@ -181,7 +188,7 @@ fun AppUpdateDialog(
                     viewModel.resetState()
                     onDismiss()
                 }) {
-                    Text("Later")
+                    Text(stringResource(R.string.common_later))
                 }
             }
         }

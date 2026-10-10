@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exact_alarm_permission_title">Permitir alarmas exactas</string>
+    <string name="exact_alarm_permission_message">Android necesita este acceso para que las alarmas suenen a la hora que establezcas. Activa Alarmas y recordatorios para Vyllo y luego vuelve aquí para guardar o activar tu alarma.</string>
+    <string name="exact_alarm_permission_action">Abrir ajustes</string>
+    <!-- App name -->
+    <string name="app_name">Vyllo</string>
+
+    <!-- Navigation -->
+
+    <!-- Home screen sections -->
+    <string name="section_listen_again">Escuchar de nuevo</string>
+    <string name="section_quick_picks">Selección rápida</string>
+    <string name="section_mixed_for_you">Mezcla para ti</string>
+    <string name="section_new_releases">Nuevos lanzamientos</string>
+    <string name="section_chill_vibes">Vibras relax</string>
+    <string name="section_workout">Entrenamiento</string>
+    <string name="section_focus">Concentración</string>
+
+    <!-- Explore categories -->
+
+    <!-- Filter chips -->
+
+    <!-- Search -->
+
+    <!-- Library -->
+
+    <!-- Settings -->
+    <string name="settings_title">Ajustes</string>
+    <string name="settings_floating_player">Reproductor flotante</string>
+    <string name="settings_background_playback">Reproducción en segundo plano</string>
+    <string name="settings_keep_audio_playing">Mantener el audio en reproducción</string>
+    <string name="settings_theme_mode">Tema</string>
+
+    <!-- Player -->
+    <string name="player_autoplay">Reproducción automática</string>
+
+    <!-- Downloads -->
+
+    <!-- Alarms -->
+    <string name="alarm_dismiss">Descartar</string>
+    <string name="alarm_snooze">Posponer 5 min</string>
+    <!-- Defaults shown by AlarmTriggerActivity before the real values arrive -->
+    <string name="alarm_trigger_time_placeholder">7:00 a. m.</string>
+    <string name="alarm_default_label">¡Es hora de levantarse!</string>
+    <string name="alarm_trigger_icon_cd">Alarma</string>
+
+    <!-- Permissions -->
+
+    <!-- Errors -->
+
+    <!-- Common -->
+    <string name="common_close">Cerrar</string>
+    <string name="common_cancel">Cancelar</string>
+
+    <!-- Player full screen -->
+    <string name="player_lyrics_sync">Sincronizar letra</string>
+    <string name="player_lyrics_reset">Restablecer</string>
+    <string name="player_lyrics_not_found">Letra no encontrada</string>
+    <string name="player_lyrics_search_button">Buscar letra</string>
+    <string name="player_autoplay_description">Seguir reproduciendo canciones similares</string>
+    <string name="player_video_hint">Toca aquí para reproducir el vídeo</string>
+
+    <!-- Alarm screen -->
+    <string name="alarm_back">Atrás</string>
+    <string name="alarm_add_alarm">Añadir alarma</string>
+    <string name="alarm_ringing">¡La alarma está sonando!</string>
+    <string name="alarm_tap_to_stop">Toca para detener el sonido</string>
+    <string name="alarm_stop">DETENER</string>
+    <string name="alarm_no_alarms">Aún no hay alarmas</string>
+
+    <!-- Voice search -->
+
+    <!-- Floating player -->
+    <string name="equalizer_title">Ecualizador</string>
+    <string name="equalizer_subtitle">Ajusta los graves, el espacio y el tono de la sesión de reproducción actual</string>
+    <string name="equalizer_bass_boost">Realce de graves</string>
+    <string name="equalizer_virtualizer">Virtualizador</string>
+    <string name="equalizer_reset">Restablecer</string>
+    <string name="equalizer_hint">Los cambios se guardan automáticamente y se aplican mientras se reproduce el audio.</string>
+
+    <!-- Volume Booster and Presets -->
+    <string name="volume_booster_title">Amplificador de volumen</string>
+
+    <!-- Sleep timer -->
+    <string name="sleep_timer_title">Temporizador para dormir</string>
+    <string name="sleep_timer_turn_off">Desactivar temporizador</string>
+    <plurals name="sleep_timer_minutes">
+        <item quantity="one">%1$d minuto</item>
+        <item quantity="many">%1$d minutos</item>
+        <item quantity="other">%1$d minutos</item>
+    </plurals>
+
+    <!-- Backup & Restore -->
+    <string name="backup_title">Copia de seguridad y restauración</string>
+    <string name="backup_export">Exportar copia de seguridad</string>
+    <string name="backup_import">Importar copia de seguridad</string>
+    <string name="backup_export_success">Copia de seguridad exportada correctamente</string>
+    <string name="backup_export_error">No se pudo exportar la copia de seguridad</string>
+    <string name="backup_import_success">Copia de seguridad restaurada correctamente</string>
+    <string name="backup_import_error">No se pudo importar la copia de seguridad</string>
+
+    <!-- Recognition -->
+    <string name="recognition_tap_to_recognize">Toca para identificar</string>
+    <string name="recognition_listening">Escuchando…</string>
+    <string name="recognition_processing">Identificando…</string>
+    <string name="recognition_found">¡Coincidencia encontrada!</string>
+    <string name="recognition_no_match">Sin coincidencias</string>
+    <string name="recognition_error">Error al identificar la música</string>
+    <string name="recognition_try_again">Intentar de nuevo</string>
+    <string name="recognition_play_song">Reproducir canción</string>
+    <string name="recognition_start_over">Empezar de nuevo</string>
+    <string name="recognition_subtitle">Identifica la música que suena a tu alrededor</string>
+
+    <!-- Accessibility Labels -->
+    <string name="accessibility_play">Reproducir</string>
+    <string name="accessibility_pause">Pausar</string>
+    <string name="accessibility_skip_next">Pista siguiente</string>
+    <string name="accessibility_skip_previous">Pista anterior</string>
+    <string name="accessibility_repeat">Modo de repetición</string>
+    <string name="accessibility_shuffle">Aleatorio</string>
+    <string name="accessibility_search">Buscar canciones, álbumes y artistas</string>
+    <string name="accessibility_recognize">Identificar música</string>
+    <string name="accessibility_settings">Ajustes y temas</string>
+    <string name="accessibility_swipe_up">Deslizar hacia arriba</string>
+
+    <!-- Playlist dialogs -->
+    <string name="playlist_add_to">Añadir a la lista</string>
+    <string name="playlist_new">Nueva lista</string>
+    <string name="playlist_none_yet">Aún no hay listas</string>
+    <string name="playlist_name">Nombre de la lista</string>
+    <string name="playlist_create">Crear</string>
+    <string name="action_cancel">Cancelar</string>
+
+    <!-- Lyrics UI -->
+    <string name="lyrics_fetching">Obteniendo letra…</string>
+    <string name="lyrics_search_manual_hint">Prueba a buscar manualmente</string>
+    <string name="lyrics_no_results">No se encontraron resultados</string>
+    <string name="lyrics_sync_offset_dec">Reducir el desfase de la letra en 0,5 s</string>
+    <string name="lyrics_sync_offset_inc">Aumentar el desfase de la letra en 0,5 s</string>
+    <string name="lyrics_toggle_translation">Activar o desactivar la traducción de la letra</string>
+
+    <!-- Queue / Up Next -->
+    <string name="queue_playing_from">Reproduciendo desde la cola</string>
+    <plurals name="queue_track_count">
+        <item quantity="one">%1$d pista</item>
+        <item quantity="many">%1$d pistas</item>
+        <item quantity="other">%1$d pistas</item>
+    </plurals>
+    <string name="queue_swipe_up_hint">Desliza hacia arriba para ver lo que sigue</string>
+    <string name="queue_auto_mix">%1$s • Mezcla automática</string>
+
+    <!-- Downloads / empty / error states -->
+    <string name="download_cd_cancel">Cancelar</string>
+    <string name="download_cd_done">Descargado — mantén pulsado para eliminar</string>
+    <string name="download_cd_start">Descargar para escuchar sin conexión</string>
+    <string name="download_cd_remove">Eliminar descarga</string>
+    <string name="state_error_title">Algo salió mal</string>
+    <string name="state_try_again">Intentar de nuevo</string>
+    <string name="state_home_failed">No se pudo cargar tu inicio. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="state_offline_banner">Sin conexión</string>
+    <string name="state_offline_detail">Las descargas se reproducen igual. Actualizaremos cuando vuelva la conexión.</string>
+    <string name="comments_none">No se encontraron comentarios.</string>
+    <string name="search_placeholder">Buscar canciones, artistas…</string>
+    <string name="share_story_tagline">Tarjeta musical limpia para Instagram y WhatsApp</string>
+    <string name="alarm_cd_edit_time">Editar hora</string>
+    <string name="alarm_cd_select_sound">Seleccionar sonido</string>
+    <string name="alarm_vibrate_when_triggers">Vibrar cuando suene la alarma</string>
+    <string name="alarm_sound_system_default">Tono de alarma predeterminado del sistema</string>
+    <string name="alarm_no_downloads">No hay canciones descargadas disponibles</string>
+    <string name="alarm_delete_confirm">¿Seguro que quieres eliminar esta alarma?</string>
+    <string name="alarm_default_sound_label">Sonido predeterminado</string>
+    <string name="alarm_cd_dec_hour">Reducir hora</string>
+    <string name="alarm_cd_inc_hour">Aumentar hora</string>
+    <string name="alarm_cd_dec_minute">Reducir minuto</string>
+    <string name="alarm_cd_inc_minute">Aumentar minuto</string>
+    <string name="comments_load_failed">No se pudieron cargar los comentarios</string>
+    <string name="comments_title">Comentarios</string>
+    <string name="comments_title_count">Comentarios (%1$s)</string>
+    <string name="alarm_edit_alarm">Editar alarma</string>
+    <string name="alarm_delete_row_title">Eliminar alarma</string>
+    <string name="search_placeholder_long">Buscar canciones, álbumes y artistas</string>
+    <string name="menu_add_to_playlist_ellipsis">Añadir a una lista…</string>
+    <string name="menu_download_song">Descargar canción</string>
+    <string name="nav_alarms">Alarmas</string>
+    <string name="nav_home">Inicio</string>
+    <string name="nav_search">Buscar</string>
+    <string name="nav_explore">Explorar</string>
+    <string name="nav_library">Biblioteca</string>
+
+    <!-- Home mood/filter chips. Only the label is localized; the key passed to
+         onChipSelected stays stable and English. -->
+    <string name="chip_all">Todo</string>
+    <string name="chip_relax">Relax</string>
+    <string name="chip_energize">Energía</string>
+    <string name="chip_workout">Entrenamiento</string>
+    <string name="chip_focus">Concentración</string>
+    <string name="chip_commute">Trayecto</string>
+    <string name="alarm_empty_subtitle">Despierta con tus canciones favoritas</string>
+    <string name="alarm_countdown_ringing_now">¡Sonando ahora!</string>
+    <string name="alarm_countdown_next_hm">Próxima alarma en %1$d\h %2$d\m</string>
+    <string name="alarm_countdown_next_ms">Próxima alarma en %1$d\m %2$d\s</string>
+    <string name="alarm_countdown_next_s">Próxima alarma en %1$d\s</string>
+    <string name="alarm_hero_next_up">A continuación</string>
+    <string name="alarm_hero_nothing">Nada programado</string>
+    <string name="alarm_hero_add">Nueva alarma</string>
+    <string name="alarm_delete_download_cd">Eliminar canción descargada</string>
+    <string name="share_title">Compartir</string>
+    <string name="share_ig">Instagram</string>
+    <string name="share_whatsapp">WhatsApp</string>
+    <string name="share_copy_link">Copiar enlace</string>
+    <string name="share_link">Compartir enlace</string>
+    <string name="share_image_cd">Compartir imagen</string>
+    <string name="story_now_playing">Reproduciendo ahora</string>
+    <string name="story_shared_via">vía Vyllo Music</string>
+    <string name="pill_like">Me gusta</string>
+    <string name="pill_lyrics">Letra</string>
+    <string name="pill_comments">Comentarios</string>
+    <string name="pill_save">Guardar</string>
+    <string name="pill_share">Compartir</string>
+    <string name="pill_download">Descargar</string>
+    <string name="cd_like">Me gusta</string>
+    <string name="cd_dislike">No me gusta</string>
+    <string name="header_collapse">Contraer</string>
+    <string name="header_song_mode">Modo canción</string>
+    <string name="header_song">Canción</string>
+    <string name="header_video_mode">Modo vídeo</string>
+    <string name="header_video">Vídeo</string>
+    <string name="header_more_options">Más opciones</string>
+    <string name="header_equalizer">Ecualizador</string>
+    <string name="header_sleep_timer">Temporizador para dormir</string>
+    <string name="header_sleep_timer_remaining">Temporizador para dormir (%1$02d:%2$02d)</string>
+    <string name="header_share_story">Compartir tarjeta de historia</string>
+    <string name="header_share_story_cd">Compartir historia</string>
+    <string name="header_share_link">Compartir enlace de la canción</string>
+    <string name="header_share_link_cd">Compartir enlace</string>
+    <string name="header_copy_link">Copiar enlace de la canción</string>
+    <string name="header_copy_link_cd">Copiar enlace</string>
+
+    <!-- Common actions -->
+    <string name="common_save">Guardar</string>
+    <string name="common_ok">Aceptar</string>
+    <string name="common_delete">Eliminar</string>
+    <string name="common_clear">Borrar</string>
+    <string name="common_later">Más tarde</string>
+    <string name="common_reset">Restablecer</string>
+    <string name="common_sync">Sincronizar</string>
+
+    <!-- Alarm editor -->
+    <string name="alarm_label_optional">Etiqueta (opcional)</string>
+    <string name="alarm_label_placeholder">p. ej., Despertar, Gimnasio, Trabajo</string>
+    <string name="alarm_vibration">Vibración</string>
+    <string name="alarm_time_label">Hora</string>
+    <string name="alarm_repeat">Repetir</string>
+    <string name="alarm_sound_label">Sonido</string>
+    <string name="alarm_volume_value">Volumen: %1$d%%</string>
+    <string name="alarm_gradual">Gradual</string>
+    <string name="alarm_in_countdown">en %1$s</string>
+    <string name="alarm_select_sound_title">Seleccionar tono de alarma</string>
+    <string name="alarm_default_sound_title">Tono de alarma predeterminado</string>
+    <string name="alarm_your_downloads">Tus descargas</string>
+    <string name="alarm_select_time_title">Seleccionar hora</string>
+
+    <!-- Comments -->
+    <string name="comments_error">Error: %1$s</string>
+
+    <!-- Equalizer -->
+    <string name="equalizer_presets">Preajustes</string>
+    <string name="equalizer_percent">%1$d%%</string>
+    <string name="equalizer_reset_cd">Restablecer el ecualizador a la respuesta plana</string>
+    <string name="eq_band_bass">Graves</string>
+    <string name="eq_band_low_mid">Medio-graves</string>
+    <string name="eq_band_mid">Medios</string>
+    <string name="eq_band_upper_mid">Medio-agudos</string>
+    <string name="eq_band_treble">Agudos</string>
+
+    <!-- Lyrics -->
+    <string name="lyrics_search_action">Buscar letra</string>
+    <string name="lyrics_search_hint">Artista - Canción</string>
+    <plurals name="lyrics_results_count">
+        <item quantity="one">%1$d resultado</item>
+        <item quantity="many">%1$d resultados</item>
+        <item quantity="other">%1$d resultados</item>
+    </plurals>
+    <string name="lyrics_synced_mode">Sincronizada</string>
+    <string name="lyrics_plain_mode">Simple</string>
+
+    <!-- Related tracks -->
+    <string name="related_more_from">Más de %1$s</string>
+    <string name="related_similar_track">Similar a esta pista</string>
+    <string name="related_you_might_also_like">También te puede gustar</string>
+
+    <!-- Song context menu -->
+    <string name="context_play_next">Reproducir a continuación</string>
+    <string name="context_add_to_queue">Añadir a la cola de reproducción</string>
+    <string name="context_share_song">Compartir canción</string>
+    <string name="context_remove_from_playlist">Quitar de la lista</string>
+
+    <!-- Headers and cards -->
+    <string name="header_music_title">Música</string>
+    <string name="hero_best_match">MEJOR COINCIDENCIA</string>
+    <string name="magazine_ready">¿Listo para escuchar música?</string>
+
+    <!-- Settings dialog -->
+    <string name="settings_bg_on">Sigue reproduciendo con la pantalla apagada</string>
+    <string name="settings_bg_off">Se pausa cuando sales de la app</string>
+    <string name="settings_bg_battery_title">Acceso a la batería en segundo plano</string>
+    <string name="settings_bg_battery_desc">Necesario para que canciones y alarmas sigan funcionando toda la noche</string>
+    <string name="settings_pause_on_mic">No pausar al usar el micrófono o la cámara</string>
+    <string name="settings_show_bubble">Mostrar burbuja al salir de la app</string>
+    <string name="settings_high_refresh">Tasa de refresco alta (90Hz/120Hz)</string>
+    <string name="settings_refresh_on">Máxima fluidez de pantalla</string>
+    <string name="settings_refresh_off">Ahorro de batería (fijo a 60Hz)</string>
+    <string name="settings_wifi_only">Descargas solo por Wi-Fi</string>
+    <string name="settings_wifi_only_desc">Descarga canciones solo mediante Wi-Fi</string>
+    <string name="settings_pause_low_battery">Pausar descargas con poca batería</string>
+    <string name="settings_pause_low_battery_desc">Espera a que la batería y el almacenamiento estén en buen estado</string>
+    <string name="settings_support">Apoyar el desarrollo</string>
+    <string name="settings_buy_coffee">Invítame a un café ☕</string>
+    <string name="settings_donate_cd">Donar</string>
+    <string name="settings_check_updates">Buscar actualizaciones</string>
+    <string name="settings_check_updates_desc">Descarga las últimas funciones y correcciones</string>
+    <string name="settings_update_cd">Actualizar</string>
+
+    <!-- Explore / Home -->
+    <string name="explore_nothing">Aún no hay nada que explorar aquí</string>
+    <string name="home_trending_now">Tendencias ahora</string>
+    <string name="home_recommended">Recomendaciones</string>
+
+    <!-- Library -->
+    <string name="library_alarms_title">Alarmas</string>
+    <string name="library_alarms_subtitle">Despierta con tus canciones</string>
+    <string name="library_playlists_title">Listas</string>
+    <string name="library_no_playlists">Aún no hay listas</string>
+    <string name="library_downloads_title">Descargas</string>
+    <string name="library_no_downloads">Aún no hay descargas</string>
+    <string name="library_playlist_empty">Esta lista está vacía</string>
+
+    <!-- Google account sync (OAuth) -->
+    <string name="oauth_title">Sincronización de la cuenta de Google (OAuth 2.0)</string>
+    <string name="oauth_description">Google OAuth se conecta directamente a tu cuenta de Google para sincronizar todas tus listas de YouTube privadas y no listadas.</string>
+    <string name="oauth_configure_first">Configura primero tu Client ID de Google</string>
+    <string name="oauth_sign_in">Iniciar sesión con Google</string>
+    <string name="oauth_edit_client_id">Editar Client ID de Google</string>
+    <string name="oauth_client_id_required">Se necesita un Client ID de OAuth de Google Cloud</string>
+    <string name="oauth_instructions">Para iniciar sesión con Google OAuth, introduce tu OAuth 2.0 Client ID de Google Cloud Console (Redirect URI: com.vyllo.music://oauth2redirect). ¡O usa la importación instantánea de arriba sin ninguna configuración!</string>
+    <string name="oauth_configure_client_id">Configurar Client ID</string>
+    <string name="oauth_client_id_label">Client ID de Google Cloud</string>
+    <string name="oauth_client_id_placeholder">xxxxxx.apps.googleusercontent.com</string>
+    <string name="oauth_client_id_saved">¡Client ID guardado!</string>
+    <string name="oauth_connected">Conectado con Google</string>
+    <string name="oauth_your_playlists">Tus listas de YouTube (%1$d)</string>
+    <string name="oauth_tap_refresh">Toca actualizar para cargar las listas</string>
+
+    <!-- Instant playlist import -->
+    <string name="import_title">Importación instantánea de listas</string>
+    <string name="import_no_login">No necesitas iniciar sesión</string>
+    <string name="import_description">Pega cualquier enlace de lista de YouTube o YouTube Music para importar todas las pistas a tu biblioteca al instante, con sus carátulas.</string>
+    <string name="import_url_placeholder">https://music.youtube.com/playlist?list=PL…</string>
+    <string name="import_action">Importar lista ahora</string>
+
+    <!-- Remote playlists / YouTube sync -->
+    <plurals name="playlist_tracks_count">
+        <item quantity="one">%1$d pista • %2$s</item>
+        <item quantity="many">%1$d pistas • %2$s</item>
+        <item quantity="other">%1$d pistas • %2$s</item>
+    </plurals>
+    <string name="ytsync_title">Sincronización de listas de YouTube</string>
+    <string name="ytsync_subtitle">Importa listas de YouTube y YouTube Music</string>
+
+    <!-- Search -->
+    <string name="search_mic_permission">Se necesita permiso del micrófono para la búsqueda por voz</string>
+    <string name="search_speech_unavailable">Reconocimiento de voz no disponible en este dispositivo</string>
+    <string name="search_recent">Búsquedas recientes</string>
+    <string name="search_hint_vyllo">Buscar en Vyllo</string>
+    <string name="search_no_results">No se encontraron resultados</string>
+
+    <!-- App update -->
+    <string name="update_title">Actualización de la app</string>
+    <string name="update_checking">Buscando actualizaciones…</string>
+    <string name="update_available">🚀 ¡Hay una nueva versión disponible!</string>
+    <string name="update_current_version">Versión actual: %1$s</string>
+    <string name="update_new_version">Nueva versión: %1$s</string>
+    <string name="update_release_date">Fecha de lanzamiento: %1$s</string>
+    <string name="update_whats_new">Novedades:</string>
+    <string name="update_up_to_date">✅ ¡Tienes la última versión!</string>
+    <string name="update_failed">❌ No se pudieron buscar actualizaciones.</string>
+    <string name="update_downloading">Descargando la actualización en segundo plano…</string>
+    <string name="update_download_hint">Se te pedirá instalarla cuando termine.</string>
+    <string name="update_now">Actualizar ahora</string>
+
+    <!-- Sharing -->
+    <string name="share_instagram_missing">Instagram no está instalado</string>
+    <string name="share_whatsapp_missing">WhatsApp no está instalado</string>
+    <string name="share_story_chooser">Compartir historia musical</string>
+    <string name="share_failed">No se pudo compartir</string>
+    <string name="share_song_link_chooser">Compartir enlace de la canción</string>
+    <string name="share_link_failed">No se pudo compartir el enlace</string>
+    <string name="share_link_copied">¡Enlace copiado al portapapeles! 🔗</string>
+    <string name="share_copy_failed">No se pudo copiar el enlace</string>
+    <string name="share_listening_story">🎵 Escuchando \"%1$s\" de %2$s en Vyllo Music\n🔗 %3$s</string>
+    <string name="share_listening_link">🎵 Escuchando \"%1$s\" de %2$s en Vyllo Music\n\n🔗 Escúchalo aquí: %3$s</string>
+    <string name="share_subject">Escucha %1$s en Vyllo Music</string>
+    <string name="share_clip_label">Enlace de la canción</string>
+
+    <!-- Permissions -->
+    <string name="permission_grant_overlay">Concede el permiso de superposición para el reproductor flotante</string>
+    <string name="permission_already_unrestricted">La reproducción en segundo plano ya está sin restricciones</string>
+    <string name="crash_report_subject">Informe de fallo de Vyllo</string>
+
+    <!-- Notifications -->
+    <string name="notif_alarm_title">Alarma</string>
+    <string name="notif_exact_alarm_title">Las alarmas necesitan acceso de temporización exacta</string>
+    <plurals name="notif_exact_alarm_text">
+        <item quantity="one">%1$d alarma se restauró sin temporización exacta tras el reinicio — toca para volver a activar la temporización exacta.</item>
+        <item quantity="many">%1$d alarmas se restauraron sin temporización exacta tras el reinicio — toca para volver a activar la temporización exacta.</item>
+        <item quantity="other">%1$d alarmas se restauraron sin temporización exacta tras el reinicio — toca para volver a activar la temporización exacta.</item>
+    </plurals>
+    <string name="notif_download_complete">Descarga completada</string>
+    <string name="notif_downloading">Descargando música</string>
+    <string name="notif_floating_title">Reproductor flotante activo</string>
+    <string name="notif_floating_text">Toca la burbuja para volver a la app</string>
+</resources>

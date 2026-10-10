@@ -10,7 +10,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -40,7 +39,14 @@ fun AppleEqualizerBars(
     val resolvedColor = if (barColor != Color.Unspecified) barColor else color
     val infiniteTransition = rememberInfiniteTransition(label = "apple_eq_wave")
 
-    val anim1 by infiniteTransition.animateFloat(
+    // The animation states are deliberately NOT destructured with `by`.
+    //
+    // Reading an animation value in composition subscribes this composable's recompose
+    // scope, which used to make every mounted equalizer (mini player, now-playing row)
+    // recompose at panel rate (60-120x/s) and allocate a fresh Canvas lambda per frame.
+    // The `.value` reads below happen inside the draw lambda instead, where they only
+    // schedule a redraw — which is all a looping indicator needs.
+    val bar1State = infiniteTransition.animateFloat(
         initialValue = 0.25f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
@@ -50,7 +56,7 @@ fun AppleEqualizerBars(
         label = "eq_bar_1"
     )
 
-    val anim2 by infiniteTransition.animateFloat(
+    val bar2State = infiniteTransition.animateFloat(
         initialValue = 0.85f,
         targetValue = 0.3f,
         animationSpec = infiniteRepeatable(
@@ -60,7 +66,7 @@ fun AppleEqualizerBars(
         label = "eq_bar_2"
     )
 
-    val anim3 by infiniteTransition.animateFloat(
+    val bar3State = infiniteTransition.animateFloat(
         initialValue = 0.35f,
         targetValue = 0.95f,
         animationSpec = infiniteRepeatable(
@@ -69,10 +75,6 @@ fun AppleEqualizerBars(
         ),
         label = "eq_bar_3"
     )
-
-    val bar1Fraction = if (isPlaying) anim1 else 0.25f
-    val bar2Fraction = if (isPlaying) anim2 else 0.45f
-    val bar3Fraction = if (isPlaying) anim3 else 0.25f
 
     Canvas(
         modifier = modifier.size(
@@ -86,15 +88,25 @@ fun AppleEqualizerBars(
         val minHeightPx = minBarHeight.toPx()
         val cornerRadius = CornerRadius(barWidthPx / 2, barWidthPx / 2)
 
-        val heights = listOf(
-            minHeightPx + (maxHeightPx - minHeightPx) * bar1Fraction,
-            minHeightPx + (maxHeightPx - minHeightPx) * bar2Fraction,
-            minHeightPx + (maxHeightPx - minHeightPx) * bar3Fraction
-        )
+        // Keep the three heights in locals rather than a list: `listOf` allocated a
+        // backing array on every draw frame, which is the opposite of this class's
+        // "zero allocations per frame" contract. The bars redraw continuously while
+        // music plays (up to 120/s per visible equalizer).
+        val bar1Fraction = if (isPlaying) bar1State.value else 0.25f
+        val bar2Fraction = if (isPlaying) bar2State.value else 0.45f
+        val bar3Fraction = if (isPlaying) bar3State.value else 0.25f
+        val heightSpan = maxHeightPx - minHeightPx
+        val height1 = minHeightPx + heightSpan * bar1Fraction
+        val height2 = minHeightPx + heightSpan * bar2Fraction
+        val height3 = minHeightPx + heightSpan * bar3Fraction
 
         for (i in 0..2) {
             val left = i * (barWidthPx + spacingPx)
-            val barH = heights[i]
+            val barH = when (i) {
+                0 -> height1
+                1 -> height2
+                else -> height3
+            }
             val top = maxHeightPx - barH
 
             drawRoundRect(

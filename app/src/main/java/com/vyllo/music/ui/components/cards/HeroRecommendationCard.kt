@@ -27,14 +27,29 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
 
 @Composable
 fun HeroRecommendationCard(item: MusicItem, isPlaying: Boolean, onClick: () -> Unit) {
+    val context = LocalContext.current
+    // Cap decode at hero display size with no crossfade: full-res binds with
+    // fade-ins are the classic slow-scroll jank on 60 Hz panels.
+    val imageRequest = remember(item.thumbnailUrl) {
+        ImageRequest.Builder(context)
+            .data(item.thumbnailUrl)
+            .size(900, 640)
+            .crossfade(false)
+            .build()
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -43,7 +58,7 @@ fun HeroRecommendationCard(item: MusicItem, isPlaying: Boolean, onClick: () -> U
             .clickable { onClick() }
     ) {
         AsyncImage(
-            model = item.thumbnailUrl,
+            model = imageRequest,
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
@@ -71,7 +86,7 @@ fun HeroRecommendationCard(item: MusicItem, isPlaying: Boolean, onClick: () -> U
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
-                    "BEST MATCH",
+                    stringResource(R.string.hero_best_match),
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onPrimary
                 )

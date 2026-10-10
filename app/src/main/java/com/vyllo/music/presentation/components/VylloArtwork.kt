@@ -36,9 +36,9 @@ import com.vyllo.music.presentation.theme.VylloSize
 fun VylloArtwork(
     thumbnailUrl: String,
     contentDescription: String?,
-    cornerRadius: androidx.compose.ui.unit.Dp = VylloRadius.sm,
-    requestSizePx: Int = 280,
     modifier: Modifier = Modifier,
+    cornerRadius: androidx.compose.ui.unit.Dp = VylloRadius.sm,
+    requestSizePx: Int = 256,
     size: androidx.compose.ui.unit.Dp? = null,
     showLoading: Boolean = false
 ) {

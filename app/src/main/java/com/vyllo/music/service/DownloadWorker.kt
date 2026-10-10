@@ -13,6 +13,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.vyllo.music.R
 import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.data.download.DownloadDao
 import com.vyllo.music.domain.model.DownloadEntity
@@ -43,9 +44,12 @@ class DownloadWorker @AssistedInject constructor(
     private val wakeLock = (appContext.getSystemService(Context.POWER_SERVICE) as PowerManager)
         .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Vyllo:DownloadWorker")
 
-    // WiFi lock keeps the WiFi radio alive when screen is off
+    // WiFi lock keeps the WiFi radio alive when screen is off.
+    // WIFI_MODE_FULL (not HIGH_PERF): a sequential media download never needs
+    // MIMO high-throughput mode — FULL holds the radio at a fraction of the
+    // power/thermal cost, which matters when this lock is held for minutes.
     private val wifiLock = (appContext.getSystemService(Context.WIFI_SERVICE) as WifiManager)
-        .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Vyllo:DownloadWifiLock")
+        .createWifiLock(WifiManager.WIFI_MODE_FULL, "Vyllo:DownloadWifiLock")
 
     private val channelId = "download_channel"
     private val notificationId = params.id.hashCode()
@@ -140,7 +144,12 @@ class DownloadWorker @AssistedInject constructor(
                             var bytesRead: Int
                             var totalRead: Long = 0
                             var lastProgressUpdate = 0L
-                            val progressUpdateInterval = 100L
+                            // 1s / 1%-point throttle: every notify() is a binder
+                            // call plus a SystemUI re-render. 10 updates/sec keeps
+                            // the CPU and radio awake for no visible benefit; the
+                            // bar still moves smoothly at 1/sec on a phone screen.
+                            val progressUpdateInterval = 1000L
+                            var lastProgress = -1
 
                             while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                                 if (isStopped) {
@@ -153,8 +162,11 @@ class DownloadWorker @AssistedInject constructor(
                                 val currentTime = System.currentTimeMillis()
                                 if (totalBytes > 0 && currentTime - lastProgressUpdate >= progressUpdateInterval) {
                                     val progress = (totalRead * 100 / totalBytes).toInt()
-                                    setProgress(workDataOf("progress" to progress))
-                                    notificationManager.notify(notificationId, createNotification(title, progress))
+                                    if (progress != lastProgress) {
+                                        lastProgress = progress
+                                        setProgress(workDataOf("progress" to progress))
+                                        notificationManager.notify(notificationId, createNotification(title, progress))
+                                    }
                                     lastProgressUpdate = currentTime
                                 }
                             }
@@ -190,7 +202,7 @@ class DownloadWorker @AssistedInject constructor(
 
             val successNotification = NotificationCompat.Builder(applicationContext, channelId)
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
-                .setContentTitle("Download Complete")
+                .setContentTitle(applicationContext.getString(R.string.notif_download_complete))
                 .setContentText(title)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build()
@@ -259,7 +271,7 @@ class DownloadWorker @AssistedInject constructor(
     private fun createNotification(title: String, progress: Int) =
         NotificationCompat.Builder(applicationContext, channelId)
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle("Downloading Music")
+            .setContentTitle(applicationContext.getString(R.string.notif_downloading))
             .setContentText(title)
             .setProgress(100, progress, progress == 0)
             .setOngoing(true)

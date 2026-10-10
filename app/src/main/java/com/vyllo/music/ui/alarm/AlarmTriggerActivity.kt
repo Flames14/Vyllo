@@ -173,7 +173,7 @@ class AlarmTriggerActivity : ComponentActivity() {
         
         // Set alarm label
         val labelTextView = findViewById<TextView>(R.id.alarmLabelText)
-        labelTextView.text = alarmLabel.ifBlank { "Time to wake up!" }
+        labelTextView.text = alarmLabel.ifBlank { getString(R.string.alarm_default_label) }
         
         // Dismiss button
         findViewById<ImageButton>(R.id.dismissButton).setOnClickListener {

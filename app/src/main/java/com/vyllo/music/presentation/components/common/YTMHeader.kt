@@ -64,7 +64,7 @@ fun YTMHeader(
             )
             Spacer(modifier = Modifier.width(VylloSpacing.sm))
             Text(
-                text = "Music",
+                text = stringResource(R.string.header_music_title),
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground
             )

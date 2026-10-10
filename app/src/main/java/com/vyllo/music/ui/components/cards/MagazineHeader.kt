@@ -6,9 +6,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vyllo.music.R
 import java.util.Calendar
 
 @Composable
@@ -31,7 +33,7 @@ fun MagazineHeader() {
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
-            text = "Ready for some tunes?",
+            text = stringResource(R.string.magazine_ready),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onBackground.copy(0.6f),
             modifier = Modifier.padding(top = 8.dp)

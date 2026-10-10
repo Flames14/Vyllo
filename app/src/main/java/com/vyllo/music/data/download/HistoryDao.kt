@@ -6,10 +6,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface HistoryDao {
     @Query("SELECT * FROM playback_history ORDER BY lastPlayedAt DESC LIMIT :limit")
-    fun getRecentHistory(limit: Int = 20): Flow<List<HistoryEntity>>
+    fun getRecentHistory(limit: Int = 50): Flow<List<HistoryEntity>>
 
     @Query("SELECT * FROM playback_history ORDER BY lastPlayedAt DESC LIMIT :limit")
-    suspend fun getRecentHistoryList(limit: Int = 20): List<HistoryEntity>
+    suspend fun getRecentHistoryList(limit: Int = 50): List<HistoryEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHistory(history: HistoryEntity)

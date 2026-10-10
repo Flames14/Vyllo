@@ -22,6 +22,8 @@ import com.vyllo.music.data.repository.delegates.DescriptionMetadataParser
 import com.vyllo.music.data.repository.delegates.RelatedPoolManager
 import com.vyllo.music.data.repository.delegates.StreamSelector
 import com.vyllo.music.data.repository.delegates.SubtitleLyricsDelegate
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -45,6 +47,13 @@ class MusicRepositoryImpl @Inject constructor(
     private val subtitleLyricsDelegate: SubtitleLyricsDelegate,
     private val descriptionMetadataParser: DescriptionMetadataParser
 ) : IMusicRepository {
+
+    private companion object {
+        const val PRIMARY_BATCH = 12
+        const val SECONDARY_BATCH = 10
+        const val TRENDING_BATCH = 12
+        const val MAX_PER_ARTIST_HOME = 3
+    }
 
     override suspend fun getSuggestions(query: String): List<String> = suggestionDataSource.getSuggestions(query)
 
@@ -72,19 +81,35 @@ class MusicRepositoryImpl @Inject constructor(
         return try {
             val info = youtubeDataSource.getOrFetchStreamInfo(url, force)
             if (isVideo) {
-                val videoUrl = withContext(Dispatchers.IO) {
-                    streamSelector.selectPlayableVideoUrl(info.videoStreams)
+                // force == true means the previously handed-out URL was rejected by
+                // googlevideo, so it is now worth a round trip to probe alternatives
+                // (concurrently) instead of re-serving the same dead link.
+                val candidates = streamSelector.videoCandidates(info.videoStreams)
+                val videoUrl = if (force) {
+                    streamSelector.firstPlayableStreamUrl(candidates)
+                } else {
+                    candidates.firstOrNull()
                 }
                 SecureLogger.d("MusicRepositoryImpl") { "Video stream selected: ${videoUrl != null}" }
                 videoUrl
             } else {
-                var audioUrl = withContext(Dispatchers.IO) {
-                    streamSelector.selectPlayableAudioUrl(info.audioStreams)
+                var audioCandidates = streamSelector.audioCandidates(info.audioStreams)
+                var audioUrl: String? = if (force) {
+                    streamSelector.firstPlayableStreamUrl(audioCandidates)
+                } else {
+                    // Happy path: no probe at all. ExoPlayer surfaces a 403 through
+                    // PlayerErrorListener, which comes back here with force = true.
+                    audioCandidates.firstOrNull()
                 }
                 if (audioUrl == null) {
-                    SecureLogger.w("MusicRepositoryImpl", "No playable audio stream found, falling back to low-resolution video stream for audio playback")
-                    audioUrl = withContext(Dispatchers.IO) {
-                        streamSelector.selectPlayableVideoUrlForAudio(info.videoStreams)
+                    // Either no audio-only stream existed, or (force) every audio
+                    // candidate was rejected. Fall back to the cheapest video stream.
+                    SecureLogger.w("MusicRepositoryImpl", "No usable audio stream, falling back to low-resolution video stream for audio")
+                    val videoFallback = streamSelector.videoCandidatesForAudio(info.videoStreams)
+                    audioUrl = if (force) {
+                        streamSelector.firstPlayableStreamUrl(videoFallback)
+                    } else {
+                        videoFallback.firstOrNull()
                     }
                 }
                 SecureLogger.d("MusicRepositoryImpl") { "Audio stream selected: ${audioUrl != null}" }
@@ -104,11 +129,26 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun getMoreRelatedSongs(url: String): List<MusicItem> =
         relatedPoolManager.getMoreRelatedSongs(url)
 
-    override suspend fun getArtistSongs(artist: String): List<MusicItem> =
-        relatedPoolManager.getArtistSongs(artist)
+    override suspend fun getArtistSongs(artist: String, excludeUrls: Set<String>): List<MusicItem> =
+        relatedPoolManager.getArtistSongs(artist, excludeUrls)
 
-    override suspend fun getDiscoverSimilarSongs(title: String, artist: String): List<MusicItem> =
-        relatedPoolManager.getDiscoverSimilarSongs(title, artist)
+    override suspend fun getDiscoverSimilarSongs(
+        title: String,
+        artist: String,
+        excludeUrls: Set<String>,
+        excludeUploaders: Set<String>
+    ): List<MusicItem> = relatedPoolManager.getDiscoverSimilarSongs(
+        title = title,
+        artist = artist,
+        excludeUrls = excludeUrls,
+        excludeUploaders = excludeUploaders
+    )
+
+    override suspend fun getRelatedDiscoveryOrder(
+        url: String,
+        excludeUrls: Set<String>,
+        limit: Int
+    ): List<MusicItem> = relatedPoolManager.getDiscoveryOrder(url, excludeUrls, limit)
 
     // Playlist Methods
     override fun getAllPlaylists(): Flow<List<PlaylistEntity>> = playlistRepository.getAllPlaylists()
@@ -142,7 +182,15 @@ class MusicRepositoryImpl @Inject constructor(
 
     override suspend fun clearHistory() = historyDao.clearHistory()
 
-    override suspend fun getPatternSuggestions(): List<MusicItem> {
+    /**
+ * Home feed seed.
+ *
+ * Previously six strictly sequential network round trips, and Home awaited the
+ * whole thing before rendering anything — the single largest cause of the slow
+ * cold start. The independent branches now run concurrently; only the pagination
+ * seed stays serial because it must claim [YouTubeDataSource]'s session slot.
+ */
+override suspend fun getPatternSuggestions(): List<MusicItem> = coroutineScope {
         val allEntries = preferenceManager.preferences.all
         val topArtists = allEntries
             .filterKeys { it.startsWith("artist_") }
@@ -150,9 +198,6 @@ class MusicRepositoryImpl @Inject constructor(
             .sortedByDescending { it.second }
             .take(10)
             .map { it.first.removePrefix("artist_") }
-            .shuffled() // Shuffle so user sees variety across refreshes
-
-        val allItems = mutableListOf<MusicItem>()
 
         // Dynamic time-of-day contextual music seed
         val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
@@ -163,36 +208,47 @@ class MusicRepositoryImpl @Inject constructor(
             else -> listOf("late night drive songs", "deep sleep relaxing music")
         }.random()
 
-        // 1. Personalized Artist Mix (Quick Picks)
-        if (topArtists.isNotEmpty()) {
-            val selectedArtist = topArtists.first()
-            allItems.addAll(relatedPoolManager.cleanSongList(youtubeDataSource.searchMusic("$selectedArtist radio", maintainSession = false)).take(12))
-        } else {
-            allItems.addAll(relatedPoolManager.cleanSongList(youtubeDataSource.searchMusic("top music hits 2026", maintainSession = false)).take(12))
+        // Four independent branches. topArtists is not shuffled: a stable top
+        // artist keeps the feed consistent between refreshes, and variety already
+        // comes from the contextual seed plus the interleaving downstream.
+        val primaryArtist = topArtists.firstOrNull()
+        val secondaryArtist = topArtists.getOrNull(1)
+
+        val primaryDeferred = async {
+            val query = if (primaryArtist != null) "$primaryArtist radio" else "top music hits 2026"
+            relatedPoolManager.cleanSongList(youtubeDataSource.searchMusic(query, maintainSession = false))
+                .take(PRIMARY_BATCH)
+        }
+        val secondaryDeferred = async {
+            val query = secondaryArtist?.let { "$it mix" } ?: contextualSeed
+            relatedPoolManager.cleanSongList(youtubeDataSource.searchMusic(query, maintainSession = false))
+                .take(SECONDARY_BATCH)
+        }
+        val contextualDeferred = async {
+            relatedPoolManager.cleanSongList(youtubeDataSource.searchMusic(contextualSeed, maintainSession = false))
+                .take(SECONDARY_BATCH)
+        }
+        val trendingDeferred = async {
+            relatedPoolManager.cleanSongList(getTrendingMusic()).take(TRENDING_BATCH)
         }
 
-        // 2. Mixed For You (Secondary Artist or Genre Discovery)
-        if (topArtists.size > 1) {
-            val secondArtist = topArtists[1]
-            allItems.addAll(relatedPoolManager.cleanSongList(youtubeDataSource.searchMusic("$secondArtist mix", maintainSession = false)).take(10))
-        } else {
-            allItems.addAll(relatedPoolManager.cleanSongList(youtubeDataSource.searchMusic(contextualSeed, maintainSession = false)).take(10))
-        }
+        val combined = buildList {
+            addAll(primaryDeferred.await())
+            addAll(secondaryDeferred.await())
+            addAll(contextualDeferred.await())
+            addAll(trendingDeferred.await())
+        }.distinctBy { it.url }
 
-        // 3. Time-of-Day Contextual Discovery
-        allItems.addAll(relatedPoolManager.cleanSongList(youtubeDataSource.searchMusic(contextualSeed, maintainSession = false)).take(10))
+        // Pagination seed runs last: fetchItemsWithPagination claims the shared
+        // session slot, so it must not race the parallel searches above.
+        val paginationQuery = if (primaryArtist != null) "songs like $primaryArtist" else "global top 50 music"
+        val withPagination = combined + relatedPoolManager.cleanSongList(
+            youtubeDataSource.fetchItemsWithPagination(paginationQuery)
+        )
 
-        // 4. Global Trending Music
-        allItems.addAll(relatedPoolManager.cleanSongList(youtubeDataSource.getTrendingMusic()).take(12))
-
-        val finalItems = allItems.distinctBy { it.url }.toMutableList()
-
-        // 5. Pagination Seed
-        val paginationQuery = if (topArtists.isNotEmpty()) "songs like ${topArtists.first()}" else "global top 50 music"
-        val paginatedResults = relatedPoolManager.cleanSongList(youtubeDataSource.fetchItemsWithPagination(paginationQuery))
-        finalItems.addAll(paginatedResults)
-
-        return finalItems.distinctBy { it.url }.let { relatedPoolManager.capPerArtist(it, 2) }
+        // Cap at 3 per artist rather than 2: at 2 the feed could be squeezed down to
+        // a handful of rows whenever one artist's searches dominated the results.
+        relatedPoolManager.capPerArtist(withPagination.distinctBy { it.url }, MAX_PER_ARTIST_HOME)
     }
 
     override suspend fun loadMoreRecommendations(): List<MusicItem> =

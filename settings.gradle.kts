@@ -18,3 +18,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Vyllo"
 include(":app")
+include(":baseline-profile")

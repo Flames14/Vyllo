@@ -6,13 +6,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import com.vyllo.music.R
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,22 +21,19 @@ class PermissionHandler @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
 
+    // No SDK_INT guards: Settings.canDrawOverlays, ACTION_MANAGE_OVERLAY_PERMISSION
+    // and isIgnoringBatteryOptimizations are all API 23, below minSdk 24.
+
     fun hasOverlayPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Settings.canDrawOverlays(context)
-        } else {
-            true
-        }
+        return Settings.canDrawOverlays(context)
     }
 
     fun requestOverlayPermission(activity: Activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:${context.packageName}")
-            )
-            activity.startActivity(intent)
-        }
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:${context.packageName}")
+        )
+        activity.startActivity(intent)
     }
 
     /**
@@ -45,35 +42,34 @@ class PermissionHandler @Inject constructor(
      * when screen is off for extended periods.
      */
     fun isBatteryOptimizationDisabled(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            powerManager.isIgnoringBatteryOptimizations(context.packageName)
-        } else {
-            true
-        }
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        return powerManager.isIgnoringBatteryOptimizations(context.packageName)
     }
 
     /**
      * Request to disable battery optimization for reliable background playback.
      * This is optional but recommended for music apps.
+     *
+     * Lint: BatteryLife — same justification as BatteryOptimizationHelper: doze
+     * exemption is core to a music player's background playback and alarms, and
+     * the prompt is preceded by an in-app rationale the user can decline.
      */
+    @Suppress("BatteryLife")
     fun requestDisableBatteryOptimization(activity: Activity) {
         // Check first: when the exemption is already granted, launching the system
         // settings screen again looks like nothing happened and confuses users.
         if (isBatteryOptimizationDisabled()) {
-            Toast.makeText(context, "Background playback is already unrestricted", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.permission_already_unrestricted), Toast.LENGTH_SHORT).show()
             return
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            try {
-                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:${context.packageName}")
-                }
-                activity.startActivity(intent)
-            } catch (e: Exception) {
-                // Some OEM skins reject the direct intent; fall back to the manual page.
-                openBatteryOptimizationSettings(activity)
+        try {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:${context.packageName}")
             }
+            activity.startActivity(intent)
+        } catch (e: Exception) {
+            // Some OEM skins reject the direct intent; fall back to the manual page.
+            openBatteryOptimizationSettings(activity)
         }
     }
 

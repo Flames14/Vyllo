@@ -20,6 +20,7 @@ class AlarmVolumeController(
     private var isGradualVolumeComplete = false
     private var currentVolume = 0
     private var originalAlarmVolume: Int? = null
+    private var gradualRunnable: Runnable? = null
 
     companion object {
         private const val TAG = "AlarmTriggerService"
@@ -73,7 +74,8 @@ class AlarmVolumeController(
         val steps = (durationMs / intervalMs).toInt()
         val volumeStep = volume.toFloat() / steps
 
-        handler.postDelayed(object : Runnable {
+        gradualRunnable?.let { handler.removeCallbacks(it) }
+        val runnable = object : Runnable {
             override fun run() {
                 if (isGradualVolumeComplete || currentVolume >= volume) {
                     isGradualVolumeComplete = true
@@ -88,7 +90,16 @@ class AlarmVolumeController(
 
                 handler.postDelayed(this, intervalMs)
             }
-        }, intervalMs)
+        }
+        gradualRunnable = runnable
+        handler.postDelayed(runnable, intervalMs)
+    }
+
+    /** Stop any in-flight gradual ramp (dismiss / snooze / destroy). */
+    fun cancelGradualVolumeIncrease() {
+        isGradualVolumeComplete = true
+        gradualRunnable?.let { handler.removeCallbacks(it) }
+        gradualRunnable = null
     }
 
     /**

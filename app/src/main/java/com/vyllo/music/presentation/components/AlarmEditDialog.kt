@@ -59,8 +59,8 @@ fun AlarmEditDialog(
                 OutlinedTextField(
                     value = viewModel.selectedLabel,
                     onValueChange = { viewModel.selectedLabel = it },
-                    label = { Text("Label (optional)") },
-                    placeholder = { Text("e.g., Wake up, Gym, Work") },
+                    label = { Text(stringResource(R.string.alarm_label_optional)) },
+                    placeholder = { Text(stringResource(R.string.alarm_label_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     leadingIcon = {
@@ -97,7 +97,7 @@ fun AlarmEditDialog(
                 ) {
                     Column {
                         Text(
-                            text = "Vibration",
+                            text = stringResource(R.string.alarm_vibration),
                             style = MaterialTheme.typography.bodyLarge
                         )
                 Text(
@@ -117,12 +117,12 @@ fun AlarmEditDialog(
             FilledTonalButton(onClick = onSave) {
                 Icon(Icons.Rounded.Save, null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Save")
+                Text(stringResource(R.string.common_save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.common_cancel))
             }
         }
     )
@@ -155,7 +155,7 @@ private fun AlarmTimeSelector(
         ) {
             Column {
                 Text(
-                    text = "Time",
+                    text = stringResource(R.string.alarm_time_label),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -185,7 +185,7 @@ private fun RepeatDaysSelector(
 ) {
     Column {
         Text(
-            text = "Repeat",
+            text = stringResource(R.string.alarm_repeat),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
         )
@@ -241,7 +241,7 @@ private fun SoundSelector(
         ) {
             Column {
                 Text(
-                    text = "Sound",
+                    text = stringResource(R.string.alarm_sound_label),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -279,14 +279,14 @@ private fun VolumeSelector(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Volume: $volume%",
+                text = stringResource(R.string.alarm_volume_value, volume),
                 style = MaterialTheme.typography.bodyMedium
             )
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Gradual",
+                    text = stringResource(R.string.alarm_gradual),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
