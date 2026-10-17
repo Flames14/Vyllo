@@ -1,46 +1,54 @@
-# Vyllo
+<div align="center">
+
+# 🎧 Vyllo
+
+### Your music. Your flow.
+
+An unofficial Android music player for discovering and playing music from YouTube and YouTube Music—with background playback, an editable queue, offline downloads, lyrics, and a library that remembers what you love.
 
 [![Android CI](https://github.com/Flames14/Vyllo/actions/workflows/android-ci.yml/badge.svg?branch=main)](https://github.com/Flames14/Vyllo/actions/workflows/android-ci.yml)
-[![Platform: Android](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)](https://www.android.com/)
-[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white)](https://www.android.com/)
+[![GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 
-Vyllo is an unofficial Android music player that plays audio and video from YouTube and YouTube Music. It combines background playback, an editable queue, downloads, playlists, lyrics, and library tools in a Jetpack Compose interface.
+<img src="poster.png" width="100%" alt="Vyllo music player screens: browse, player, explore, library, settings, and lyrics">
 
-> Vyllo does not host or distribute music. Content availability and playback depend on third-party services. Users are responsible for complying with applicable terms and copyright laws. Vyllo is not affiliated with or endorsed by Google or YouTube.
+[Get Vyllo](https://github.com/Flames14/Vyllo/releases) · [Build it yourself](#build-from-source) · [Report an issue](https://github.com/Flames14/Vyllo/issues)
 
-## Download
+</div>
 
-Published APKs are available from [GitHub Releases](https://github.com/Flames14/Vyllo/releases). A release is produced by the CI workflow when a `v*` version tag is pushed. The APK built locally from this checkout is not published automatically by a normal branch push.
+---
 
-To install a published APK, download `app-release.apk`, allow installation from the selected source if Android prompts, and open Vyllo. The minimum supported Android version is Android 7.0 (API 24).
+## Made for listening
 
-## Features
+Vyllo started with a simple idea: music should feel good to browse, easy to control, and ready to follow you between screens. Pick a track, shape your queue, save music for offline listening, or let the next song find its way to you.
 
-- **Playback:** stream audio or video, continue playback in the background, and control playback from the notification or floating mini-player.
-- **Queue:** edit Up Next by moving tracks, removing tracks, and clearing upcoming tracks; queue changes are synchronized with playback.
-- **Library:** create local playlists, browse downloads and recently played tracks, remove history entries, and clear listening history.
-- **Favorites:** like or dislike tracks with ratings persisted locally across restarts.
-- **Offline listening:** download supported tracks for playback without a network connection.
-- **Discovery:** search and browse recommendations, with autoplay and sticky-queue preferences.
-- **Lyrics and audio:** synced lyrics, equalizer controls, and volume enhancement controls.
-- **More tools:** alarms, sleep timer, song recognition, backup and restore, and YouTube playlist import/sync options.
-- **Localization and accessibility:** English and Spanish resources, TalkBack descriptions, and retryable loading/error states.
+### The good stuff
 
-Features depend on the availability and behavior of the upstream services and Android permissions. See [PERMISSIONS.md](PERMISSIONS.md) for the permissions Vyllo requests and their purposes.
+| 🎶 Listen | 📚 Make it yours | ✨ Set the mood |
+|:--|:--|:--|
+| Background audio and video playback | Playlists, likes, dislikes, and listening history | Synced lyrics and song recognition |
+| Floating mini-player with transport controls | Reorder, remove, and clear upcoming tracks | Equalizer, volume boost, and sleep timer |
+| Offline downloads | Backup and restore your library | Alarms and YouTube playlist sync |
+
+Most features work without signing in. Google sign-in is optional for supported playlist-sync features.
+
+## Get the app
+
+Download the latest **published** APK from [GitHub Releases](https://github.com/Flames14/Vyllo/releases). Release builds are created by CI when a `v*` tag is pushed; pushing a regular branch does not publish an APK.
+
+Install the downloaded `app-release.apk` and follow Android’s prompt if it asks permission to install from your browser or file manager. Vyllo supports Android 7.0 (API 24) and newer.
 
 ## Build from source
 
-### Requirements
+### You’ll need
 
 - JDK 17
-- Android SDK with platform 36 and the required build tools installed
-- Gradle 8.11.1 (the included Gradle wrapper downloads and verifies this version)
+- Android SDK Platform 36 and its build tools
+- Gradle 8.11.1 (the checked-in wrapper downloads and verifies it for you)
 
 The project currently uses Kotlin 1.9.24 and Android Gradle Plugin 8.9.1.
 
-### Build and test
-
-Clone the repository and build the debug app:
+### Build and verify
 
 ```bash
 git clone https://github.com/Flames14/Vyllo.git
@@ -48,50 +56,46 @@ cd Vyllo
 ./gradlew :app:assembleDebug
 ```
 
-On Windows, run `gradlew.bat` instead of `./gradlew`.
+On Windows, use `gradlew.bat` in place of `./gradlew`.
 
-Run the local verification checks:
+Run the project’s local checks:
 
 ```bash
 ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:compileDebugAndroidTestKotlin
 ```
 
-To run instrumented tests, start an Android emulator or connect a device and run:
+With an emulator or device connected, run the instrumented tests too:
 
 ```bash
 ./gradlew :app:connectedDebugAndroidTest
 ```
 
-The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
+The debug APK appears at `app/build/outputs/apk/debug/app-debug.apk`.
 
-### Build a signed release APK
+### Production release build
 
-Release builds use R8 minification and resource shrinking. A production release build requires the release signing certificate configured for Vyllo; Gradle verifies the APK signature and zip alignment as part of the build.
+Release builds are minified and resource-shrunk. They require Vyllo’s release signing credentials; Gradle checks the signer and APK alignment during packaging.
 
-For a local build, copy `keystore.local.properties.example` to the git-ignored `keystore.local.properties` and fill in the signing values. Alternatively, provide the corresponding `VYLLO_STOREFILE`, `VYLLO_STOREPASSWORD`, `VYLLO_KEYALIAS`, and `VYLLO_KEYPASSWORD` environment variables. Never commit signing keys, passwords, or local properties.
-
-Then run:
+For a local build, copy `keystore.local.properties.example` to the git-ignored `keystore.local.properties` and add your authorized signing values. Or provide `VYLLO_STOREFILE`, `VYLLO_STOREPASSWORD`, `VYLLO_KEYALIAS`, and `VYLLO_KEYPASSWORD` as environment variables. **Never commit a keystore or passwords.**
 
 ```bash
 ./gradlew :app:assembleRelease
 ```
 
-The release APK is written to `app/build/outputs/apk/release/app-release.apk`. The workflow requires signing credentials for published releases. `-PallowDebugRelease` is available only for explicitly requested local/debug-signed packaging; that APK is not suitable for distribution or updating an existing production-signed installation.
+The APK is written to `app/build/outputs/apk/release/app-release.apk`. `-PallowDebugRelease` is for explicit local testing only; debug-signed builds are not suitable for distribution or production updates.
 
-## Technology
+## Under the hood
 
-- Kotlin and Jetpack Compose with Material 3
-- AndroidX Media3 / ExoPlayer for playback and media sessions
-- Room for local database storage and migrations; DataStore for preferences
-- Hilt for dependency injection
-- NewPipe Extractor for YouTube media extraction
-- OkHttp for networking and Coil for image loading
-- WorkManager and foreground services for background work and playback
+Kotlin · Jetpack Compose · Material 3 · AndroidX Media3 · Room · DataStore · Hilt · NewPipe Extractor · OkHttp · Coil · WorkManager
 
-## Contributing
+## Want to help?
 
-Bug reports and focused pull requests are welcome. For substantial changes, open an issue first to discuss the intended behavior and implementation. Please run the unit tests and lint checks before submitting a pull request.
+Found a bug or have an idea? [Open an issue](https://github.com/Flames14/Vyllo/issues). Pull requests are welcome—please run the checks above and, for bigger changes, start with an issue so we can talk through the approach.
+
+## A quick note
+
+Vyllo does not host or distribute music. Playback and availability depend on third-party services. Please respect applicable service terms and copyright. Vyllo is an independent project and is not affiliated with Google or YouTube.
 
 ## License
 
-Vyllo is distributed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
+Vyllo is free software, licensed under the [GNU General Public License v3.0](LICENSE).
