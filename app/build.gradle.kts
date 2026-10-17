@@ -1,4 +1,4 @@
-﻿import java.io.ByteArrayOutputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Properties
 
@@ -401,7 +401,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     // Mockito for unit tests
-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:6.4.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 
     // Leak detection â€” debug only. Releases are unaffected (LeakCanary's own
