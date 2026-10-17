@@ -25,17 +25,12 @@ object AlarmNotificationFactory {
      */
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val audioAttributes = AudioAttributes.Builder()
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .build()
-
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Alarms",
+                context.getString(R.string.alarm_channel_name),
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Alarm notifications"
+                description = context.getString(R.string.alarm_channel_desc)
                 enableVibration(false) // We handle vibration manually!
                 setSound(null, null) // WE HANDLE SOUND MANUALLY!
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
@@ -115,7 +110,7 @@ object AlarmNotificationFactory {
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(context.getString(R.string.notif_alarm_title))
-            .setContentText(if (alarmLabel.isNotBlank()) alarmLabel else "Tap to dismiss or snooze")
+            .setContentText(if (alarmLabel.isNotBlank()) alarmLabel else context.getString(R.string.alarm_notif_tap_action))
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -123,8 +118,8 @@ object AlarmNotificationFactory {
             .setOngoing(true)
             .setSilent(false)
             .setFullScreenIntent(fullScreenPendingIntent, true)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Dismiss", dismissPendingIntent)
-            .addAction(android.R.drawable.ic_menu_recent_history, "Snooze 5 min", snoozePendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, context.getString(R.string.alarm_dismiss), dismissPendingIntent)
+            .addAction(android.R.drawable.ic_menu_recent_history, context.getString(R.string.alarm_snooze), snoozePendingIntent)
             .build()
     }
 }

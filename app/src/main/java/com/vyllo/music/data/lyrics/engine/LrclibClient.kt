@@ -17,6 +17,13 @@ object LrclibClient {
     private const val LRCLIB_API = BuildConfig.LYRICS_API_BASE
 
     /**
+     * Minimum word-overlap for a search candidate to count as a match. ~0.4 lets
+     * bracketed variants ("(Remastered)", "(Official Audio)") through while
+     * rejecting candidates that merely share the synced-lyrics bonus.
+     */
+    private const val MIN_TITLE_SIMILARITY = 0.4
+
+    /**
      * LRCLIB exact match endpoint.
      * GET /get?track_name=...&artist_name=...&duration=...
      */
@@ -40,9 +47,9 @@ object LrclibClient {
                     val json = JSONObject(body)
                     SecureLogger.d(TAG, "  [1/5] JSON has id=${json.has("id")}, has synced=${json.opt("syncedLyrics") != null}, has plain=${json.opt("plainLyrics") != null}")
                     if (json.has("id")) {
-                        val synced = json.optString("syncedLyrics", null)
-                        val plain = json.optString("plainLyrics", null)
-                        if ((synced != null && synced.isNotBlank()) || (plain != null && plain.isNotBlank())) {
+                        val synced = json.optString("syncedLyrics").takeIf { it.isNotBlank() }
+                        val plain = json.optString("plainLyrics").takeIf { it.isNotBlank() }
+                        if (synced != null || plain != null) {
                             SecureLogger.d(TAG, "  [1/5] SUCCESS - parsed LRCLIB result")
                             return parseLrclibResult(json)
                         } else {
@@ -91,12 +98,13 @@ object LrclibClient {
 
             var bestResult: LyricsResult? = null
             var bestScore = -1.0
+            var bestTitleSim = 0.0
 
             for (i in 0 until minOf(arr.length(), 15)) {
                 val json = arr.getJSONObject(i)
-                val synced = json.optString("syncedLyrics", null)
-                val plain = json.optString("plainLyrics", null)
-                if (synced.isNullOrBlank() && plain.isNullOrBlank()) continue
+                val synced = json.optString("syncedLyrics").takeIf { it.isNotBlank() }
+                val plain = json.optString("plainLyrics").takeIf { it.isNotBlank() }
+                if (synced == null && plain == null) continue
 
                 val result = parseLrclibResult(json)
                 var score = 0.0
@@ -112,17 +120,22 @@ object LrclibClient {
                 score += titleSim * 3.0
 
                 // Synced lyrics bonus
-                if (!synced.isNullOrBlank()) score += 2.0
+                if (synced != null) score += 2.0
 
                 SecureLogger.d(TAG, "    Candidate: '${result.trackName}' score=$score (titleSim=${String.format(java.util.Locale.ROOT, "%.2f", titleSim)})")
 
                 if (score > bestScore) {
                     bestScore = score
+                    bestTitleSim = titleSim
                     bestResult = result
                 }
             }
 
-            if (bestResult != null && bestScore >= 0.5) {
+            // The synced bonus (+2.0) alone clears a 0.5 score floor, so previously
+            // ANY synced candidate was accepted even with zero title overlap — the
+            // title-only strategy then confidently returned a wrong song and masked
+            // every provider tried after it. Require real title evidence too.
+            if (bestResult != null && bestScore >= 0.5 && bestTitleSim >= MIN_TITLE_SIMILARITY) {
                 return bestResult
             }
             null
@@ -133,15 +146,15 @@ object LrclibClient {
     }
 
     fun parseLrclibResult(json: JSONObject): LyricsResult {
-        val syncedLyrics = json.optString("syncedLyrics", null).takeIf { it?.isNotBlank() == true }
-        val plainLyrics = json.optString("plainLyrics", null).takeIf { it?.isNotBlank() == true }
+        val syncedLyrics = json.optString("syncedLyrics").takeIf { it.isNotBlank() }
+        val plainLyrics = json.optString("plainLyrics").takeIf { it.isNotBlank() }
         val trackName = json.optString("trackName", "").ifBlank { json.optString("name", "") }
 
         return LyricsResult(
             id = json.optLong("id", 0L),
             trackName = trackName,
             artistName = json.optString("artistName", ""),
-            albumName = json.optString("albumName", null),
+            albumName = json.optString("albumName").takeIf { it.isNotBlank() },
             duration = json.optDouble("duration", 0.0).toLong(),
             instrumental = json.optBoolean("instrumental", false),
             plainLyrics = plainLyrics,

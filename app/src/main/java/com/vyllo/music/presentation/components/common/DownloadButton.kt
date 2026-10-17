@@ -61,12 +61,22 @@ fun DownloadButton(item: MusicItem) {
         if (progress != null) {
             val downloadProgress = (progress ?: 0) / 100f
             Box(contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(
-                    progress = { downloadProgress },
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                // 0% means "unknown length or still starting" — spin rather
+                // than render an empty ring that reads as a broken button.
+                if (downloadProgress <= 0f) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    CircularProgressIndicator(
+                        progress = { downloadProgress },
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 Icon(
                     Icons.Rounded.Close,
                     contentDescription = stringResource(R.string.download_cd_cancel),

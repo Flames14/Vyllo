@@ -434,14 +434,21 @@ object RelatedRanking {
         return out.sortedByDescending { it.weight }
     }
 
-    /** Queries for expansion rounds, drawn from the tail of the same ladder. */
+    /**
+     * Queries for expansion rounds, drawn from the tail of the same ladder.
+     *
+     * Expansion continues *after* the initial [INITIAL_QUERY_COUNT] batch the
+     * pool was built with — otherwise round 0 re-fires the top queries the
+     * caller already fetched, wasting a network round trip for duplicates.
+     */
     fun buildExpansionLadder(
         ladder: List<WeightedQuery>,
         round: Int,
         perRound: Int = EXPANSION_QUERIES_PER_ROUND
     ): List<WeightedQuery> {
         if (ladder.isEmpty()) return emptyList()
-        val start = (round * perRound).coerceAtMost(ladder.size)
+        val start = (INITIAL_QUERY_COUNT + round.coerceAtLeast(0) * perRound)
+            .coerceAtMost(ladder.size)
         return ladder.drop(start).take(perRound)
     }
 
@@ -449,7 +456,6 @@ object RelatedRanking {
     fun buildArtistLadder(
         artist: String,
         language: String? = null,
-        languageFragment: String? = null,
         genres: List<String> = emptyList()
     ): List<WeightedQuery> {
         val cleanArtist = cleanArtist(artist).trim()

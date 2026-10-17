@@ -22,7 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.R
 import kotlin.math.roundToInt
-import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 
 @Composable
 fun VolumeBoosterOverlay(
@@ -58,7 +58,7 @@ fun VolumeBoosterOverlay(
                 horizontalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Rounded.VolumeUp,
+                    imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Rounded.VolumeUp,
                     contentDescription = stringResource(R.string.cd_volume_boost),
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(24.dp)

@@ -57,8 +57,7 @@ object TitleArtistCleaner {
         title = title.replace(Regex("\\s+"), " ").trim()
 
         // Step 2: Handle "Artist - Title" format in title
-        val dashes = listOf(" - ", " \u2013 ", " \u2014 ")
-        var hasDashArtist = false
+        val dashes = listOf(" - ", " – ", " — ")
         for (dash in dashes) {
             if (title.contains(dash)) {
                 val parts = title.split(dash, limit = 2)
@@ -70,7 +69,6 @@ object TitleArtistCleaner {
                         if (!isRecordLabel(potentialArtist)) {
                             artist = potentialArtist
                             title = potentialTitle
-                            hasDashArtist = true
                             break
                         }
                     }

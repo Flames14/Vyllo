@@ -82,13 +82,13 @@ fun YouTubeSyncBottomSheet(
                         modifier = Modifier
                             .size(42.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFFF0000).copy(alpha = 0.15f)),
+                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Rounded.Sync,
                             contentDescription = null,
-                            tint = Color(0xFFFF0000),
+                            tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(24.dp)
                         )
                     }

@@ -51,7 +51,7 @@ fun InstantImportCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Bolt, contentDescription = stringResource(R.string.cd_instant_import), tint = Color(0xFFFFB300), modifier = Modifier.size(22.dp))
+                Icon(Icons.Rounded.Bolt, contentDescription = stringResource(R.string.cd_instant_import), tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(22.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = stringResource(R.string.import_title),

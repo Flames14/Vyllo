@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 class StreamSelectorTest {
 
-    private val selector = StreamSelector()
+    private val selector = StreamSelector(com.vyllo.music.core.security.SecurityConfig())
 
     /** Streams are never probed by selection; use a URL that would fail if hit. */
     private fun audioStream(bitrate: Int, id: String): AudioStream {
@@ -90,16 +90,16 @@ class StreamSelectorTest {
 
     @Test
     fun `selection performs no network probing`() {
-        // A fully unreachable host: if selection probed, these calls would take
-        // seconds and fail. Selection must return instantly with zero network I/O.
-        val start = System.nanoTime()
-        val candidates = selector.audioCandidates(
+        // Use the controlled probe override rather than a wall-clock threshold.
+        // CI machines can be paused or CPU-starved, but a selection path that
+        // probes would always increment maxInFlight regardless of host load.
+        val tracker = ConcurrencyTrackingSelector()
+        val candidates = tracker.audioCandidates(
             listOf(audioStream(128, "a"), audioStream(320, "b"))
         )
-        val elapsedMs = (System.nanoTime() - start) / 1_000_000.0
 
         assertEquals(2, candidates.size)
-        assertTrue("selection took ${elapsedMs}ms — it must not probe", elapsedMs < 500)
+        assertEquals("selection must not call the recovery probe", 0, tracker.maxInFlight)
     }
 
     @Test
@@ -153,7 +153,7 @@ class StreamSelectorTest {
      * probe implementation we control, so the concurrency contract can be asserted
      * without real network I/O.
      */
-    private class ConcurrencyTrackingSelector : StreamSelector() {
+    private class ConcurrencyTrackingSelector : StreamSelector(com.vyllo.music.core.security.SecurityConfig()) {
         val playableUrls = mutableSetOf<String>()
 
         /** Highest number of simultaneous probes observed. */

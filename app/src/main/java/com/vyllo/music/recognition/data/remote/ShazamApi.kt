@@ -73,7 +73,6 @@ class ShazamApi @Inject constructor(
         return try {
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    val errorBody = response.body?.string()
                     SecureLogger.e("ShazamApi", "Shazam API error: ${response.code}")
                     return Result.failure(Exception("Shazam API error: ${response.code}"))
                 }

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,7 +26,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
@@ -64,13 +64,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun PlayerQueueSheet(
     item: MusicItem,
-    relatedSongs: List<MusicItem>,
     playerUiState: PlayerUiState,
     viewModel: PlayerViewModel,
     controller: MediaController?,
     sheetOffsetY: Animatable<Float, AnimationVector1D>,
     sheetMaxOffset: Float,
-    expandProgress: Float,
     isSheetExpanded: Boolean,
     selectedDrawerTab: Int,
     onTabSelected: (Int) -> Unit,
@@ -121,10 +119,10 @@ fun PlayerQueueSheet(
             // GPU transform: dragging translates a cached layer instead of
             // re-measuring/re-laying-out the whole drawer every frame (60 Hz).
             .graphicsLayer { translationY = sheetOffsetY.value }
-            .shadow(28.dp, RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp), spotColor = Color.Black.copy(alpha = 0.5f))
+            .shadow(28.dp, RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp), spotColor = androidx.compose.material3.MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f))
             .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
-            .background(Color(0xFF1E1E22).copy(alpha = 0.96f))
-            .border(0.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
+            .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f))
+            .border(0.5.dp, androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
     ) {
         Column(
             modifier = Modifier
@@ -295,7 +293,6 @@ fun PlayerQueueSheet(
                 0 -> {
                     PlayerUpNextTab(
                         item = item,
-                        relatedSongs = relatedSongs,
                         playerUiState = playerUiState,
                         viewModel = viewModel,
                         onPlayRelated = onPlayRelated
@@ -326,7 +323,8 @@ fun PlayerQueueSheet(
 fun QueueSongRowItem(
     item: MusicItem,
     isActive: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    trailingContent: (@Composable RowScope.() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -396,14 +394,9 @@ fun QueueSongRowItem(
             )
         }
 
-        Spacer(Modifier.width(8.dp))
-
-        // Drag handle icon (=)
-        Icon(
-            imageVector = Icons.Rounded.DragHandle,
-            contentDescription = stringResource(R.string.cd_reorder),
-            tint = Color.White.copy(alpha = 0.4f),
-            modifier = Modifier.size(22.dp)
-        )
+        trailingContent?.let { content ->
+            Spacer(Modifier.width(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, content = content)
+        }
     }
 }

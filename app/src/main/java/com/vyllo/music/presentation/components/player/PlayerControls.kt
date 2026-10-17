@@ -39,10 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -85,68 +82,63 @@ fun PlayerActionPills(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Like / Dislike Combined Pill (Real YouTube Likes with Interactive Feedback)
-        var isLiked by remember(item.url) { mutableStateOf(false) }
-        var isDisliked by remember(item.url) { mutableStateOf(false) }
-        val likeFallbackLabel = stringResource(R.string.pill_like)
+        // Like / Dislike Combined Pill.
+//
+// The rating is persisted (favorites table) rather than held in local Compose
+// state. Note the displayed count is the real YouTube count and is NEVER
+// incremented: this is a local rating, not a call to YouTube's vote endpoint,
+// so inflating their global count would be fabricating a number.
+val rating = playerUiState.favoriteRating
+val isLiked = rating == 1
+val isDisliked = rating == -1
+val likeFallbackLabel = stringResource(R.string.pill_like)
 
-        val displayedLikes = remember(playerUiState.likeCountFormatted, isLiked, likeFallbackLabel) {
-            when {
-                isLiked -> {
-                    val baseCount = playerUiState.likeCount
-                    if (baseCount > 0) {
-                        viewModel.formatMetricCount(baseCount + 1)
-                    } else "1"
+val displayedLikes = remember(playerUiState.likeCountFormatted, likeFallbackLabel) {
+    playerUiState.likeCountFormatted?.takeIf { it.isNotBlank() } ?: likeFallbackLabel
+}
+
+Surface(
+    shape = RoundedCornerShape(50),
+    color = Color.White.copy(alpha = 0.12f),
+    contentColor = Color.White
+) {
+    Row(
+        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.ThumbUp,
+            contentDescription = stringResource(R.string.cd_like),
+            tint = if (isLiked) Color(0xFF3EA6FF) else Color.White,
+            modifier = Modifier
+                .size(18.dp)
+                .clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    viewModel.toggleFavoriteRating(1)
                 }
-                !playerUiState.likeCountFormatted.isNullOrBlank() -> playerUiState.likeCountFormatted.orEmpty()
-                else -> likeFallbackLabel
-            }
-        }
-
-        Surface(
-            shape = RoundedCornerShape(50),
-            color = Color.White.copy(alpha = 0.12f),
-            contentColor = Color.White
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.ThumbUp,
-                    contentDescription = stringResource(R.string.cd_like),
-                    tint = if (isLiked) Color(0xFF3EA6FF) else Color.White,
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            isLiked = !isLiked
-                            if (isLiked) isDisliked = false
-                        }
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = displayedLikes,
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = if (isLiked) Color(0xFF3EA6FF) else Color.White
-                )
-                Spacer(Modifier.width(10.dp))
-                Box(modifier = Modifier.width(1.dp).height(16.dp).background(Color.White.copy(0.2f)))
-                Spacer(Modifier.width(10.dp))
-                Icon(
-                    imageVector = Icons.Rounded.ThumbDown,
-                    contentDescription = stringResource(R.string.cd_dislike),
-                    tint = if (isDisliked) Color(0xFF3EA6FF) else Color.White,
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            isDisliked = !isDisliked
-                            if (isDisliked) isLiked = false
-                        }
-                )
-            }
-        }
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = displayedLikes,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            color = if (isLiked) Color(0xFF3EA6FF) else Color.White
+        )
+        Spacer(Modifier.width(10.dp))
+        Box(modifier = Modifier.width(1.dp).height(16.dp).background(Color.White.copy(0.2f)))
+        Spacer(Modifier.width(10.dp))
+        Icon(
+            imageVector = Icons.Rounded.ThumbDown,
+            contentDescription = stringResource(R.string.cd_dislike),
+            tint = if (isDisliked) Color(0xFF3EA6FF) else Color.White,
+            modifier = Modifier
+                .size(18.dp)
+                .clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    viewModel.toggleFavoriteRating(-1)
+                }
+        )
+    }
+}
 
         // Lyrics Pill
         YtmPillButton(icon = Icons.Rounded.Lyrics, label = stringResource(R.string.pill_lyrics)) {
@@ -180,7 +172,6 @@ fun PlayerActionPills(
 fun PlayerPlaybackControls(
     isPlaying: Boolean,
     isLoading: Boolean,
-    currentPosition: Long,
     duration: Long,
     controller: MediaController?,
     shuffleModeEnabled: Boolean,

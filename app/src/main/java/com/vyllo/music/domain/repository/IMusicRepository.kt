@@ -54,8 +54,22 @@ interface IMusicRepository {
     fun getRecentHistory(limit: Int = 50): Flow<List<MusicItem>>
     suspend fun recordListen(item: MusicItem)
     suspend fun clearHistory()
+    suspend fun removeFromHistory(url: String)
     suspend fun getPatternSuggestions(): List<MusicItem>
     suspend fun loadMoreRecommendations(): List<MusicItem>
+
+    // Favorites / Ratings Methods
+    /** Signed rating for [url]: 1 liked, -1 disliked, 0 unrated. */
+    suspend fun getRating(url: String): Int
+    fun observeLikedSongs(): Flow<List<MusicItem>>
+    fun observeDislikedSongs(): Flow<List<MusicItem>>
+    fun observeLikedCount(): Flow<Int>
+    /**
+     * Rate [item] as liked (1), disliked (-1), or clear the rating (0).
+     * Callers should optimistically update the UI and surface failures.
+     */
+    suspend fun setRating(item: MusicItem, rating: Int): Boolean
+    suspend fun clearAllRatings()
 
     // Preference Methods
     fun loadSearchHistory(): List<String>

@@ -16,12 +16,25 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class YouTubeThumbnailResolver @Inject constructor() : HighResThumbnailResolver {
+class YouTubeThumbnailResolver @Inject constructor(
+    securityConfig: com.vyllo.music.core.security.SecurityConfig
+) : HighResThumbnailResolver {
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.SECONDS)
-        .build()
+    private val client: OkHttpClient = runCatching {
+        securityConfig.createFlexibleSecureHttpClient().newBuilder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(false)
+            .build()
+    }.getOrElse {
+        OkHttpClient.Builder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(false)
+            .build()
+    }
 
     private val cache = ConcurrentHashMap<String, String>()
 

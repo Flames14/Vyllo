@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="alarm_channel_name">Alarmas</string>
+    <string name="alarm_channel_desc">Notificaciones de alarma</string>
+    <string name="alarm_notif_tap_action">Toca para descartar o posponer</string>
     <string name="exact_alarm_permission_title">Permitir alarmas exactas</string>
     <string name="exact_alarm_permission_message">Android necesita este acceso para que las alarmas suenen a la hora que establezcas. Activa Alarmas y recordatorios para Vyllo y luego vuelve aquí para guardar o activar tu alarma.</string>
     <string name="exact_alarm_permission_action">Abrir ajustes</string>
@@ -149,6 +152,17 @@
     </plurals>
     <string name="queue_swipe_up_hint">Desliza hacia arriba para ver lo que sigue</string>
     <string name="queue_auto_mix">%1$s • Mezcla automática</string>
+
+    <string name="queue_move_up">Subir</string>
+    <string name="queue_move_down">Bajar</string>
+    <string name="queue_remove">Eliminar</string>
+    <string name="queue_item_removed">Eliminado de la cola</string>
+    <string name="queue_cleared">Próximamente actualizado</string>
+    <string name="queue_clear_title">¿Borrar lo que sigue?</string>
+    <string name="queue_clear_message">Se eliminarán todas las pistas próximas. No se puede deshacer.</string>
+    <string name="cd_clear_queue">Borrar lo que sigue</string>
+    <string name="cd_queue_options">Opciones de cola</string>
+    <string name="action_undo">DESHACER</string>
 
     <!-- Downloads / empty / error states -->
     <string name="download_cd_cancel">Cancelar</string>
@@ -315,6 +329,10 @@
     <string name="settings_wifi_only_desc">Descarga canciones solo mediante Wi-Fi</string>
     <string name="settings_pause_low_battery">Pausar descargas con poca batería</string>
     <string name="settings_pause_low_battery_desc">Espera a que la batería y el almacenamiento estén en buen estado</string>
+    <string name="settings_autoplay">Reproducción automática</string>
+    <string name="settings_autoplay_desc">Sigue reproduciendo temas similares cuando termine la cola</string>
+    <string name="settings_sticky_queue">Cola persistente</string>
+    <string name="settings_sticky_queue_desc">Mantén tu cola cuando inicies algo nuevo</string>
     <string name="settings_support">Apoyar el desarrollo</string>
     <string name="settings_buy_coffee">Invítame a un café ☕</string>
     <string name="settings_donate_cd">Donar</string>
@@ -334,6 +352,13 @@
     <string name="library_no_playlists">Aún no hay listas</string>
     <string name="library_downloads_title">Descargas</string>
     <string name="library_no_downloads">Aún no hay descargas</string>
+    <string name="library_history_title">Reproducido recientemente</string>
+    <string name="library_history_empty">Aún no hay historial</string>
+    <string name="library_history_empty_body">Las canciones que reproduzcas aparecerán aquí.</string>
+    <string name="history_clear_title">¿Borrar el historial?</string>
+    <string name="history_clear_message">Se eliminarán todas las canciones del historial de reproducción.</string>
+    <string name="history_clear_action">Borrar historial de reproducción</string>
+    <string name="history_remove_action">Quitar del historial de reproducción</string>
     <string name="library_playlist_empty">Esta lista está vacía</string>
 
     <!-- Google account sync (OAuth) -->

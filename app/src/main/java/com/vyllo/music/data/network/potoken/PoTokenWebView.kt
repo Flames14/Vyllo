@@ -131,7 +131,7 @@ class PoTokenWebView private constructor(
             expirationInstant = Instant.now().plusSeconds(expirationTimeInSeconds - 600)
 
             scope.launch(Dispatchers.Main) {
-                if (!isValidJsonValue(integrityToken)) {
+                if (!isValidUint8ArrayLiteral(integrityToken)) {
                     onInitializationErrorCloseAndCancel(BadWebViewException("Invalid integrity token"))
                     return@launch
                 }
@@ -258,22 +258,6 @@ class PoTokenWebView private constructor(
         }
     }
 
-    private fun isValidJsonValue(raw: String): Boolean {
-        return try {
-            val trimmed = raw.trim()
-            if (trimmed.startsWith("{")) {
-                JSONObject(trimmed)
-            } else if (trimmed.startsWith("[")) {
-                org.json.JSONArray(trimmed)
-            } else {
-                JSONObject.quote(trimmed)
-            }
-            true
-        } catch (_: Exception) {
-            false
-        }
-    }
-
     private fun onInitializationErrorCloseAndCancel(error: Throwable) {       scope.launch(Dispatchers.Main) {
             close()
             initCallback(Result.failure(error))
@@ -325,4 +309,55 @@ class PoTokenWebView private constructor(
             }
         }
     }
+}
+
+/** Bounds the `new Uint8Array([...])` literal so a tampered token cannot bloat memory. */
+internal const val MAX_UINT8_ARRAY_ELEMENTS = 2_500
+
+/**
+ * Validates a string that is interpolated raw into the privileged
+ * `data = $parsedChallengeData` JavaScript. org.json parses leniently and
+ * ignores trailing text, so a payload like `{"a":1};evil()` must be rejected
+ * by requiring the single object/array to consume the whole input and to be
+ * non-empty.
+ */
+internal fun isValidJsonValue(raw: String): Boolean {
+    return try {
+        val trimmed = raw.trim()
+        val tokener = org.json.JSONTokener(trimmed)
+        val value = tokener.nextValue()
+        val consumedAll = tokener.nextClean().code == 0
+        when {
+            value is JSONObject -> consumedAll && value.length() > 0
+            value is org.json.JSONArray -> consumedAll && value.length() > 0
+            else -> false
+        }
+    } catch (_: Exception) {
+        false
+    }
+}
+
+/**
+ * The integrity token is interpolated as raw JavaScript
+ * ("this.integrityToken = $integrityToken"), so it must be exactly the
+ * `new Uint8Array([...])` literal produced by base64ToU8(). The previous
+ * JSON-based check accepted everything (JSONObject.quote never fails),
+ * leaving a code-injection hole if the GenerateIT response were tampered.
+ */
+internal fun isValidUint8ArrayLiteral(raw: String): Boolean {
+    val trimmed = raw.trim()
+    if (!trimmed.startsWith("new Uint8Array([") || !trimmed.endsWith("])")) return false
+    val body = trimmed.removePrefix("new Uint8Array([").removeSuffix("])")
+    val elements = body.split(",")
+    if (elements.size > MAX_UINT8_ARRAY_ELEMENTS) return false
+    return elements.all { element ->
+        val value = elementOrNull(element) ?: return@all false
+        value in 0..255
+    }
+}
+
+private fun elementOrNull(element: String): Int? {
+    val value = element.trim()
+    if (value.isEmpty() || value.length > 3 || !value.all { it.isDigit() }) return null
+    return value.toIntOrNull()
 }

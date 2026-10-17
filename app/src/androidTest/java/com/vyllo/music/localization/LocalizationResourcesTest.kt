@@ -46,7 +46,7 @@ class LocalizationResourcesTest {
 
     @Test
     fun spanish_translatesTheStringsTheUiRenders() {
-        val es = contextFor(Locale("es"))
+        val es = contextFor(Locale.forLanguageTag("es"))
 
         // Same keys as the English test above — if one locale drifts, one of the
         // two tests fails rather than shipping half-translated chrome.
@@ -61,7 +61,7 @@ class LocalizationResourcesTest {
     @Test
     fun spanish_offlineBannerIsTranslated() {
         val en = contextFor(Locale.US)
-        val es = contextFor(Locale("es"))
+        val es = contextFor(Locale.forLanguageTag("es"))
 
         assertEquals("Sin conexión", es.getString(R.string.state_offline_banner))
         // Compare against an explicitly English context, not the app context:
@@ -76,7 +76,7 @@ class LocalizationResourcesTest {
     @Test
     fun plurals_declineInBothLocales() {
         val en = contextFor(Locale.US)
-        val es = contextFor(Locale("es"))
+        val es = contextFor(Locale.forLanguageTag("es"))
 
         val enOne = en.resources.getQuantityString(R.plurals.lyrics_results_count, 1, 1)
         val enMany = en.resources.getQuantityString(R.plurals.lyrics_results_count, 7, 7)
@@ -94,7 +94,7 @@ class LocalizationResourcesTest {
 
     @Test
     fun plurals_keepPositionalFormatArguments() {
-        val es = contextFor(Locale("es"))
+        val es = contextFor(Locale.forLanguageTag("es"))
 
         // playlist_tracks_count takes a count AND a privacy label; dropping the
         // second argument would throw at runtime rather than in lint.
@@ -117,7 +117,7 @@ class LocalizationResourcesTest {
     }
 
     private fun esResolves(id: Int) {
-        val es = contextFor(Locale("es"))
+        val es = contextFor(Locale.forLanguageTag("es"))
         try {
             es.getString(id)
         } catch (e: Resources.NotFoundException) {

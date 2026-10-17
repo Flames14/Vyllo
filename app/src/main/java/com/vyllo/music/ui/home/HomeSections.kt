@@ -19,15 +19,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.HomeUiState
-import com.vyllo.music.HomeViewModel
 import com.vyllo.music.R
 import com.vyllo.music.YTMGridSection
 import com.vyllo.music.domain.model.MusicItem
-import com.vyllo.music.presentation.components.OptimizedHorizontalSection
+import com.vyllo.music.presentation.components.common.OptimizedHorizontalSection
 import com.vyllo.music.presentation.components.VylloLoadingIndicator
 import com.vyllo.music.presentation.components.HomeSkeleton
-import com.vyllo.music.presentation.components.YTMFilterChip
-import com.vyllo.music.presentation.components.YTMSectionHeader
+import com.vyllo.music.presentation.components.common.YTMFilterChip
+import com.vyllo.music.presentation.components.common.YTMSectionHeader
 import com.vyllo.music.presentation.components.YTMSongRow
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,7 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -81,9 +80,7 @@ fun HomeFilterChipsRow(
 fun ListenAgainGrid(
     items: List<MusicItem>,
     currentPlayingItem: MusicItem?,
-    onPlay: (MusicItem) -> Unit,
-    homeViewModel: HomeViewModel?,
-    loadingItemUrl: String?
+    onPlay: (MusicItem) -> Unit
 ) {
     if (items.isEmpty()) return
     val pages = items.take(50).chunked(9)
@@ -199,7 +196,7 @@ private fun ListenAgainCard(
                 modifier = Modifier.weight(1f)
             )
             Icon(
-                imageVector = Icons.Rounded.KeyboardArrowRight,
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                 contentDescription = null,
                 tint = Color.White.copy(alpha = 0.8f),
                 modifier = Modifier.size(16.dp)
@@ -213,7 +210,6 @@ fun LazyListScope.HomeListSections(
     recommendedItems: List<MusicItem>,
     currentPlayingItem: MusicItem?,
     onPlay: (MusicItem) -> Unit,
-    viewModel: HomeViewModel,
     loadingItemUrl: String?
 ) {
     // Listen Again Section
@@ -225,9 +221,7 @@ fun LazyListScope.HomeListSections(
             ListenAgainGrid(
                 items = uiState.listenAgainItems,
                 currentPlayingItem = currentPlayingItem,
-                onPlay = onPlay,
-                homeViewModel = viewModel,
-                loadingItemUrl = loadingItemUrl
+                onPlay = onPlay
             )
         }
     }
@@ -247,7 +241,6 @@ fun LazyListScope.HomeListSections(
             rows = uiState.quickPicksRows.take(3),
             currentPlayingItem = currentPlayingItem,
             onPlay = onPlay,
-            homeViewModel = viewModel,
             loadingItemUrl = loadingItemUrl,
             sectionKey = "quick_picks"
         )
@@ -265,7 +258,6 @@ fun LazyListScope.HomeListSections(
                 currentPlayingItem = currentPlayingItem,
                 onPlay = onPlay,
                 isLargeCard = false,
-                homeViewModel = viewModel,
                 loadingItemUrl = loadingItemUrl
             )
         }
@@ -283,7 +275,6 @@ fun LazyListScope.HomeListSections(
                 currentPlayingItem = currentPlayingItem,
                 onPlay = onPlay,
                 isLargeCard = true,
-                homeViewModel = viewModel,
                 loadingItemUrl = loadingItemUrl
             )
         }
@@ -301,7 +292,6 @@ fun LazyListScope.HomeListSections(
                 currentPlayingItem = currentPlayingItem,
                 onPlay = onPlay,
                 isLargeCard = false,
-                homeViewModel = viewModel,
                 loadingItemUrl = loadingItemUrl
             )
         }
@@ -319,7 +309,6 @@ fun LazyListScope.HomeListSections(
                 currentPlayingItem = currentPlayingItem,
                 onPlay = onPlay,
                 isLargeCard = true,
-                homeViewModel = viewModel,
                 loadingItemUrl = loadingItemUrl
             )
         }
@@ -337,7 +326,6 @@ fun LazyListScope.HomeListSections(
             rows = uiState.trendingNowRows.take(3),
             currentPlayingItem = currentPlayingItem,
             onPlay = onPlay,
-            homeViewModel = viewModel,
             loadingItemUrl = loadingItemUrl,
             sectionKey = "trending_now"
         )
@@ -355,7 +343,6 @@ fun LazyListScope.HomeListSections(
                 currentPlayingItem = currentPlayingItem,
                 onPlay = onPlay,
                 isLargeCard = false,
-                homeViewModel = viewModel,
                 loadingItemUrl = loadingItemUrl
             )
         }
@@ -376,7 +363,6 @@ fun LazyListScope.HomeListSections(
                 item = item,
                 isPlaying = currentPlayingItem?.url == item.url,
                 onClick = { onPlay(item) },
-                homeViewModel = viewModel,
                 isLoading = loadingItemUrl == item.url
             )
         }

@@ -1,6 +1,7 @@
 package com.vyllo.music.data.repository.delegates
 
 import com.vyllo.music.core.security.SecureLogger
+import com.vyllo.music.core.security.SecurityConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -17,12 +18,18 @@ import javax.inject.Singleton
  * Open so the probe behaviour can be substituted in unit tests — the concurrency
  * contract of [firstPlayableStreamUrl] is not observable without hitting a real host.
  */
-open class StreamSelector @Inject constructor() {
-    private val streamProbeClient = OkHttpClient.Builder()
-        .followRedirects(true)
-        .followSslRedirects(true)
+open class StreamSelector @Inject constructor(
+    private val securityConfig: SecurityConfig
+) {
+    // Reuse hardened client: MODERN_TLS, no HTTPS->HTTP downgrade,
+    // security headers. Probe timeouts stay short (tap path).
+    private val streamProbeClient: OkHttpClient = securityConfig
+        .createFlexibleSecureHttpClient()
+        .newBuilder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(false)
         .build()
 
     /**

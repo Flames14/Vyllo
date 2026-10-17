@@ -31,10 +31,9 @@ class YouTubeOAuthManager @Inject constructor(
     companion object {
         private const val TAG = "YouTubeOAuthManager"
         private const val PREFS_NAME = "vyllo_youtube_oauth_prefs"
-        
-        // Default client ID for Vyllo Music Android App
-        // Users can also override this in settings if they have their own Google Cloud Client ID
-        const val DEFAULT_CLIENT_ID = "104192837492-vylloytmandroidclient.apps.googleusercontent.com"
+
+        // BYO client ID: no default is shipped. Google sign-in stays disabled
+        // until the user configures their own Google Cloud OAuth client ID.
         const val REDIRECT_URI = "com.vyllo.music://oauth2redirect"
         const val AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
         const val TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
@@ -185,7 +184,7 @@ class YouTubeOAuthManager @Inject constructor(
                 JSONObject(requireNotNull(responseBody))
             }
             val accessToken = json.getString("access_token")
-            val refreshToken = json.optString("refresh_token", prefs.getString(KEY_REFRESH_TOKEN, ""))
+            val refreshToken = json.optString("refresh_token", prefs.getString(KEY_REFRESH_TOKEN, "") ?: "")
             val expiresIn = json.optLong("expires_in", 3600L)
             val expiresAt = System.currentTimeMillis() + (expiresIn * 1000L)
 

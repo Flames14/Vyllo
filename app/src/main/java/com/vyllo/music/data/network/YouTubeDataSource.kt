@@ -139,7 +139,7 @@ class YouTubeDataSource @Inject constructor(
      * same bounded pool and can deadlock once all three threads are occupied.
      */
     private suspend fun searchMusicRaw(query: String, maintainSession: Boolean): List<MusicItem> {
-        return try {
+        val result: List<MusicItem> = try {
             val service = ServiceList.YouTube
             val searchExtractor = service.getSearchExtractor(query, emptyList(), "")
             searchExtractor.fetchPage()
@@ -148,11 +148,12 @@ class YouTubeDataSource @Inject constructor(
                 currentSearchExtractor = searchExtractor
                 nextSearchPage = searchExtractor.initialPage.nextPage
             }
-            return mapItems(searchExtractor.initialPage.items)
+            mapItems(searchExtractor.initialPage.items)
         } catch (e: Exception) {
             SecureLogger.e("YouTubeDataSource", "Search failed for query: $query", e)
-            return emptyList()
+            emptyList()
         }
+        return result
     }
 
     suspend fun loadMoreResults(): List<MusicItem> = withContext(feedDispatcher) {
@@ -278,9 +279,9 @@ suspend fun getTrendingMusic(): List<MusicItem> = withContext(feedDispatcher) {
         return items.mapNotNull { item ->
             when (item) {
                 is StreamInfoItem -> {
-                    val bestThumbnail = item.thumbnails?.maxByOrNull { it.width * it.height }?.url
-                        ?: item.thumbnails?.lastOrNull()?.url
-                        ?: item.thumbnails?.firstOrNull()?.url
+                    val bestThumbnail = item.thumbnails.maxByOrNull { it.width * it.height }?.url
+                        ?: item.thumbnails.lastOrNull()?.url
+                        ?: item.thumbnails.firstOrNull()?.url
                         ?: ""
                     MusicItem(
                         title = item.name ?: "Unknown",
@@ -292,9 +293,9 @@ suspend fun getTrendingMusic(): List<MusicItem> = withContext(feedDispatcher) {
                     )
                 }
                 is PlaylistInfoItem -> {
-                    val bestThumbnail = item.thumbnails?.maxByOrNull { it.width * it.height }?.url
-                        ?: item.thumbnails?.lastOrNull()?.url
-                        ?: item.thumbnails?.firstOrNull()?.url
+                    val bestThumbnail = item.thumbnails.maxByOrNull { it.width * it.height }?.url
+                        ?: item.thumbnails.lastOrNull()?.url
+                        ?: item.thumbnails.firstOrNull()?.url
                         ?: ""
                     MusicItem(
                         title = item.name ?: "Unknown",

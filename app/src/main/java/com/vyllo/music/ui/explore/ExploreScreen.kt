@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,6 +22,9 @@ import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.*
 import com.vyllo.music.presentation.components.*
+import com.vyllo.music.presentation.components.common.YTMHeader
+import com.vyllo.music.presentation.components.common.YTMFilterChip
+import com.vyllo.music.presentation.components.common.YTMSectionHeader
 import com.vyllo.music.ui.components.*
 import com.vyllo.music.presentation.components.VylloErrorState
 
@@ -37,8 +41,15 @@ fun YTMExploreScreen(
     currentPlayingItem: MusicItem?,
     loadingItemUrl: String? = null
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollState = rememberLazyListState()
+
+    // Dedupe upstream: duplicate URLs from API crash LazyColumn keys.
+    val trendingItems by remember(uiState.exploreTrendingItems) {
+        derivedStateOf {
+            uiState.exploreTrendingItems.distinctBy { it.url.ifBlank { it.title + "|" + it.uploader } }
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.loadExploreContent()
@@ -55,8 +66,7 @@ fun YTMExploreScreen(
                 onSearchClick = onSearchClick,
                 onSettingsClick = onSettingsClick,
                 onRecognizeClick = onRecognizeClick,
-                isRefreshing = uiState.isRefreshing,
-                onRefresh = { viewModel.refreshAllContent() }
+                isRefreshing = uiState.isRefreshing
             )
         }
 
@@ -68,11 +78,10 @@ fun YTMExploreScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(
-                    count = uiState.exploreCategories.size,
-                    key = { index -> uiState.exploreCategories[index] },
+                    items = uiState.exploreCategories,
+                    key = { it },
                     contentType = { "category_pill" }
-                ) { index ->
-                    val category = uiState.exploreCategories[index]
+                ) { category ->
                     YTMFilterChip(
                         text = category,
                         isSelected = uiState.selectedExploreCategory == category,
@@ -113,15 +122,14 @@ fun YTMExploreScreen(
             }
         } else {
             items(
-                items = uiState.exploreTrendingItems,
-                key = { it.url },
+                items = trendingItems,
+                key = { it.url.ifBlank { it.title + "|" + it.uploader + "|" + it.hashCode() } },
                 contentType = { "song_row" }
             ) { item ->
                 YTMSongRow(
                     item = item,
                     isPlaying = currentPlayingItem?.url == item.url,
                     onClick = { onPlay(item) },
-                    homeViewModel = viewModel,
                     isLoading = loadingItemUrl == item.url
                 )
             }

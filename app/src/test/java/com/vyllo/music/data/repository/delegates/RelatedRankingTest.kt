@@ -497,18 +497,32 @@ class RelatedRankingTest {
     }
 
     @Test
-    fun `expansion ladder walks the tail then exhausts`() {
+    fun `expansion ladder continues after the initial batch then exhausts`() {
         val ladder = RelatedRanking.buildQueryLadder(artist = "Artist")
 
+        // The pool is built from the head of the ladder…
+        val initial = ladder.take(RelatedRanking.INITIAL_QUERY_COUNT)
         val round0 = RelatedRanking.buildExpansionLadder(ladder, round = 0)
         val round1 = RelatedRanking.buildExpansionLadder(ladder, round = 1)
-        assertEquals(2, round0.size)
-        assertEquals(2, round1.size)
+
+        // A plain artist ladder is 5 queries: the initial 4 plus one tail entry,
+        // so round 0 continues past the initial batch and round 1 exhausts.
+        assertEquals(1, round0.size)
+        assertTrue(round1.isEmpty())
+        // …and expansion must never re-fire queries the initial batch already
+        // fetched (the old implementation started round 0 at index 0).
+        assertTrue(round0.map { it.query }.intersect(initial.map { it.query }.toSet()).isEmpty())
+        assertTrue(round1.map { it.query }.intersect(initial.map { it.query }.toSet()).isEmpty())
         assertTrue(round0.map { it.query }.intersect(round1.map { it.query }.toSet()).isEmpty())
 
         // Far past the end must be empty, not crash or repeat.
         assertTrue(RelatedRanking.buildExpansionLadder(ladder, round = 999).isEmpty())
         assertTrue(RelatedRanking.buildExpansionLadder(emptyList(), round = 0).isEmpty())
+        // A negative round is treated as the first expansion, never negative indexing.
+        assertEquals(
+            round0.map { it.query },
+            RelatedRanking.buildExpansionLadder(ladder, round = -1).map { it.query }
+        )
     }
 
     private companion object {

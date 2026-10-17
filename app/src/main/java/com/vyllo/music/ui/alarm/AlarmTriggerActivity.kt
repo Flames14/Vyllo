@@ -263,6 +263,7 @@ class AlarmTriggerActivity : ComponentActivity() {
     }
 
     @SuppressLint("MissingSuperCall")
+    @Suppress("OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
         // Prevent back button from dismissing the alarm UI.
         // Intentionally no super call — alarm must be dismissed via UI actions.

@@ -46,6 +46,8 @@ import com.vyllo.music.presentation.theme.VylloRadius
 import com.vyllo.music.presentation.theme.VylloSize
 import com.vyllo.music.presentation.theme.VylloSpacing
 import com.vyllo.music.ui.components.*
+import com.vyllo.music.ui.components.rows.HistorySuggestionRow
+import com.vyllo.music.ui.components.rows.PremiumSuggestionRow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -98,17 +100,21 @@ fun YTMSearchScreen(
         }
     }
 
-    // Mic button pulsing animation
-    val infiniteTransition = rememberInfiniteTransition(label = "mic_pulse")
-    val micScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "mic_scale"
-    )
+    // Mic button pulsing animation - gated: no 60fps recomposition when idle.
+    val micScale: Float by if (viewModel.isListening) {
+        val gatedTransition = rememberInfiniteTransition(label = "mic_pulse")
+        gatedTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.3f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(600, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "mic_scale"
+        )
+    } else {
+        remember { mutableFloatStateOf(1f) }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Search Bar with Filter Toggle
@@ -321,14 +327,15 @@ fun YTMSearchScreen(
 
                 itemsIndexed(
                     items = viewModel.searchResults,
-                    key = { index, item -> "search_result_${item.url}#$index" },
+                    // Stable key on URL only (no index): preserves scroll + row state on paging.
+                    // Dupes deduped upstream; fallback to index only on blank URL.
+                    key = { index, item -> item.url.takeIf { it.isNotBlank() } ?: "search_result_empty_$index" },
                     contentType = { _, _ -> "song_row" }
                 ) { _, item ->
                     YTMSongRow(
                         item = item,
                         isPlaying = currentPlayingItem?.url == item.url,
                         onClick = { onPlay(item) },
-                        searchViewModel = viewModel,
                         isLoading = loadingItemUrl == item.url
                     )
                 }

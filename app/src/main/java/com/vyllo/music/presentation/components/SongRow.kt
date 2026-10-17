@@ -8,11 +8,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import com.vyllo.music.presentation.components.common.DownloadButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,9 +31,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.vyllo.music.HomeViewModel
-import com.vyllo.music.SearchViewModel
-import com.vyllo.music.LibraryViewModel
 import com.vyllo.music.LocalLibraryViewModel
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.presentation.theme.VylloMotion
@@ -46,8 +45,6 @@ fun YTMSongRow(
     item: MusicItem,
     isPlaying: Boolean,
     onClick: () -> Unit,
-    homeViewModel: HomeViewModel? = null,
-    searchViewModel: SearchViewModel? = null,
     onRemoveClick: (() -> Unit)? = null,
     isLoading: Boolean = false
 ) {
@@ -129,7 +126,7 @@ fun YTMSongRow(
             } else {
                 IconButton(onClick = { libraryViewModel.showPlaylistAddDialog(item) }) {
                     Icon(
-                        Icons.Rounded.PlaylistAdd, 
+                        Icons.AutoMirrored.Rounded.PlaylistAdd,
                         contentDescription = stringResource(R.string.cd_add_to_playlist),
                         tint = MaterialTheme.colorScheme.onBackground.copy(0.6f),
                         modifier = Modifier.size(20.dp)
@@ -160,7 +157,6 @@ fun YTMCompactRow(
     isPlaying: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    homeViewModel: HomeViewModel? = null,
     isLoading: Boolean = false
 ) {
     val libraryViewModel = LocalLibraryViewModel.current

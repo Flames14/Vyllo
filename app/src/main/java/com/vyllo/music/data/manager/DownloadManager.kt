@@ -39,10 +39,12 @@ class DownloadManager @Inject constructor(
                                     downloadProgress.remove(url)
                                 }
                             } else {
-                                val progress = workInfo.progress.getInt("progress", 0)
-                                if (progress > 0) {
-                                    downloadProgress[url] = progress
-                                }
+                                // Always publish, even 0%, so the button shows a
+                                // pending state (and cancel affordance) from enqueue
+                                // onward. A >0 gate hid unknown-length downloads for
+                                // their whole run: the worker never reports a
+                                // percentage when contentLength() is unknown.
+                                downloadProgress[url] = workInfo.progress.getInt("progress", 0)
                             }
                         }
                     }

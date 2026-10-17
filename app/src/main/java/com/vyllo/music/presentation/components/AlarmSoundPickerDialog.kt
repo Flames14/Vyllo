@@ -98,7 +98,7 @@ fun AlarmSoundPickerDialog(
                     }
                 }
 
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 // Downloaded songs
                 Text(

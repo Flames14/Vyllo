@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,6 +81,15 @@ fun PlayerArtwork(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+
+    // pointerInput(Unit) below starts ONE gesture coroutine that captures these
+    // by value on first composition. Without updated-state holders the
+    // double-tap seek kept using the original track's duration/controller
+    // forever, clamping seeks against the wrong length after a track change.
+    val currentDuration by rememberUpdatedState(duration)
+    val currentController by rememberUpdatedState(controller)
+    val currentOnPositionChange by rememberUpdatedState(onPositionChange)
+    val currentOnSeekFeedback by rememberUpdatedState(onSeekFeedback)
     val artworkPlayScale by animateFloatAsState(
         targetValue = if (isPlaying) 1.0f else 0.88f,
         animationSpec = spring(
@@ -143,11 +153,11 @@ fun PlayerArtwork(
                     onDoubleTap = { offset ->
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         if (offset.x < size.width / 2) {
-                            seekRelative(controller, duration, -10000L) { onPositionChange(it) }
-                            onSeekFeedback("-10")
+                            seekRelative(currentController, currentDuration, -10000L) { currentOnPositionChange(it) }
+                            currentOnSeekFeedback("-10")
                         } else {
-                            seekRelative(controller, duration, 10000L) { onPositionChange(it) }
-                            onSeekFeedback("+10")
+                            seekRelative(currentController, currentDuration, 10000L) { currentOnPositionChange(it) }
+                            currentOnSeekFeedback("+10")
                         }
                     }
                 )
@@ -184,12 +194,20 @@ fun PlayerArtwork(
             var candidateIndex by remember(item.thumbnailUrl, resolvedUrl) { mutableIntStateOf(0) }
             val currentThumbnail = candidates.getOrNull(candidateIndex) ?: item.thumbnailUrl
 
-            AsyncImage(
-                model = coil.request.ImageRequest.Builder(LocalContext.current)
+            // Remember request: parent recomposes 2.5x/s from seek loop, must not rebuild decoder.
+            val appContext = LocalContext.current.applicationContext
+            val imageRequest = remember(appContext, currentThumbnail) {
+                coil.request.ImageRequest.Builder(appContext)
                     .data(currentThumbnail)
-                    .crossfade(true)
-                    .allowHardware(false)
-                    .build(),
+                    .crossfade(false)
+                    .size(520)
+                    .memoryCacheKey("artwork_$currentThumbnail")
+                    .diskCacheKey("artwork_$currentThumbnail")
+                    .allowHardware(true)
+                    .build()
+            }
+            AsyncImage(
+                model = imageRequest,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),

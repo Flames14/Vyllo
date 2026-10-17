@@ -114,8 +114,13 @@ class ShazamRepositoryImpl @Inject constructor(
                             if (absSample > maxAmplitude) maxAmplitude = absSample
                         }
                     }
+                } else {
+                    // Blocking reads already pace the loop; sleeping after every
+                    // frame makes the consumer lag the mic and overflow the
+                    // record buffer. Only yield when read() errors/returns empty
+                    // so a failure cannot turn into a busy spin.
+                    delay(10)
                 }
-                delay(10) // Small delay to avoid tight loop
             }
             audioRecord.stop()
             SecureLogger.d(TAG, "Recording finished. Max amplitude: $maxAmplitude")

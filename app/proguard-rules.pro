@@ -118,12 +118,11 @@
 -keepattributes CoroutineName,CoroutineContext
 
 # -------------------------------------------------------------------
-# WorkManager
+# WorkManager - narrow keeps (was -keep androidx.work.** = +200KB)
 # -------------------------------------------------------------------
--keep class androidx.work.** { *; }
--keep interface androidx.work.** { *; }
--keep class * extends androidx.work.Worker { *; }
--keep class * extends androidx.work.ListenableWorker { *; }
+-keepnames class androidx.work.** { *; }
+-keep class * extends androidx.work.Worker { <init>(...); }
+-keep class * extends androidx.work.ListenableWorker { <init>(...); }
 
 # Keep DownloadWorker
 -keep class com.vyllo.music.service.DownloadWorker { *; }
@@ -134,10 +133,10 @@
 -keep class org.json.** { *; }
 
 # -------------------------------------------------------------------
-# Guava (used by Media3 and Hilt)
+# Guava (used by Media3 and Hilt) - keepnames only, R8 can shrink bodies
 # -------------------------------------------------------------------
--keep class com.google.common.** { *; }
--keep interface com.google.common.** { *; }
+-keepnames class com.google.common.** { *; }
+-dontwarn com.google.common.**
 
 # -------------------------------------------------------------------
 # NanoJSON (used by NewPipe)
@@ -146,9 +145,9 @@
 -dontwarn com.grack.nanojson.**
 
 # -------------------------------------------------------------------
-# JSoup (used by NewPipe)
+# JSoup (used by NewPipe) - narrow to entry points
 # -------------------------------------------------------------------
--keep class org.jsoup.** { *; }
+-keepnames class org.jsoup.** { *; }
 -dontwarn org.jsoup.**
 
 # -------------------------------------------------------------------

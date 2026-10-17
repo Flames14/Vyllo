@@ -12,20 +12,33 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
@@ -34,6 +47,7 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.savedstate.SavedStateRegistry
@@ -92,8 +106,8 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .build()
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -146,7 +160,8 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
                         }
                         startActivity(intent)
                         stopSelf()
-                    }
+                    },
+                    onClose = { stopSelf() }
                 )
             }
         }
@@ -202,60 +217,132 @@ fun FloatingBubbleContent(
     mediaController: MediaController?,
     onDrag: (Float, Float) -> Unit,
     onDragEnd: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onClose: () -> Unit
 ) {
     var artworkUri by remember { mutableStateOf<String?>(null) }
-    
-    // Listen to player state
+    var isCurrentlyPlaying by remember { mutableStateOf(false) }
+
+    // Listen to player state — artwork + play/pause sync with the session.
     DisposableEffect(mediaController) {
-        val listener = object : androidx.media3.common.Player.Listener {
+        val listener = object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 artworkUri = mediaItem?.mediaMetadata?.artworkUri?.toString()
             }
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                 if (artworkUri == null) {
-                     artworkUri = mediaController?.currentMediaItem?.mediaMetadata?.artworkUri?.toString()
-                 }
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                isCurrentlyPlaying = isPlaying
+            }
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, playbackState: Int) {
+                // Fallback: keep artwork fresh if transition callback didn't fire.
+                if (artworkUri == null) {
+                    artworkUri = mediaController?.currentMediaItem?.mediaMetadata?.artworkUri?.toString()
+                }
             }
         }
         mediaController?.addListener(listener)
         artworkUri = mediaController?.currentMediaItem?.mediaMetadata?.artworkUri?.toString()
-        
+        isCurrentlyPlaying = mediaController?.isPlaying == true
+
         onDispose { mediaController?.removeListener(listener) }
     }
 
-    Box(
+    Row(
         modifier = Modifier
-            .size(60.dp)
-            .clip(CircleShape)
+            .clip(RoundedCornerShape(20.dp))
             .background(Color.Black)
-            .border(2.dp, Color(0xFFE0E0E0).copy(0.5f), CircleShape)
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        onDrag(dragAmount.x, dragAmount.y)
-                    },
-                    onDragEnd = onDragEnd
+            .border(
+                2.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(0.5f),
+                RoundedCornerShape(20.dp)
+            )
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Artwork — draggable surface; tap opens the app.
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onClick() }
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            onDrag(dragAmount.x, dragAmount.y)
+                        },
+                        onDragEnd = { onDragEnd() },
+                        onDragCancel = { onDragEnd() }
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            if (artworkUri != null) {
+                AsyncImage(
+                    model = artworkUri,
+                    contentDescription = stringResource(R.string.cd_music_bubble),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize().clip(RoundedCornerShape(8.dp))
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.MusicNote,
+                    contentDescription = stringResource(R.string.cd_music_bubble),
+                    tint = Color.White,
+                    modifier = Modifier.size(32.dp)
                 )
             }
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
-    ) {
-        if (artworkUri != null) {
-            AsyncImage(
-                model = artworkUri,
-                contentDescription = stringResource(R.string.cd_music_bubble),
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.matchParentSize().clip(CircleShape)
+        }
+
+        // Previous
+        IconButton(
+            onClick = { mediaController?.seekToPreviousMediaItem() },
+            enabled = mediaController != null
+        ) {
+            Icon(
+                Icons.Rounded.SkipPrevious,
+                contentDescription = stringResource(R.string.accessibility_skip_previous),
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
             )
-        } else {
-             Icon(
-                 imageVector = Icons.Rounded.MusicNote,
-                 contentDescription = stringResource(R.string.cd_music_bubble),
-                 tint = Color.White,
-                 modifier = Modifier.size(32.dp)
-             )
+        }
+
+        // Play / Pause
+        IconButton(
+            onClick = {
+                if (isCurrentlyPlaying) mediaController?.pause() else mediaController?.play()
+            },
+            enabled = mediaController != null
+        ) {
+            Icon(
+                imageVector = if (isCurrentlyPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                contentDescription = if (isCurrentlyPlaying) stringResource(R.string.accessibility_pause) else stringResource(R.string.accessibility_play),
+                tint = Color.White,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
+        // Next
+        IconButton(
+            onClick = { mediaController?.seekToNextMediaItem() },
+            enabled = mediaController != null
+        ) {
+            Icon(
+                Icons.Rounded.SkipNext,
+                contentDescription = stringResource(R.string.accessibility_skip_next),
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        // Close bubble
+        IconButton(onClick = onClose) {
+            Icon(
+                Icons.Rounded.Close,
+                contentDescription = stringResource(R.string.cd_close),
+                tint = Color.White.copy(alpha = 0.75f),
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }

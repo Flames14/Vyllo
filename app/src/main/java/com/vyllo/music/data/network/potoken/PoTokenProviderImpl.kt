@@ -153,16 +153,22 @@ object PoTokenProviderImpl : PoTokenProvider {
 
         try {
             return getWebClientPoToken(videoId = videoId, forceRecreate = false)
-        } catch (e: RuntimeException) {
-            // Unpack wrapped exceptions
-            when (val cause = e.cause) {
-                is BadWebViewException -> {
+        } catch (e: Exception) {
+            // BotGuard plumbing throws plain Exceptions — BadWebViewException
+            // (directly or as cause) and PoTokenException. A RuntimeException
+            // -only catch let both escape and crash the extractor instead of
+            // degrading to tokenless playback.
+            when {
+                e is BadWebViewException || e.cause is BadWebViewException -> {
                     SecureLogger.e(TAG, "Could not obtain poToken because WebView is broken", e)
                     webViewBadImpl = true
                     return null
                 }
-                null -> throw e
-                else -> throw cause // includes PoTokenException
+                e is PoTokenException || e.cause is PoTokenException -> {
+                    SecureLogger.e(TAG, "Could not obtain poToken", e)
+                    return null
+                }
+                else -> throw e
             }
         }
     }

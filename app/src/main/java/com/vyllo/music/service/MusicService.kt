@@ -104,14 +104,21 @@ class MusicService : MediaSessionService() {
             CacheProvider.getSimpleCache(context)
     }
 
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
     override fun onCreate() {
         super.onCreate()
 
-        // Optimize OkHttp
-        val okHttpClient = OkHttpClient.Builder()
+        // Hardened base (DoH + TLS + security headers), then playback tuning.
+        // followSslRedirects=false preserved: no HTTPS->HTTP downgrade for media.
+        val secureBase = runCatching {
+            com.vyllo.music.core.security.SecurityConfig().createFlexibleSecureHttpClient()
+        }.getOrNull()
+        val okHttpClient = (secureBase?.newBuilder() ?: OkHttpClient.Builder())
             .connectionPool(okhttp3.ConnectionPool(10, 5, TimeUnit.MINUTES))
             .readTimeout(15, TimeUnit.SECONDS)
             .connectTimeout(15, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(false)
             .addInterceptor { chain ->
                 val request = chain.request()
                 val url = request.url.toString()
@@ -185,7 +192,7 @@ class MusicService : MediaSessionService() {
 
         val keepAudioPlaying = preferenceManager.isKeepAudioPlayingEnabled
 
-        preferenceManager.preferences.registerOnSharedPreferenceChangeListener(preferenceListener)
+        preferenceManager.registerOnPreferenceChangeListener(preferenceListener)
         volumeBoostProcessor.volumeMultiplier = preferenceManager.volumeBoostMultiplier
 
         val renderersFactory = AudioSinkFactory.createRenderersFactory(this, volumeBoostProcessor)
@@ -241,8 +248,7 @@ class MusicService : MediaSessionService() {
         serviceScope.launch {
             try {
                 if (playbackQueueManager.getQueueSnapshot().isEmpty()) {
-                    com.vyllo.music.data.manager.QueuePersistence
-                        .restore(preferenceManager.preferences)
+                    preferenceManager.restoreQueue()
                         ?.let { (items, index) ->
                             playbackQueueManager.replaceQueue(items, index)
                         }
@@ -259,8 +265,7 @@ class MusicService : MediaSessionService() {
                 .debounce(2000L)
                 .collectLatest {
                     try {
-                        com.vyllo.music.data.manager.QueuePersistence.save(
-                            preferenceManager.preferences,
+                        preferenceManager.saveQueue(
                             playbackQueueManager.getQueueSnapshot(),
                             playbackQueueManager.currentIndex
                         )
@@ -319,11 +324,11 @@ class MusicService : MediaSessionService() {
         serviceJob.cancel()
         playbackErrorHandler.release()
         playbackAudioEffectsManager.release()
-        preferenceManager.preferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)
+        preferenceManager.unregisterOnPreferenceChangeListener(preferenceListener)
         wakeLockManager.release()
 
         mediaSession?.run {
-            player?.release()
+            player.release()
             release()
             mediaSession = null
         }

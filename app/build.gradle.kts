@@ -293,18 +293,16 @@ val validateReleaseSigning = tasks.register("validateReleaseSigning") {
         val isWindows = System.getProperty("os.name").lowercase().contains("win")
         val apksigner = "$buildTools/apksigner${if (isWindows) ".bat" else ""}"
         val zipalign = "$buildTools/zipalign${if (isWindows) ".exe" else ""}"
-        val verifyOut = ByteArrayOutputStream()
-        exec {
+        val verifyResult = providers.exec {
             commandLine(apksigner, "verify", "--print-certs", "--verbose", apk.absolutePath)
-            standardOutput = verifyOut
         }
-        val out = verifyOut.toString()
+        val out = verifyResult.standardOutput.asText.get()
         if (!out.contains("Verified using v2 scheme (APK Signature Scheme v2): true")) {
             throw GradleException("Release APK is NOT v2-signed:\n$out")
         }
-        exec {
+        providers.exec {
             commandLine(zipalign, "-c", "-p", "4", apk.absolutePath)
-        }
+        }.result.get().assertNormalExitValue()
         val expectedSha = "94ea48d066fe5c1c1862ff03d9e5777ca2b912cd0b140c5d817c1c732e587f8f"
         if (!out.lowercase().contains(expectedSha) && !project.hasProperty("allowDebugRelease")) {
             throw GradleException("Release APK signer does not match the expected Vyllo release certificate ($expectedSha). Refusing to accept an incompatible update signer.\n$out")
@@ -332,6 +330,7 @@ dependencies {
 
     // Network
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0")
 
     // Security - Encrypted Storage
     implementation("androidx.security:security-crypto-ktx:1.1.0")
@@ -354,14 +353,12 @@ dependencies {
     // Image Loading
     implementation("io.coil-kt:coil-compose:2.6.0")
 
-    // Palette API (for extracting colors from album art)
-    implementation("androidx.palette:palette-ktx:1.0.0")
-
     // Extended Material Icons (version managed by the Compose BOM)
     implementation("androidx.compose.material:material-icons-extended")
 
-    // ViewModel for Compose
+    // Lifecycle (collectAsStateWithLifecycle - avoids bg recomposition)
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
 
     // JSON parsing (JVM-only: Android ships org.json in the platform)
     testImplementation("org.json:json:20210307")

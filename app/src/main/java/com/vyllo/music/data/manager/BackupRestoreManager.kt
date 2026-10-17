@@ -3,9 +3,12 @@ package com.vyllo.music.data.manager
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.data.alarm.AlarmDao
 import com.vyllo.music.data.alarm.AlarmEntity
+import com.vyllo.music.data.download.FavoriteEntity
+import com.vyllo.music.data.download.FavoritesDao
 import com.vyllo.music.data.download.HistoryDao
 import com.vyllo.music.data.download.HistoryEntity
 import com.vyllo.music.data.download.PlaylistDao
+import com.vyllo.music.domain.model.MusicItemType
 import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.domain.model.PlaylistSongEntity
 import org.json.JSONArray
@@ -18,6 +21,7 @@ class BackupRestoreManager @Inject constructor(
     private val playlistDao: PlaylistDao,
     private val alarmDao: AlarmDao,
     private val historyDao: HistoryDao,
+    private val favoritesDao: FavoritesDao,
     private val preferenceManager: PreferenceManager
 ) {
     suspend fun exportBackupJson(): String {
@@ -81,6 +85,36 @@ class BackupRestoreManager @Inject constructor(
             alarmsArray.put(alarmObj)
         }
         root.put("alarms", alarmsArray)
+
+        // Playback history -- previously injected but never serialized, so a
+        // restore silently lost it even though the DAO was right there.
+        val historyArray = JSONArray()
+        for (entry in historyDao.getRecentHistoryList(MAX_HISTORY_ENTRIES)) {
+            historyArray.put(JSONObject().apply {
+                put("url", entry.url)
+                put("title", entry.title)
+                put("uploader", entry.uploader)
+                put("thumbnailUrl", entry.thumbnailUrl)
+                put("type", entry.type.name)
+                put("lastPlayedAt", entry.lastPlayedAt)
+            })
+        }
+        root.put("history", historyArray)
+
+        // Favorites / ratings
+        val favoritesArray = JSONArray()
+        for (entry in favoritesDao.getAllList(MAX_FAVORITE_ENTRIES)) {
+            favoritesArray.put(JSONObject().apply {
+                put("url", entry.url)
+                put("title", entry.title)
+                put("uploader", entry.uploader)
+                put("thumbnailUrl", entry.thumbnailUrl)
+                put("type", entry.type.name)
+                put("rating", entry.rating)
+                put("likedAt", entry.likedAt)
+            })
+        }
+        root.put("favorites", favoritesArray)
 
         return root.toString(2)
     }
@@ -186,7 +220,61 @@ class BackupRestoreManager @Inject constructor(
                     alarmDao.insertAlarm(entity)
                 }
             }
+            // Restore playback history (capped: a crafted file must not OOM the restore)
+            if (root.has("history")) {
+                val historyArray = root.getJSONArray("history")
+                for (i in 0 until minOf(historyArray.length(), MAX_HISTORY_ENTRIES)) {
+                    val obj = historyArray.getJSONObject(i)
+                    val url = obj.optString("url", "")
+                    val title = obj.optString("title", "").take(300)
+                    if (url.isBlank() || title.isBlank()) continue
+                    historyDao.insertHistory(
+                        HistoryEntity(
+                            url = url,
+                            title = title,
+                            uploader = obj.optString("uploader", "").take(200),
+                            thumbnailUrl = obj.optString("thumbnailUrl", ""),
+                            type = parseMusicItemType(obj.optString("type", "")),
+                            lastPlayedAt = obj.optLong("lastPlayedAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+            }
+
+            // Restore favorites / ratings
+            if (root.has("favorites")) {
+                val favoritesArray = root.getJSONArray("favorites")
+                for (i in 0 until minOf(favoritesArray.length(), MAX_FAVORITE_ENTRIES)) {
+                    val obj = favoritesArray.getJSONObject(i)
+                    val url = obj.optString("url", "")
+                    val title = obj.optString("title", "").take(300)
+                    val rating = obj.optInt("rating", 0)
+                    // Only accept the two valid signed ratings; anything else
+                    // in a hand-edited file is discarded rather than stored.
+                    if (url.isBlank() || title.isBlank() || rating !in setOf(1, -1)) continue
+                    favoritesDao.upsert(
+                        FavoriteEntity(
+                            url = url,
+                            title = title,
+                            uploader = obj.optString("uploader", "").take(200),
+                            thumbnailUrl = obj.optString("thumbnailUrl", ""),
+                            type = parseMusicItemType(obj.optString("type", "")),
+                            rating = rating,
+                            likedAt = obj.optLong("likedAt", System.currentTimeMillis())
+                        )
+                    )
+                }
+            }
+
             SecureLogger.d("BackupRestoreManager", "Backup restored successfully")
         }
+    }
+
+    private fun parseMusicItemType(raw: String): MusicItemType =
+        runCatching { MusicItemType.valueOf(raw) }.getOrDefault(MusicItemType.SONG)
+
+    private companion object {
+        const val MAX_HISTORY_ENTRIES = 2000
+        const val MAX_FAVORITE_ENTRIES = 2000
     }
 }

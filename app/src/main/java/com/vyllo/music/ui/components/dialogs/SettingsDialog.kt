@@ -50,6 +50,10 @@ fun SettingsDialog(
     onWifiOnlyDownloadsChange: (Boolean) -> Unit = {},
     downloadsRequireBatteryOk: Boolean = false,
     onDownloadsRequireBatteryOkChange: (Boolean) -> Unit = {},
+    autoplayEnabled: Boolean = true,
+    onAutoplayChange: (Boolean) -> Unit = {},
+    isQueueSticky: Boolean = true,
+    onQueueStickyChange: (Boolean) -> Unit = {},
     onExportBackupClick: () -> Unit = {},
     onImportBackupClick: () -> Unit = {},
     onCheckUpdateClick: () -> Unit = {}
@@ -251,6 +255,53 @@ fun SettingsDialog(
                     Switch(
                         checked = downloadsRequireBatteryOk,
                         onCheckedChange = onDownloadsRequireBatteryOkChange
+                    )
+                }
+
+                // Playback Behaviour Section -- these two prefs were previously
+                // persisted and consumed by the player but had no UI at all, so
+                // the setting existed in code and nowhere else.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.settings_autoplay),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            stringResource(R.string.settings_autoplay_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
+                        )
+                    }
+                    Switch(
+                        checked = autoplayEnabled,
+                        onCheckedChange = onAutoplayChange
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.settings_sticky_queue),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            stringResource(R.string.settings_sticky_queue_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
+                        )
+                    }
+                    Switch(
+                        checked = isQueueSticky,
+                        onCheckedChange = onQueueStickyChange
                     )
                 }
 

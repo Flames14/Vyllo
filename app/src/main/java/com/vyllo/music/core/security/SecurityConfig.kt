@@ -1,6 +1,7 @@
 package com.vyllo.music.core.security
 
 import okhttp3.CertificatePinner
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -82,7 +83,8 @@ class SecurityConfig @Inject constructor() {
     }
 
     /**
-     * Creates a hardened OkHttpClient with security best practices
+     * Creates a hardened OkHttpClient with security best practices.
+     * First-party / critical hosts: MODERN_TLS only, no downgrade.
      */
     fun createSecureHttpClient(): OkHttpClient {
         val builder = OkHttpClient.Builder()
@@ -91,8 +93,7 @@ class SecurityConfig @Inject constructor() {
             .writeTimeout(30, TimeUnit.SECONDS)
             .connectionSpecs(
                 listOf(
-                    okhttp3.ConnectionSpec.MODERN_TLS,
-                    okhttp3.ConnectionSpec.COMPATIBLE_TLS
+                    okhttp3.ConnectionSpec.MODERN_TLS
                 )
             )
             .followRedirects(true)
@@ -101,6 +102,8 @@ class SecurityConfig @Inject constructor() {
             .followSslRedirects(false)
             .addInterceptor(SecurityHeaderInterceptor())
             .retryOnConnectionFailure(true)
+
+        buildDnsOverHttps()?.let { builder.dns(it) }
 
         if (pinsEnabled) {
             CERT_PINNER?.let { builder.certificatePinner(it) }
@@ -111,15 +114,16 @@ class SecurityConfig @Inject constructor() {
 
     /**
      * Creates a less restrictive client for services that don't work with pinning
-     * (e.g., NewPipe Extractor which connects to many different hosts)
+     * (e.g., NewPipe Extractor which connects to many different hosts).
+     * Keeps TLS downgrade protection + DoH, drops pinning only.
      */
     fun createFlexibleSecureHttpClient(): OkHttpClient {
-        return OkHttpClient.Builder()
+        val builder = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
 
-            // Modern & Compatible TLS
+            // Modern & Compatible TLS (third-party hosts still on TLS 1.0/1.1)
             .connectionSpecs(
                 listOf(
                     okhttp3.ConnectionSpec.MODERN_TLS,
@@ -135,7 +139,27 @@ class SecurityConfig @Inject constructor() {
 
             .retryOnConnectionFailure(true)
 
-            // No certificate pinning: extractor talks to many third-party hosts.
-            .build()
+        buildDnsOverHttps()?.let { builder.dns(it) }
+
+        // No certificate pinning: extractor talks to many third-party hosts.
+        return builder.build()
+    }
+
+    private fun buildDnsOverHttps(): okhttp3.Dns? {
+        val url = try {
+            com.vyllo.music.BuildConfig.DNS_OVER_HTTPS_URL.takeIf { it.isNotBlank() }
+        } catch (e: Exception) {
+            "https://dns.google/dns-query"
+        } ?: return null
+        return runCatching {
+            // Bootstrap client must NOT use DoH itself (avoid recursion).
+            val bootstrap = OkHttpClient.Builder()
+                .connectionSpecs(listOf(okhttp3.ConnectionSpec.MODERN_TLS))
+                .build()
+            okhttp3.dnsoverhttps.DnsOverHttps.Builder()
+                .client(bootstrap)
+                .url(url.toHttpUrl())
+                .build()
+        }.getOrNull()
     }
 }

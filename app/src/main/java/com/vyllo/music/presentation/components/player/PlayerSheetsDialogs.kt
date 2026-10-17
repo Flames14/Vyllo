@@ -47,7 +47,7 @@ import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.presentation.components.CommentsBottomSheet
 import com.vyllo.music.presentation.components.EqualizerBottomSheet
-import com.vyllo.music.presentation.components.StoryShareBottomSheet
+import com.vyllo.music.presentation.components.share.StoryShareBottomSheet
 import com.vyllo.music.presentation.components.iosPressClickable
 import com.vyllo.music.presentation.components.VideoPlayerOverlayControls
 import com.vyllo.music.presentation.components.VideoSurface

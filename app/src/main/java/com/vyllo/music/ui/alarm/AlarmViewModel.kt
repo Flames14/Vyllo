@@ -7,9 +7,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.content.Context
+import android.content.Intent
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import com.vyllo.music.R
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.data.alarm.AlarmDao
@@ -124,14 +123,7 @@ class AlarmViewModel @Inject constructor(
     var isAlarmRinging by mutableStateOf(false)
         private set
 
-    private val countdownHandler = Handler(Looper.getMainLooper())
-    private val countdownRunnable = object : Runnable {
-        override fun run() {
-            updateCountdown()
-            isAlarmRinging = com.vyllo.music.service.AlarmTriggerService.isRunning
-            countdownHandler.postDelayed(this, 1000)
-        }
-    }
+    private var countdownJob: kotlinx.coroutines.Job? = null
 
     init {
         loadAlarms()
@@ -141,13 +133,25 @@ class AlarmViewModel @Inject constructor(
 
     /**
      * Dismiss the currently ringing alarm.
-     * Used for emergency stop from UI.
+     * Uses appContext - never take Activity context in ViewModel.
      */
-    fun dismissActiveAlarm(context: android.content.Context) {
-        val intent = android.content.Intent(context, com.vyllo.music.service.AlarmTriggerService::class.java).apply {
+    fun dismissActiveAlarm() {
+        val intent = Intent(appContext, com.vyllo.music.service.AlarmTriggerService::class.java).apply {
             action = com.vyllo.music.service.AlarmTriggerService.ACTION_DISMISS
         }
-        context.startService(intent)
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                appContext.startForegroundService(intent)
+            } else {
+                appContext.startService(intent)
+            }
+        }.onFailure { SecureLogger.e("AlarmVM", "dismiss failed", it) }
+    }
+
+    @Deprecated("Use dismissActiveAlarm() - ViewModel must not take Activity context", ReplaceWith("dismissActiveAlarm()"))
+    @Suppress("UNUSED_PARAMETER")
+    fun dismissActiveAlarm(context: android.content.Context) {
+        dismissActiveAlarm()
     }
 
     /**
@@ -427,16 +431,25 @@ class AlarmViewModel @Inject constructor(
 
     /**
      * Start countdown timer to show time until next alarm.
+     * Coroutine ticker - cancellable, testable, no Handler leak.
      */
     fun startCountdown() {
-        countdownHandler.post(countdownRunnable)
+        if (countdownJob?.isActive == true) return
+        countdownJob = viewModelScope.launch {
+            while (true) {
+                updateCountdown()
+                isAlarmRinging = com.vyllo.music.service.AlarmTriggerService.isRunning
+                kotlinx.coroutines.delay(1000L)
+            }
+        }
     }
 
     /**
      * Stop countdown timer.
      */
     fun stopCountdown() {
-        countdownHandler.removeCallbacks(countdownRunnable)
+        countdownJob?.cancel()
+        countdownJob = null
     }
 
     /**

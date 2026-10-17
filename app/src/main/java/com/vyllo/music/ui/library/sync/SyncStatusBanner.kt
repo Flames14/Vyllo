@@ -42,7 +42,7 @@ fun SyncStatusBanner(
         modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (syncProgress.isSuccess) Color(0xFF1B5E20).copy(alpha = 0.3f)
+            containerColor = if (syncProgress.isSuccess) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
             else if (syncProgress.errorMessage != null) MaterialTheme.colorScheme.errorContainer
             else MaterialTheme.colorScheme.primaryContainer
         )
@@ -64,7 +64,7 @@ fun SyncStatusBanner(
                             color = MaterialTheme.colorScheme.primary
                         )
                     } else if (syncProgress.isSuccess) {
-                        Icon(Icons.Rounded.CheckCircle, contentDescription = stringResource(R.string.cd_sync_succeeded), tint = Color(0xFF4CAF50), modifier = Modifier.size(22.dp))
+                        Icon(Icons.Rounded.CheckCircle, contentDescription = stringResource(R.string.cd_sync_succeeded), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                     } else {
                         Icon(Icons.Rounded.Error, contentDescription = stringResource(R.string.cd_sync_failed), tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(22.dp))
                     }

@@ -183,7 +183,7 @@ object PaxsenixProvider {
                 
                 val name = attributes.optString("name", "")
                 val artistName = attributes.optString("artistName", "")
-                val albumName = attributes.optString("albumName", null)
+                val albumName = attributes.optString("albumName").takeIf { it.isNotBlank() }
                 val durationMs = attributes.optLong("durationInMillis", 0L)
                 
                 list.add(AppleSongCandidate(id, name, artistName, albumName, durationMs / 1000))
@@ -335,20 +335,6 @@ object PaxsenixProvider {
                         
                         if (lineText.isNotEmpty()) {
                             sb.append(String.format(Locale.US, "[%02d:%02d.%02d]%s\n", minutes, seconds, centiseconds, lineText))
-                            
-                            val wordTimings = mutableListOf<String>()
-                            for (j in 0 until textArray.length()) {
-                                val wordObj = textArray.getJSONObject(j)
-                                val wText = wordObj.optString("text", "").trim()
-                                val wStart = wordObj.optDouble("timestamp", 0.0) / 1000.0
-                                val wEnd = wordObj.optDouble("endtime", 0.0) / 1000.0
-                                if (wText.isNotEmpty()) {
-                                    wordTimings.add("$wText:$wStart:$wEnd")
-                                }
-                            }
-                            if (wordTimings.isNotEmpty()) {
-                                sb.append("<").append(wordTimings.joinToString("|")).append(">\n")
-                            }
                         }
                     }
                     SecureLogger.d(TAG, "Generated syllable timings from content array")

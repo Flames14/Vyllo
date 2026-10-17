@@ -34,8 +34,8 @@ class PreferenceManager @Inject constructor(
     
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
-    // Regular preferences for non-sensitive UI settings
-    val preferences: SharedPreferences = context.getSharedPreferences("music_prefs", Context.MODE_PRIVATE)
+    // Regular preferences for non-sensitive UI settings (private - use typed accessors).
+    private val preferences: SharedPreferences = context.getSharedPreferences("music_prefs", Context.MODE_PRIVATE)
 
     override var isFloatingPlayerEnabled: Boolean
         get() = preferences.getBoolean("floating_player_enabled", false)
@@ -261,6 +261,40 @@ class PreferenceManager @Inject constructor(
     fun wipeSensitiveData() {
         securePrefs.wipeSensitiveData()
         SecureLogger.d(TAG, "Sensitive data wiped")
+    }
+
+    // --- Typed artist-affinity accessors (replaces raw "artist_" key access) ---
+    fun recordArtistListen(artist: String) {
+        if (artist.isBlank()) return
+        val key = "artist_$artist"
+        val current = preferences.getInt(key, 0)
+        preferences.edit().putInt(key, current + 1).apply()
+    }
+
+    fun getTopArtists(limit: Int = 10): List<String> {
+        return preferences.all
+            .filterKeys { it.startsWith("artist_") }
+            .mapNotNull { (key, value) -> (value as? Int)?.let { key to it } }
+            .sortedByDescending { it.second }
+            .take(limit)
+            .map { it.first.removePrefix("artist_") }
+    }
+
+    // --- Encapsulated SharedPreferences access (no raw prefs exposure) ---
+    fun registerOnPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+    }
+
+    fun unregisterOnPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
+        preferences.unregisterOnSharedPreferenceChangeListener(listener)
+    }
+
+    fun saveQueue(items: List<com.vyllo.music.domain.model.MusicItem>, index: Int) {
+        com.vyllo.music.data.manager.QueuePersistence.save(preferences, items, index)
+    }
+
+    fun restoreQueue(): Pair<List<com.vyllo.music.domain.model.MusicItem>, Int>? {
+        return com.vyllo.music.data.manager.QueuePersistence.restore(preferences)
     }
 
     companion object {

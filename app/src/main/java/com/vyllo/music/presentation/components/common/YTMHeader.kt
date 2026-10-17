@@ -38,7 +38,6 @@ fun YTMHeader(
     onSearchClick: (() -> Unit)? = null,
     onSettingsClick: () -> Unit,
     isRefreshing: Boolean = false,
-    onRefresh: () -> Unit = {},
     onRecognizeClick: () -> Unit = {}
 ) {
     Row(

@@ -220,7 +220,7 @@ fun CommentRow(comment: CommentsInfoItem) {
         verticalAlignment = Alignment.Top
     ) {
         AsyncImage(
-            model = comment.uploaderAvatars?.firstOrNull()?.url,
+            model = comment.uploaderAvatars.firstOrNull()?.url,
             contentDescription = stringResource(R.string.cd_avatar),
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -249,7 +249,7 @@ fun CommentRow(comment: CommentsInfoItem) {
             Spacer(modifier = Modifier.height(4.dp))
             
             Text(
-                text = comment.commentText?.content ?: "",
+                text = comment.commentText.content ?: "",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )

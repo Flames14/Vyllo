@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -29,6 +29,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -67,12 +70,10 @@ fun PremiumFullScreenPlayer(
     isLoading: Boolean,
     controller: MediaController?,
     relatedSongs: List<MusicItem>,
-    isAutoplayEnabled: Boolean,
     onTogglePlay: () -> Unit,
     onNext: () -> Unit,
     onPrev: () -> Unit,
     onCollapse: () -> Unit,
-    onAutoplayToggle: (Boolean) -> Unit,
     onPlayRelated: (MusicItem) -> Unit,
     viewModel: PlayerViewModel
 ) {
@@ -96,8 +97,11 @@ fun PremiumFullScreenPlayer(
     val peekHeightPx = with(density) { 64.dp.toPx() }
     val sheetMaxOffset = (queueSheetHeightPx - peekHeightPx).coerceAtLeast(0f)
     val sheetOffsetY = remember { Animatable(sheetMaxOffset) }
-    val expandProgress = remember(sheetOffsetY.value, sheetMaxOffset) {
-        if (sheetMaxOffset > 0f) (1f - (sheetOffsetY.value / sheetMaxOffset)).coerceIn(0f, 1f) else 0f
+    // Derived, not remembered on drag value: recomputes without invalidating keys.
+    val expandProgress by remember {
+        derivedStateOf {
+            if (sheetMaxOffset > 0f) (1f - (sheetOffsetY.value / sheetMaxOffset)).coerceIn(0f, 1f) else 0f
+        }
     }
     val isSheetExpanded = expandProgress > 0.5f
     var selectedDrawerTab by rememberSaveable { mutableIntStateOf(0) }
@@ -128,7 +132,20 @@ fun PremiumFullScreenPlayer(
             onDispose { mediaController.removeListener(listener) }
         } ?: onDispose { }
     }
-    val playerUiState by viewModel.uiState.collectAsState()
+    val isFullScreenVideo by remember(viewModel) {
+        viewModel.uiState.map { it.isFullScreenVideo }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = false)
+    val syncedLyricsLines by remember(viewModel) {
+        viewModel.uiState.map { it.syncedLyricsLines }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val lyricsOffsetMs by remember(viewModel) {
+        viewModel.uiState.map { it.lyricsOffsetMs }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = 0L)
+    val resolvedThumbnailUrl by remember(viewModel) {
+        viewModel.uiState.map { it.resolvedThumbnailUrl }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = null)
+    // Full state only where dialog sheets genuinely need many fields.
+    val playerUiState by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(controller, isPlaying) {
         if (!isPlaying || controller == null) {
             if (controller != null) {
@@ -141,7 +158,7 @@ fun PremiumFullScreenPlayer(
                 if (!com.vyllo.music.presentation.components.player.isSeekHoldActive()) currentPosition = controller.currentPosition.coerceAtLeast(0L)
             duration = controller.duration.coerceAtLeast(0L)
             val lineIdx = LyricsEngine.getCurrentLyricLine(
-                playerUiState.syncedLyricsLines, currentPosition + playerUiState.lyricsOffsetMs
+                syncedLyricsLines, currentPosition + lyricsOffsetMs
             )
             if (lineIdx != viewModel.currentLyricIndex) viewModel.currentLyricIndex = lineIdx
             delay(400)
@@ -160,8 +177,8 @@ fun PremiumFullScreenPlayer(
         viewModel.fetchLyrics(item, durationSecs)
     }
     val activity = context as? android.app.Activity
-    DisposableEffect(playerUiState.isFullScreenVideo) {
-        if (playerUiState.isFullScreenVideo) {
+    DisposableEffect(isFullScreenVideo) {
+        if (isFullScreenVideo) {
             activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             activity?.window?.let { window ->
                 val insetsController = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
@@ -173,7 +190,7 @@ fun PremiumFullScreenPlayer(
         }
         onDispose {
             activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            if (playerUiState.isFullScreenVideo) {
+            if (isFullScreenVideo) {
                 activity?.window?.let { window ->
                     val insetsController = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
                     insetsController.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
@@ -194,18 +211,18 @@ fun PremiumFullScreenPlayer(
         }
     }
     BackHandler {
-        if (playerUiState.isFullScreenVideo) viewModel.setFullScreenVideo(false)
+        if (isFullScreenVideo) viewModel.setFullScreenVideo(false)
         else if (isSheetExpanded) {
             coroutineScope.launch {
                 sheetOffsetY.animateTo(sheetMaxOffset, spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow))
             }
         } else onCollapse()
     }
-    val activeArtworkUrl = playerUiState.resolvedThumbnailUrl ?: item.thumbnailUrl
+    val activeArtworkUrl = resolvedThumbnailUrl ?: item.thumbnailUrl
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0F0F0F))
+            .background(androidx.compose.material3.MaterialTheme.colorScheme.background)
     ) {
         // Apple Music living fluid mesh backdrop (ported from Apple-style pass)
         AppleFluidBackdrop(
@@ -257,10 +274,10 @@ fun PremiumFullScreenPlayer(
             Spacer(modifier = Modifier.height(6.dp))
             PlayerSeekBar(currentPosition = currentPosition, duration = duration, expandProgress = expandProgress, controller = controller, onPositionChange = { currentPosition = it })
             Spacer(modifier = Modifier.height(6.dp))
-            PlayerPlaybackControls(isPlaying = isPlaying, isLoading = isLoading, currentPosition = currentPosition, duration = duration, controller = controller, shuffleModeEnabled = shuffleModeEnabled, repeatMode = repeatMode, expandProgress = expandProgress, onTogglePlay = onTogglePlay, onNext = onNext, onPrev = onPrev, onShuffleChange = { shuffleModeEnabled = it }, onRepeatChange = { repeatMode = it }, onPositionChange = { currentPosition = it }, onSeekFeedback = { seekFeedback = it })
+            PlayerPlaybackControls(isPlaying = isPlaying, isLoading = isLoading, duration = duration, controller = controller, shuffleModeEnabled = shuffleModeEnabled, repeatMode = repeatMode, expandProgress = expandProgress, onTogglePlay = onTogglePlay, onNext = onNext, onPrev = onPrev, onShuffleChange = { shuffleModeEnabled = it }, onRepeatChange = { repeatMode = it }, onPositionChange = { currentPosition = it }, onSeekFeedback = { seekFeedback = it })
             Spacer(modifier = Modifier.height(6.dp))
         }
-        PlayerQueueSheet(item = item, relatedSongs = relatedSongs, playerUiState = playerUiState, viewModel = viewModel, controller = controller, sheetOffsetY = sheetOffsetY, sheetMaxOffset = sheetMaxOffset, expandProgress = expandProgress, isSheetExpanded = isSheetExpanded, selectedDrawerTab = selectedDrawerTab, onTabSelected = { selectedDrawerTab = it }, onPlayRelated = onPlayRelated, coroutineScope = coroutineScope, modifier = Modifier.align(Alignment.BottomCenter))
+        PlayerQueueSheet(item = item, playerUiState = playerUiState, viewModel = viewModel, controller = controller, sheetOffsetY = sheetOffsetY, sheetMaxOffset = sheetMaxOffset, isSheetExpanded = isSheetExpanded, selectedDrawerTab = selectedDrawerTab, onTabSelected = { selectedDrawerTab = it }, onPlayRelated = onPlayRelated, coroutineScope = coroutineScope, modifier = Modifier.align(Alignment.BottomCenter))
     }
     PlayerStoryCommentsSheets(showStory = showStoryShareSheet, showComments = showCommentsSheet, item = item, onDismissStory = { showStoryShareSheet = false }, onDismissComments = { showCommentsSheet = false })
     PlayerFullscreenVideoOverlay(item = item, isPlaying = isPlaying, isLoading = isLoading, currentPosition = currentPosition, duration = duration, controller = controller, viewModel = viewModel, playerUiState = playerUiState, onTogglePlay = onTogglePlay, onPositionChange = { currentPosition = it })

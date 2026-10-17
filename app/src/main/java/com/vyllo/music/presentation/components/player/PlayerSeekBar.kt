@@ -82,9 +82,9 @@ fun PlayerSeekBar(
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             },
             colors = SliderDefaults.colors(
-                thumbColor = Color.White,
-                activeTrackColor = Color.White,
-                inactiveTrackColor = Color.White.copy(alpha = 0.22f)
+                thumbColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+                activeTrackColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.22f)
             ),
             thumb = {
                 val thumbScale by animateFloatAsState(
@@ -101,7 +101,7 @@ fun PlayerSeekBar(
                         }
                         .shadow(4.dp, CircleShape)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(androidx.compose.material3.MaterialTheme.colorScheme.primary)
                 )
             },
             track = { sliderState ->
@@ -109,8 +109,8 @@ fun PlayerSeekBar(
                     sliderState = sliderState,
                     modifier = Modifier.height(trackHeight),
                     colors = SliderDefaults.colors(
-                        activeTrackColor = Color.White,
-                        inactiveTrackColor = Color.White.copy(alpha = 0.22f)
+                        activeTrackColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.22f)
                     )
                 )
             },

@@ -148,7 +148,7 @@ internal object ShazamSignatureGenerator {
 
             for (binPos in 10 until FFT_OUTPUT_SIZE - 8) {
                 val fftVal = fftMinus46[binPos]
-                if (fftVal < 1.0 / 64.0 || fftVal < spreadMinus49[binPos]) continue
+                if (fftVal < 1.0 / 64.0 || fftVal < spreadMinus49[binPos - 1]) continue
 
                 var maxNeighborSpread49 = 0.0
                 for (neighborOffset in intArrayOf(-10, -7, -4, -3, 1, 2, 5, 8)) {

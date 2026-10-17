@@ -17,7 +17,7 @@ class SubtitleParserTest {
 
     @Before
     fun setUp() {
-        delegate = SubtitleLyricsDelegate(StreamSelector())
+        delegate = SubtitleLyricsDelegate(StreamSelector(com.vyllo.music.core.security.SecurityConfig()))
     }
 
     @Test

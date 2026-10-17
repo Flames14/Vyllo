@@ -24,10 +24,25 @@ import java.util.concurrent.TimeUnit
  */
 object TranslationEngine {
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(8, TimeUnit.SECONDS)
-        .readTimeout(12, TimeUnit.SECONDS)
-        .build()
+    private val client: OkHttpClient by lazy {
+        runCatching {
+            com.vyllo.music.core.security.SecurityConfig()
+                .createFlexibleSecureHttpClient()
+                .newBuilder()
+                .connectTimeout(8, TimeUnit.SECONDS)
+                .readTimeout(12, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(false)
+                .build()
+        }.getOrElse {
+            OkHttpClient.Builder()
+                .connectTimeout(8, TimeUnit.SECONDS)
+                .readTimeout(12, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(false)
+                .build()
+        }
+    }
 
     // In-memory LRU translation cache (stores up to 500 entries)
     private val translationCache = object : java.util.LinkedHashMap<String, String>(128, 0.75f, true) {
@@ -61,12 +76,7 @@ object TranslationEngine {
             client.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val bodyString = response.body?.string() ?: return null
-                    val jsonArr = JSONArray(bodyString)
-                    if (jsonArr.length() > 0) {
-                        val translated = jsonArr.getString(0)
-                        val detected = if (jsonArr.length() > 1) jsonArr.getString(1) else "auto"
-                        return Pair(translated, detected)
-                    }
+                    return parseGoogleResponse(bodyString)
                 } else {
                     SecureLogger.w("TranslationEngine", "Google translate HTTP error: ${response.code}")
                 }
@@ -75,6 +85,43 @@ object TranslationEngine {
             SecureLogger.w("TranslationEngine", "Google translate exception: ${e.message}")
         }
         return null
+    }
+
+    /**
+     * Parses the dict-chrome-ex response. Two shapes exist:
+     *  - [["translated","detected"], ["chunk2","detected"], ...]  (per-chunk pairs)
+     *  - ["translated","detected"]                                (flat pair)
+     * Returns Pair(translatedText, detectedLang) or null if unusable.
+     */
+    internal fun parseGoogleResponse(bodyString: String): Pair<String, String>? {
+        try {
+            val jsonArr = JSONArray(bodyString)
+            if (jsonArr.length() == 0) return null
+            return when (val first = jsonArr.opt(0)) {
+                is JSONArray -> {
+                    val parts = StringBuilder()
+                    var detected = "auto"
+                    for (i in 0 until jsonArr.length()) {
+                        val chunk = jsonArr.optJSONArray(i) ?: continue
+                        val text = chunk.optString(0)
+                        if (text.isNotEmpty()) parts.append(text)
+                        if (detected == "auto") {
+                            detected = chunk.optString(1, "auto")
+                        }
+                    }
+                    val translated = parts.toString()
+                    if (translated.isBlank()) null else Pair(translated, detected)
+                }
+                is String -> {
+                    val detected = if (jsonArr.length() > 1) jsonArr.optString(1, "auto") else "auto"
+                    if (first.isBlank()) null else Pair(first, detected)
+                }
+                else -> null
+            }
+        } catch (e: Exception) {
+            SecureLogger.w("TranslationEngine", "Google translate parse exception: ${e.message}")
+            return null
+        }
     }
 
     /**
@@ -150,7 +197,6 @@ object TranslationEngine {
      */
     suspend fun translateLines(
         lines: List<SyncedLyricLine>,
-        sourceLang: String = "auto",
         targetLang: String = "en"
     ): List<String?> = withContext(Dispatchers.IO) {
         if (lines.isEmpty()) return@withContext emptyList()
@@ -227,7 +273,6 @@ object TranslationEngine {
      */
     suspend fun translatePlainLyrics(
         plainLyrics: String,
-        sourceLang: String = "auto",
         targetLang: String = "en"
     ): String? = withContext(Dispatchers.IO) {
         if (plainLyrics.isBlank()) return@withContext null

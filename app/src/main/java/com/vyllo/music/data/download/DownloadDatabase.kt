@@ -21,9 +21,10 @@ import com.vyllo.music.domain.model.PlaylistSongEntity
         PlaylistEntity::class, 
         PlaylistSongEntity::class, 
         HistoryEntity::class,
-        AlarmEntity::class
+        AlarmEntity::class,
+        FavoriteEntity::class
     ], 
-    version = 4, 
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -33,6 +34,7 @@ abstract class DownloadDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
     abstract fun historyDao(): HistoryDao
     abstract fun alarmDao(): AlarmDao
+    abstract fun favoritesDao(): FavoritesDao
 
     companion object {
         @Volatile
@@ -45,7 +47,7 @@ abstract class DownloadDatabase : RoomDatabase() {
                     DownloadDatabase::class.java,
                     "downloads_db"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build().also { INSTANCE = it }
             }
         }

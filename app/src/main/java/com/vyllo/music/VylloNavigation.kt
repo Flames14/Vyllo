@@ -15,6 +15,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,11 +27,12 @@ import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem
 import com.vyllo.music.core.security.SecurityMonitor
 import com.vyllo.music.core.security.SecureLogger
-import com.vyllo.music.ui.components.SettingsDialog
-import com.vyllo.music.presentation.components.PlaylistAddDialog
+import com.vyllo.music.ui.components.dialogs.SettingsDialog
+import com.vyllo.music.presentation.components.common.PlaylistAddDialog
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.manager.PlaybackManager
 import com.vyllo.music.presentation.components.*
+import com.vyllo.music.presentation.components.common.YTMBottomNavBar
 import com.vyllo.music.ui.home.*
 import com.vyllo.music.ui.explore.*
 import com.vyllo.music.ui.library.*
@@ -70,7 +74,8 @@ fun VylloNavigation(
     onPrev: (MusicItem?) -> Unit
 ) {
     var isPlayerExpanded by rememberSaveable { mutableStateOf(false) }
-    var isPlaying by rememberSaveable { mutableStateOf(false) }
+    // Transient playback flag - must NOT survive process restore (controller dies).
+    var isPlaying by remember { mutableStateOf(false) }
     var showSearchScreen by rememberSaveable { mutableStateOf(false) }
     var showAlarmScreen by rememberSaveable { mutableStateOf(false) }
     var showRecognitionScreen by rememberSaveable { mutableStateOf(false) }
@@ -79,9 +84,23 @@ fun VylloNavigation(
     val recognitionViewModel: RecognitionViewModel = hiltViewModel()
     val updateViewModel: AppUpdateViewModel = hiltViewModel()
 
-    // Collect player UI state so Compose recomposes when player state changes
-    val playerUiState by playerViewModel.uiState.collectAsState()
-    
+    // Slice player state to avoid whole-app recomposition on unrelated fields
+    // (likeCount, lyricsLoading, equalizer...). Each slice only recomposes its readers.
+    val currentPlayingItem by remember(playerViewModel) {
+        playerViewModel.uiState.map { it.currentPlayingItem }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = null)
+    val isLoadingPlayer by remember(playerViewModel) {
+        playerViewModel.uiState.map { it.isLoadingPlayer }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = false)
+    val loadingItemUrl by remember(playerViewModel) {
+        playerViewModel.uiState.map { it.loadingItemUrl }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = null)
+    val relatedSongs by remember(playerViewModel) {
+        playerViewModel.uiState.map { it.relatedSongs }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
+    // Full state kept only for fullscreen overlay that genuinely needs many fields.
+    // Screens above read the slices, not this.
+
     val appContext = LocalContext.current
     
     // Monitor device security risk on app start (informational only — does not gate features)
@@ -123,13 +142,15 @@ fun VylloNavigation(
     }
 
     val context = LocalContext.current
-    val controller = playbackManager.getController()
+    val isControllerConnected by playbackManager.isConnected.collectAsStateWithLifecycle(initialValue = playbackManager.isConnected())
+    val controller = remember(isControllerConnected) { playbackManager.getController() }
     val snackbarHostState = remember { SnackbarHostState() }
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
 
     // Sync playing state with the controller immediately and on future updates.
-    DisposableEffect(controller) {
+    // Re-runs when controller connects (cold start), not just once with null.
+    DisposableEffect(controller, isControllerConnected) {
         isPlaying = controller?.isPlaying == true
 
         val listener = object : androidx.media3.common.Player.Listener {
@@ -155,7 +176,7 @@ fun VylloNavigation(
         onDispose { controller?.removeListener(listener) }
     }
 
-    LaunchedEffect(controller, playerUiState.currentPlayingItem?.url) {
+    LaunchedEffect(controller, isControllerConnected, currentPlayingItem?.url) {
         isPlaying = controller?.isPlaying == true
     }
 
@@ -187,21 +208,19 @@ fun VylloNavigation(
                                 .fillMaxWidth()
                                 .background(Color.Transparent)
                         ) {
-                            if (playerUiState.currentPlayingItem != null) {
+                            if (currentPlayingItem != null) {
                                 PremiumPlayerContainer(
-                                    musicItem = playerUiState.currentPlayingItem,
+                                    musicItem = currentPlayingItem,
                                     isPlaying = isPlaying,
-                                    isLoading = playerUiState.isLoadingPlayer,
+                                    isLoading = isLoadingPlayer,
                                     controller = controller,
-                                    relatedSongs = playerUiState.relatedSongs,
-                                    isAutoplayEnabled = playerUiState.autoplayEnabled,
+                                    relatedSongs = relatedSongs,
                                     onTogglePlay = { if (isPlaying) controller?.pause() else controller?.play() },
-                                    onNext = { onNext(playerUiState.currentPlayingItem) },
-                                    onPrev = { onPrev(playerUiState.currentPlayingItem) },
+                                    onNext = { onNext(currentPlayingItem) },
+                                    onPrev = { onPrev(currentPlayingItem) },
                                     onExpand = { isPlayerExpanded = true },
                                     onCollapse = { isPlayerExpanded = false },
                                     isExpanded = false,
-                                    onAutoplayToggle = { playerViewModel.autoplayEnabled = it },
                                     onPlayRelated = { item -> homeViewModel.addToRecentlyPlayed(item); onPlayFromQueue(item) },
                                     viewModel = playerViewModel
                                 )
@@ -241,7 +260,7 @@ fun VylloNavigation(
                                 homeViewModel.addToRecentlyPlayed(item)
                                 onPlay(item)
                             },
-                            currentPlayingItem = playerUiState.currentPlayingItem,
+                            currentPlayingItem = currentPlayingItem,
                             scrollState = scrollState
                         )
                     } else if (showRecognitionScreen) {
@@ -265,8 +284,8 @@ fun VylloNavigation(
                                 onSearchClick = { showSearchScreen = true },
                                 onSettingsClick = { settingsViewModel.showSettings = true },
                                 onRecognizeClick = { showRecognitionScreen = true },
-                                currentPlayingItem = playerUiState.currentPlayingItem,
-                                loadingItemUrl = playerUiState.loadingItemUrl,
+                                currentPlayingItem = currentPlayingItem,
+                                loadingItemUrl = loadingItemUrl,
                                 scrollTuner = homeScrollTuner,
                                 homeScrollState = homeScrollState
                                     ?: androidx.compose.foundation.lazy.rememberLazyListState()
@@ -280,8 +299,8 @@ fun VylloNavigation(
                                 onSearchClick = { showSearchScreen = true },
                                 onSettingsClick = { settingsViewModel.showSettings = true },
                                 onRecognizeClick = { showRecognitionScreen = true },
-                                currentPlayingItem = playerUiState.currentPlayingItem,
-                                loadingItemUrl = playerUiState.loadingItemUrl
+                                currentPlayingItem = currentPlayingItem,
+                                loadingItemUrl = loadingItemUrl
                             )
                             2 -> {
                                 // Library/Playlist/Alarm navigation
@@ -300,8 +319,8 @@ fun VylloNavigation(
                                                 homeViewModel.addToRecentlyPlayed(item)
                                                 onPlay(item)
                                             },
-                                            currentPlayingItem = playerUiState.currentPlayingItem,
-                                            loadingItemUrl = playerUiState.loadingItemUrl
+                                            currentPlayingItem = currentPlayingItem,
+                                            loadingItemUrl = loadingItemUrl
                                         )
                                     } else {
                                         YTMLibraryScreen(
@@ -313,8 +332,8 @@ fun VylloNavigation(
                                             onSearchClick = { showSearchScreen = true },
                                             onSettingsClick = { settingsViewModel.showSettings = true },
                                             onRecognizeClick = { showRecognitionScreen = true },
-                                            currentPlayingItem = playerUiState.currentPlayingItem,
-                                            loadingItemUrl = playerUiState.loadingItemUrl,
+                                            currentPlayingItem = currentPlayingItem,
+                                            loadingItemUrl = loadingItemUrl,
                                             onNavigateToAlarms = { showAlarmScreen = true }
                                         )
                                     }
@@ -379,8 +398,12 @@ fun VylloNavigation(
                            onHighRefreshRateChange = { settingsViewModel.toggleHighRefreshRate(it) },
                            wifiOnlyDownloads = settingsViewModel.wifiOnlyDownloads,
                            onWifiOnlyDownloadsChange = { settingsViewModel.toggleWifiOnlyDownloads(it) },
-                           downloadsRequireBatteryOk = settingsViewModel.downloadsRequireBatteryOk,
-                           onDownloadsRequireBatteryOkChange = { settingsViewModel.toggleDownloadsRequireBatteryOk(it) },
+downloadsRequireBatteryOk = settingsViewModel.downloadsRequireBatteryOk,
+                            onDownloadsRequireBatteryOkChange = { settingsViewModel.toggleDownloadsRequireBatteryOk(it) },
+                            autoplayEnabled = playerViewModel.autoplayEnabled,
+                            onAutoplayChange = { playerViewModel.autoplayEnabled = it },
+                            isQueueSticky = playerViewModel.isQueueSticky,
+                            onQueueStickyChange = { playerViewModel.isQueueSticky = it },
                            onExportBackupClick = { exportLauncher.launch("vyllo_backup_${System.currentTimeMillis()}.json") },
                            onImportBackupClick = { importLauncher.launch(arrayOf("application/json", "text/*")) },
                            onCheckUpdateClick = { updateViewModel.checkForUpdates() }
@@ -405,19 +428,17 @@ fun VylloNavigation(
 
         // FullScreen Player Overlay (renders over everything when expanded)
         if (isPlayerExpanded) {
-            playerUiState.currentPlayingItem?.let { expandedPlayingItem ->
+            currentPlayingItem?.let { expandedPlayingItem ->
                 PremiumFullScreenPlayer(
                     item = expandedPlayingItem,
                     isPlaying = isPlaying,
-                    isLoading = playerUiState.isLoadingPlayer,
+                    isLoading = isLoadingPlayer,
                     controller = controller,
-                    relatedSongs = playerUiState.relatedSongs,
-                    isAutoplayEnabled = playerUiState.autoplayEnabled,
+                    relatedSongs = relatedSongs,
                     onTogglePlay = { if (isPlaying) controller?.pause() else controller?.play() },
-                    onNext = { onNext(playerUiState.currentPlayingItem) },
-                    onPrev = { onPrev(playerUiState.currentPlayingItem) },
+                    onNext = { onNext(currentPlayingItem) },
+                    onPrev = { onPrev(currentPlayingItem) },
                     onCollapse = { isPlayerExpanded = false },
-                    onAutoplayToggle = { playerViewModel.autoplayEnabled = it },
                     onPlayRelated = { item -> homeViewModel.addToRecentlyPlayed(item); onPlayFromQueue(item) },
                     viewModel = playerViewModel
                 )
@@ -433,7 +454,6 @@ fun LazyListScope.YTMGridSection(
     rows: List<List<MusicItem>>,
     currentPlayingItem: MusicItem?,
     onPlay: (MusicItem) -> Unit,
-    homeViewModel: HomeViewModel? = null,
     loadingItemUrl: String? = null,
     sectionKey: String = "grid"
 ) {
@@ -443,11 +463,11 @@ fun LazyListScope.YTMGridSection(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            items(
+            itemsIndexed(
                 items = rows,
-                key = { colItems -> "${sectionKey}_col_${colItems.firstOrNull()?.url ?: "empty"}" },
-                contentType = { "grid_column" }
-            ) { columnItems ->
+                key = { index, colItems -> "${sectionKey}_col_${index}_${colItems.firstOrNull()?.url ?: "empty"}" },
+                contentType = { _, _ -> "grid_column" }
+            ) { _, columnItems ->
                 Column(
                     modifier = Modifier.width(300.dp), // Standard width for YT Music compact row columns
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -458,7 +478,6 @@ fun LazyListScope.YTMGridSection(
                             isPlaying = currentPlayingItem?.url == item.url,
                             onClick = { onPlay(item) },
                             modifier = Modifier.fillMaxWidth(),
-                            homeViewModel = homeViewModel,
                             isLoading = loadingItemUrl == item.url
                         )
                     }

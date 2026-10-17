@@ -60,69 +60,16 @@ class PlaybackQueueManager @Inject constructor() {
             notifyQueueStructureChangedLocked()
         }
     }
-    
-    fun addAll(items: List<MusicItem>) {
-        synchronized(lock) {
-            currentQueue.addAll(items)
-            preShuffleQueue = preShuffleQueue?.plus(items)
-            notifyQueueStructureChangedLocked()
-        }
-    }
-    
-    fun removeItem(item: MusicItem): Boolean {
-        return synchronized(lock) {
-            val removed = currentQueue.remove(item)
-            if (removed && currentIndex >= currentQueue.size) {
-                currentIndex = (currentQueue.size - 1).coerceAtLeast(0)
-            }
-            if (removed) {
-                notifyQueueStructureChangedLocked()
-            }
-            removed
-        }
-    }
-    
-    fun removeItemAt(index: Int): MusicItem? {
-        return synchronized(lock) {
-            if (index in currentQueue.indices) {
-                val removed = currentQueue.removeAt(index)
-                if (index < currentIndex) {
-                    currentIndex--
-                } else if (index == currentIndex) {
-                    currentIndex = (currentQueue.size - 1).coerceAtLeast(-1)
-                }
-                notifyQueueStructureChangedLocked()
-                removed
-            } else {
-                null
-            }
-        }
-    }
-    
-    fun clear() {
-        synchronized(lock) {
-            currentQueue.clear()
-            currentIndex = -1
-            notifyQueueStructureChangedLocked()
-        }
-    }
-    
+
     val size: Int
         get() = currentQueue.size
-    
-    fun getItemAt(index: Int): MusicItem? {
+
+    fun indexOf(item: MusicItem): Int {
         return synchronized(lock) {
-            if (index in currentQueue.indices) {
-                currentQueue[index]
-            } else {
-                null
-            }
+            currentQueue.indexOfFirst { it.url == item.url }
         }
     }
-    
-    val isEmpty: Boolean
-        get() = currentQueue.isEmpty()
-    
+
     val nextItem: MusicItem?
         get() = synchronized(lock) {
             val nextIndex = currentIndex + 1
@@ -132,17 +79,7 @@ class PlaybackQueueManager @Inject constructor() {
                 null
             }
         }
-    
-    val previousItem: MusicItem?
-        get() = synchronized(lock) {
-            val prevIndex = currentIndex - 1
-            if (prevIndex in currentQueue.indices) {
-                currentQueue[prevIndex]
-            } else {
-                null
-            }
-        }
-    
+
     fun setCurrentIndexSafe(index: Int) {
         synchronized(lock) {
             val safeIndex = index.coerceIn(-1, currentQueue.size - 1)
@@ -153,19 +90,7 @@ class PlaybackQueueManager @Inject constructor() {
             }
         }
     }
-    
-    fun indexOf(item: MusicItem): Int {
-        return synchronized(lock) {
-            currentQueue.indexOfFirst { it.url == item.url }
-        }
-    }
-    
-    fun contains(item: MusicItem): Boolean {
-        return synchronized(lock) {
-            currentQueue.contains(item)
-        }
-    }
-    
+
     fun getQueueSnapshot(): List<MusicItem> {
         return synchronized(lock) {
             currentQueue.toList().distinctBy { it.url }
@@ -303,5 +228,93 @@ class PlaybackQueueManager @Inject constructor() {
     private fun notifyQueueStructureChangedLocked() {
         _currentPlayingItem.value = currentItem
         _queueVersion.value = _queueVersion.value + 1
+    }
+
+    // -------------------------------------------------------------------------
+    // User-facing queue edits (Up Next tab).
+    //
+    // All indices here are 0-based RELATIVE TO THE PLAYHEAD, so the UI never has
+    // to know about the played prefix that sits behind the current index.
+    //
+    // Edits are restricted to the upcoming region: removing or moving the item
+    // that is currently audible would require a jump-cut mid-track, which the
+    // ExoPlayer lookahead cannot represent without desyncing.
+    //
+    // Any manual edit discards the pre-shuffle snapshot (preShuffleQueue = null).
+    // That is deliberate: once the user starts hand-ordering the queue, turning
+    // shuffle off must keep the order they chose rather than resurrecting the
+    // pre-shuffle one. setShuffleEnabled(false) already handles a null snapshot
+    // by leaving the current order untouched.
+    // -------------------------------------------------------------------------
+
+    /** Maps an upcoming-relative index onto an absolute queue index. */
+    private fun absoluteIndexLocked(upcomingIndex: Int): Int = currentIndex + 1 + upcomingIndex
+
+    /** Removes the upcoming track at [upcomingIndex]; returns it for undo, or null if out of range. */
+    fun removeUpcomingAt(upcomingIndex: Int): MusicItem? = synchronized(lock) {
+        val absolute = absoluteIndexLocked(upcomingIndex)
+        if (upcomingIndex < 0 || absolute !in currentQueue.indices) return null
+        val removed = currentQueue.removeAt(absolute)
+        preShuffleQueue = null
+        notifyQueueStructureChangedLocked()
+        removed
+    }
+
+    /**
+     * Re-inserts previously removed upcoming tracks at [upcomingIndex] (used by undo).
+     * Order within [items] is preserved.
+     */
+    fun insertUpcomingAt(upcomingIndex: Int, items: List<MusicItem>): Boolean = synchronized(lock) {
+        if (items.isEmpty()) return false
+        val absolute = absoluteIndexLocked(upcomingIndex).coerceIn(currentIndex + 1, currentQueue.size)
+        val knownUrls = currentQueue.mapTo(mutableSetOf()) { it.url }
+        val fresh = items.filter { knownUrls.add(it.url) }
+        if (fresh.isEmpty()) return false
+        currentQueue.addAll(absolute, fresh)
+        preShuffleQueue = null
+        notifyQueueStructureChangedLocked()
+        true
+    }
+
+    /** Moves the upcoming track from [from] to [to] (both upcoming-relative). */
+    fun moveUpcoming(from: Int, to: Int): Boolean = synchronized(lock) {
+        val fromAbsolute = absoluteIndexLocked(from)
+        val toAbsolute = absoluteIndexLocked(to)
+        if (from < 0 || to < 0) return false
+        if (fromAbsolute !in currentQueue.indices || toAbsolute !in currentQueue.indices) return false
+        if (from == to) return false
+        val moved = currentQueue.removeAt(fromAbsolute)
+        currentQueue.add(toAbsolute, moved)
+        preShuffleQueue = null
+        notifyQueueStructureChangedLocked()
+        true
+    }
+
+    /** Moves the upcoming track at [upcomingIndex] by [delta] positions (e.g. -1 = up, +1 = down). */
+    fun moveUpcomingBy(upcomingIndex: Int, delta: Int): Boolean =
+        moveUpcoming(upcomingIndex, upcomingIndex + delta)
+
+    /**
+     * Removes every upcoming track, keeping the current one playing.
+     * Returns the removed tracks in their original order (for undo).
+     */
+    fun clearUpcoming(): List<MusicItem> = synchronized(lock) {
+        val firstUpcoming = currentIndex + 1
+        if (firstUpcoming !in 0..currentQueue.size) return emptyList()
+        val removed = currentQueue.subList(firstUpcoming, currentQueue.size).toList()
+        if (removed.isEmpty()) return emptyList()
+        currentQueue.subList(firstUpcoming, currentQueue.size).clear()
+        preShuffleQueue = null
+        notifyQueueStructureChangedLocked()
+        removed
+    }
+
+    /** Absolute 0-based index of [url] within the upcoming region, or -1. */
+    fun upcomingIndexOf(url: String): Int = synchronized(lock) {
+        val firstUpcoming = currentIndex + 1
+        if (firstUpcoming > currentQueue.size) return -1
+        val offset = currentQueue.subList(firstUpcoming, currentQueue.size)
+            .indexOfFirst { it.url == url }
+        if (offset < 0) -1 else offset
     }
 }

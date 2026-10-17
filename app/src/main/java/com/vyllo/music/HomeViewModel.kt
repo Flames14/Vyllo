@@ -15,7 +15,6 @@ import com.vyllo.music.domain.usecase.LoadMoreRecommendationsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -173,10 +172,10 @@ class HomeViewModel @Inject constructor(
                 it.copy(isLoadingRecommendations = true, isLoadingTrending = true, loadFailed = false)
             }
 
-            launch {
+            val trendingJob = launch {
                 val trending = attempt("Trending fetch") { repository.getTrendingMusic() }
-                sectionsSeen += HomeFeedSnapshot.KEY_TRENDING
                 if (trending != null && trending.isNotEmpty()) {
+                    sectionsSeen += HomeFeedSnapshot.KEY_TRENDING
                     val title = homeTitleLabel()
                     _uiState.update { state ->
                         state.copy(
@@ -193,11 +192,11 @@ class HomeViewModel @Inject constructor(
                 }
             }
 
-            launch {
+            val recommendationsJob = launch {
                 val recommendations = attempt("Home recommendations") { getHomeContentUseCase() }
-                sectionsSeen += HomeFeedSnapshot.KEY_QUICK_PICKS
-                sectionsSeen += HomeFeedSnapshot.KEY_MIXED_FOR_YOU
                 if (recommendations != null && recommendations.isNotEmpty()) {
+                    sectionsSeen += HomeFeedSnapshot.KEY_QUICK_PICKS
+                    sectionsSeen += HomeFeedSnapshot.KEY_MIXED_FOR_YOU
                     val title = homeTitleLabel()
                     _uiState.update { state ->
                         state.copy(
@@ -218,7 +217,12 @@ class HomeViewModel @Inject constructor(
             // section lands. Sections also drop it themselves, so this join is only a
             // backstop for the case where both above-the-fold fetches came back empty.
             launch {
-                joinAll()
+                // Join the two real jobs. The old `joinAll()` had no arguments —
+                // an empty vararg that joined nothing, so this settled the screen
+                // before any fetch finished and made the loadFailed branch below
+                // unreachable (failedSections was always still empty here).
+                trendingJob.join()
+                recommendationsJob.join()
                 _uiState.update { state ->
                     when {
                         state.hasAnyContent -> state.copy(isLoading = false, loadFailed = false)
@@ -253,8 +257,8 @@ class HomeViewModel @Inject constructor(
                 val releases = attempt("New releases search") {
                     repository.searchMusic(NEW_RELEASES_QUERY, maintainSession = false)
                 }
-                sectionsSeen += HomeFeedSnapshot.KEY_NEW_RELEASES
                 if (releases != null && releases.isNotEmpty()) {
+                    sectionsSeen += HomeFeedSnapshot.KEY_NEW_RELEASES
                     _uiState.update {
                         it.copy(newReleasesItems = releases.take(NEW_RELEASES_COUNT), isLoadingNewReleases = false)
                     }
@@ -338,6 +342,11 @@ class HomeViewModel @Inject constructor(
     private fun applySnapshot(snapshot: HomeFeedSnapshot) {
         val trending = snapshot.section(HomeFeedSnapshot.KEY_TRENDING)
         val quickPicks = snapshot.section(HomeFeedSnapshot.KEY_QUICK_PICKS)
+        val mixedForYou = snapshot.section(HomeFeedSnapshot.KEY_MIXED_FOR_YOU)
+        val newReleases = snapshot.section(HomeFeedSnapshot.KEY_NEW_RELEASES)
+        val chill = snapshot.section(HomeFeedSnapshot.KEY_CHILL)
+        val workout = snapshot.section(HomeFeedSnapshot.KEY_WORKOUT)
+        val focus = snapshot.section(HomeFeedSnapshot.KEY_FOCUS)
         _uiState.update { state ->
             state.copy(
                 homeTitle = homeTitleLabel(state.recentlyPlayed.isEmpty()),
@@ -346,14 +355,25 @@ class HomeViewModel @Inject constructor(
                     .take(TRENDING_ROW_COUNT)
                     .chunked(HOME_ROW_SIZE),
                 quickPicksRows = quickPicks.take(QUICK_PICKS_CARD_COUNT).chunked(HOME_ROW_SIZE),
-                mixedForYouItems = snapshot.section(HomeFeedSnapshot.KEY_MIXED_FOR_YOU),
-                newReleasesItems = snapshot.section(HomeFeedSnapshot.KEY_NEW_RELEASES),
-                chillItems = snapshot.section(HomeFeedSnapshot.KEY_CHILL),
-                workoutItems = snapshot.section(HomeFeedSnapshot.KEY_WORKOUT),
-                focusItems = snapshot.section(HomeFeedSnapshot.KEY_FOCUS),
+                mixedForYouItems = mixedForYou,
+                newReleasesItems = newReleases,
+                chillItems = chill,
+                workoutItems = workout,
+                focusItems = focus,
                 isLoading = false
             )
         }
+        // The painted sections now hold real content. Mark them so the next cache
+        // save keeps them even when this launch never re-fetches them (offline) —
+        // buildSnapshot only persists keys sectionsSeen knows about, so without
+        // this an offline launch silently dropped every unfetched cached section.
+        if (trending.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_TRENDING
+        if (quickPicks.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_QUICK_PICKS
+        if (mixedForYou.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_MIXED_FOR_YOU
+        if (newReleases.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_NEW_RELEASES
+        if (chill.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_CHILL
+        if (workout.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_WORKOUT
+        if (focus.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_FOCUS
     }
 
     /**
@@ -557,10 +577,14 @@ class HomeViewModel @Inject constructor(
                 val newReleasesResult = newReleases.await()
                 val recommendationsResult = recommendations.await()
 
-                sectionsSeen += HomeFeedSnapshot.KEY_TRENDING
-                sectionsSeen += HomeFeedSnapshot.KEY_QUICK_PICKS
-                sectionsSeen += HomeFeedSnapshot.KEY_MIXED_FOR_YOU
-                sectionsSeen += HomeFeedSnapshot.KEY_NEW_RELEASES
+                // Mark only sections the refresh actually refilled — an empty
+                // result must not be cached as a placeholder section.
+                if (trendingResult.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_TRENDING
+                if (recommendationsResult.isNotEmpty()) {
+                    sectionsSeen += HomeFeedSnapshot.KEY_QUICK_PICKS
+                    sectionsSeen += HomeFeedSnapshot.KEY_MIXED_FOR_YOU
+                }
+                if (newReleasesResult.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_NEW_RELEASES
 
                 _uiState.update { state ->
                     state.copy(

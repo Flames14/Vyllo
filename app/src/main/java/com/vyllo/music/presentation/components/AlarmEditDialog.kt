@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -64,7 +65,7 @@ fun AlarmEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     leadingIcon = {
-                        Icon(Icons.Rounded.Label, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Rounded.Label, contentDescription = null)
                     }
                 )
 
@@ -76,7 +77,6 @@ fun AlarmEditDialog(
 
                 // Sound selection
                 SoundSelector(
-                    soundType = viewModel.selectedSoundType,
                     songTitle = viewModel.selectedSongTitle,
                     onSoundClick = { viewModel.openSoundPicker() }
                 )
@@ -219,7 +219,6 @@ private fun RepeatDaysSelector(
  */
 @Composable
 private fun SoundSelector(
-    soundType: com.vyllo.music.domain.model.SoundType,
     songTitle: String?,
     onSoundClick: () -> Unit
 ) {

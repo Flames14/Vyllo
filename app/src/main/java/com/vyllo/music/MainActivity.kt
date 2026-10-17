@@ -16,7 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -39,16 +39,12 @@ import com.vyllo.music.VylloNavigation
 import com.vyllo.music.domain.manager.PlaybackManager
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.PlayResult
-import com.vyllo.music.domain.usecase.PlayMusicUseCase
 import com.vyllo.music.service.MusicService
-import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.presentation.theme.ThemeManager
 import com.vyllo.music.core.security.SecureLogger
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 import android.Manifest
@@ -58,17 +54,6 @@ import androidx.core.content.ContextCompat
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    /**
-     * Monotonic id for the newest tap.
-     *
-     * The play flow used to take a Mutex, which serialised every tap behind the
-     * previous one's full network resolve — tapping again felt dead. Now each tap
-     * claims a generation and bails the moment a newer one exists, so the *last*
-     * tap always wins and superseded resolves stop immediately instead of waiting.
-     */
-    private var playRequestSeq: Long = 0L
-    private var lastPlayRequestAt: Long = 0L
-
     private val homeViewModel: HomeViewModel by viewModels()
     private val searchViewModel: SearchViewModel by viewModels()
     private val libraryViewModel: LibraryViewModel by viewModels()
@@ -79,12 +64,6 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var preferenceManager: PreferenceManager
-
-    @Inject
-    lateinit var playMusicUseCase: PlayMusicUseCase
-
-    @Inject
-    lateinit var playbackQueueManager: PlaybackQueueManager
 
     @Inject
     lateinit var homeScrollTuner: com.vyllo.music.presentation.scroll.HomeScrollTuner
@@ -162,11 +141,11 @@ class MainActivity : ComponentActivity() {
                         homeScrollState = homeScrollState,
                         onPlay = { item -> playMusic(item) },
                         onPlayFromQueue = { item -> playMusic(item, fromQueue = true) },
-                        onNext = { item -> playNext(item) },
-                        onPrev = { item -> playPrevious(item) }
+                        onNext = { playNext() },
+                        onPrev = { playPrevious() }
                     )
 
-                    val playerState by playerViewModel.uiState.collectAsState()
+                    val playerState by playerViewModel.uiState.collectAsStateWithLifecycle()
 
                     // Android 12+ PiP auto-enter follows the real playback mode:
                     // on for video with something loaded, off the moment either
@@ -250,9 +229,10 @@ class MainActivity : ComponentActivity() {
         if (com.vyllo.music.core.utils.BatteryOptimizationHelper.isIgnoringBatteryOptimizations(this)) return
         if (preferenceManager.batteryRationaleShown) return
         preferenceManager.batteryRationaleShown = true
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            if (isFinishing || isDestroyed) return@postDelayed
-            android.app.AlertDialog.Builder(this)
+        lifecycleScope.launch {
+            kotlinx.coroutines.delay(1500L)
+            if (isFinishing || isDestroyed) return@launch
+            android.app.AlertDialog.Builder(this@MainActivity)
                 .setTitle("Uninterrupted playback")
                 .setMessage(
                     "Vyllo plays music with the screen off and can wake you with an alarm. " +
@@ -260,68 +240,34 @@ class MainActivity : ComponentActivity() {
                     "alarms keep working during long sleep?"
                 )
                 .setPositiveButton("Allow") { _, _ ->
-                    com.vyllo.music.core.utils.BatteryOptimizationHelper.requestExemptionIfNeeded(this)
+                    com.vyllo.music.core.utils.BatteryOptimizationHelper.requestExemptionIfNeeded(this@MainActivity)
                 }
                 .setNegativeButton("Not now", null)
                 .show()
-        }, 1500L)
+        }
     }
 
+    // Thin delegates - orchestration lives in PlayerViewModel (testable, lifecycle-safe).
     private fun playMusic(item: MusicItem, fromQueue: Boolean = false) {
-        val now = android.os.SystemClock.elapsedRealtime()
-        if (now - lastPlayRequestAt < 250L) return
-        lastPlayRequestAt = now
-        val mySeq = ++playRequestSeq
-        val isVideo = playerViewModel.isVideoMode
-        // Set loading state immediately so the player UI shows the spinner while resolving URL
-        playerViewModel.setPlaybackLoading(true, item.url)
-        lifecycleScope.launch {
-            try {
-                val result = playMusicUseCase.execute(item, isVideo = isVideo, keepQueue = fromQueue)
-                // A newer tap has taken over: drop this result rather than showing a
-                // toast or loading the related list for a track the user moved on from.
-                if (mySeq != playRequestSeq) return@launch
-                when (result) {
-                    is PlayResult.Success -> {
-                        homeViewModel.addToRecentlyPlayed(item)
-                        if (!fromQueue || playerViewModel.relatedSongs.isEmpty()) {
-                            playerViewModel.loadRelatedSongs(item)
-                        }
-                    }
-                    is PlayResult.Failure -> {
-                        if (!isFinishing && !isDestroyed) {
-                            Toast.makeText(
-                                this@MainActivity,
-                                result.message,
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                }
-            } finally {
-                if (mySeq == playRequestSeq) {
-                    playerViewModel.setPlaybackLoading(false)
-                }
+        playerViewModel.playTrack(item, fromQueue = fromQueue) { result ->
+            if (result is PlayResult.Failure && !isFinishing && !isDestroyed) {
+                Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_SHORT).show()
+            } else if (result is PlayResult.Success) {
+                homeViewModel.addToRecentlyPlayed(item)
             }
         }
     }
 
-    private fun playNext(currentItem: MusicItem?) {
-        val queueSnapshot = playbackQueueManager.getQueueSnapshot()
-        val currentIdx = playbackQueueManager.currentIndex
-        if (currentIdx >= 0 && currentIdx < queueSnapshot.size - 1) {
-            playMusic(queueSnapshot[currentIdx + 1], fromQueue = true)
-        } else {
-            playerViewModel.getNextAutoplayItem()?.let { playMusic(it, fromQueue = true) }
+    private fun playNext() {
+        playerViewModel.playNextFromQueue { result ->
+            if (result is PlayResult.Failure && !isFinishing && !isDestroyed) {
+                Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
-    private fun playPrevious(currentItem: MusicItem?) {
-        val queueSnapshot = playbackQueueManager.getQueueSnapshot()
-        val currentIdx = playbackQueueManager.currentIndex
-        if (currentIdx > 0) {
-            playMusic(queueSnapshot[currentIdx - 1], fromQueue = true)
-        }
+    private fun playPrevious() {
+        playerViewModel.playPreviousFromQueue()
     }
 
     override fun onDestroy() {
@@ -448,7 +394,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         // Kill floating player when returning to main app
-        stopService(android.content.Intent(this, com.vyllo.music.service.FloatingWindowService::class.java))
+        val stopFloatingIntent = android.content.Intent(this, com.vyllo.music.service.FloatingWindowService::class.java)
+        stopService(stopFloatingIntent)
     }
 
     private fun checkOverlayPermissionAndStartService() {

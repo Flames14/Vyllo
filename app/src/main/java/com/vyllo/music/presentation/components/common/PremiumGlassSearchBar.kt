@@ -15,7 +15,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
@@ -55,7 +55,7 @@ fun PremiumGlassSearchBar(
         ) {
             if (isSearching) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Filled.ArrowBack, stringResource(R.string.cd_back), tint = MaterialTheme.colorScheme.onBackground)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.cd_back), tint = MaterialTheme.colorScheme.onBackground)
                 }
             } else {
                 Icon(Icons.Filled.Search, stringResource(R.string.nav_search), tint = MaterialTheme.colorScheme.onBackground.copy(0.6f))

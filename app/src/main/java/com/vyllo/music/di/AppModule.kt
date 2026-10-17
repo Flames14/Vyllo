@@ -9,7 +9,6 @@ import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.data.manager.DownloadManager
 import com.vyllo.music.domain.manager.PlaybackManager
 import com.vyllo.music.domain.manager.PermissionHandler
-import com.vyllo.music.domain.manager.FloatingPlayerManager
 import com.vyllo.music.presentation.scroll.HomeScrollTuner
 import dagger.Module
 import dagger.Provides
@@ -71,15 +70,6 @@ object AppModule {
     @Singleton
     fun providePermissionHandler(@ApplicationContext context: Context): PermissionHandler {
         return PermissionHandler(context)
-    }
-
-    @Provides
-    @Singleton
-    fun provideFloatingPlayerManager(
-        @ApplicationContext context: Context,
-        preferenceManager: PreferenceManager
-    ): FloatingPlayerManager {
-        return FloatingPlayerManager(context, preferenceManager)
     }
 
     @Provides

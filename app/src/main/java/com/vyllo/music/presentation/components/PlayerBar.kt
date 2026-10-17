@@ -21,14 +21,12 @@ fun PremiumPlayerContainer(
     isLoading: Boolean,
     controller: MediaController?, 
     relatedSongs: List<MusicItem>,
-    isAutoplayEnabled: Boolean,
     onTogglePlay: () -> Unit, 
     onNext: () -> Unit, 
     onPrev: () -> Unit, 
     onExpand: () -> Unit, 
     onCollapse: () -> Unit, 
     isExpanded: Boolean,
-    onAutoplayToggle: (Boolean) -> Unit,
     onPlayRelated: (MusicItem) -> Unit,
     viewModel: PlayerViewModel
 ) {
@@ -44,12 +42,10 @@ fun PremiumPlayerContainer(
             isLoading = isLoading,
             controller = controller, 
             relatedSongs = relatedSongs,
-            isAutoplayEnabled = isAutoplayEnabled,
             onTogglePlay = onTogglePlay, 
             onNext = onNext, 
             onPrev = onPrev, 
             onCollapse = onCollapse,
-            onAutoplayToggle = onAutoplayToggle,
             onPlayRelated = onPlayRelated,
             viewModel = viewModel
         )

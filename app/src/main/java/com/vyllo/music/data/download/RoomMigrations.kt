@@ -16,13 +16,13 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * PlaylistSongEntity ("playlist_songs") — including composite PK and index.
  */
 val MIGRATION_1_2 = object : Migration(1, 2) {
-    override fun migrate(database: SupportSQLiteDatabase) {
-        database.execSQL(
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
             "CREATE TABLE IF NOT EXISTS `playlists` (" +
                 "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
                 "`name` TEXT NOT NULL)"
         )
-        database.execSQL(
+        db.execSQL(
             "CREATE TABLE IF NOT EXISTS `playlist_songs` (" +
                 "`playlistId` INTEGER NOT NULL, " +
                 "`url` TEXT NOT NULL, " +
@@ -34,7 +34,7 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
                 "FOREIGN KEY(`playlistId`) REFERENCES `playlists`(`id`) " +
                 "ON UPDATE NO ACTION ON DELETE CASCADE)"
         )
-        database.execSQL(
+        db.execSQL(
             "CREATE INDEX IF NOT EXISTS `index_playlist_songs_playlistId` " +
                 "ON `playlist_songs` (`playlistId`)"
         )
@@ -46,8 +46,8 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
  * Matches HistoryEntity / schema v3.
  */
 val MIGRATION_2_3 = object : Migration(2, 3) {
-    override fun migrate(database: SupportSQLiteDatabase) {
-        database.execSQL(
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
             "CREATE TABLE IF NOT EXISTS `playback_history` (" +
                 "`url` TEXT NOT NULL, " +
                 "`title` TEXT NOT NULL, " +
@@ -68,8 +68,8 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
  *        gradualVolumeDurationSecs, snoozeDurationMins, vibrationEnabled, createdAt)
  */
 val MIGRATION_3_4 = object : Migration(3, 4) {
-    override fun migrate(database: SupportSQLiteDatabase) {
-        database.execSQL(
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
             "CREATE TABLE IF NOT EXISTS `alarms` (" +
                 "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
                 "`hour` INTEGER NOT NULL, " +
@@ -86,6 +86,29 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
                 "`snoozeDurationMins` INTEGER NOT NULL, " +
                 "`vibrationEnabled` INTEGER NOT NULL, " +
                 "`createdAt` INTEGER NOT NULL)"
+        )
+    }
+}
+
+/**
+ * Migration from v4 to v5: Added favorites table so like/dislike survives restart
+ * and can feed a real Liked Songs library.
+ *
+ * Column names and nullability MUST match FavoriteEntity ("favorites"), including
+ * the TEXT NOT NULL `type` column backed by Converters.fromMusicItemType.
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `favorites` (" +
+                "`url` TEXT NOT NULL, " +
+                "`title` TEXT NOT NULL, " +
+                "`uploader` TEXT NOT NULL, " +
+                "`thumbnailUrl` TEXT NOT NULL, " +
+                "`type` TEXT NOT NULL, " +
+                "`rating` INTEGER NOT NULL, " +
+                "`likedAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`url`))"
         )
     }
 }

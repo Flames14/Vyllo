@@ -96,20 +96,26 @@ fun AppUpdateDialog(
                             Spacer(Modifier.height(8.dp))
                             Text(stringResource(R.string.update_current_version, currentVer))
                             Text(stringResource(R.string.update_new_version, newVer))
-                            Text(stringResource(R.string.update_release_date, currentState.release.publishedAt.substringBefore("T")))
+                            currentState.release.publishedAt
+                                ?.takeIf { it.isNotBlank() }
+                                ?.let { date ->
+                                    Text(stringResource(R.string.update_release_date, date.substringBefore("T")))
+                                }
                             Spacer(Modifier.height(16.dp))
-                            Text(stringResource(R.string.update_whats_new), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                            Spacer(Modifier.height(4.dp))
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    currentState.release.body,
-                                    modifier = Modifier.padding(8.dp),
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                            currentState.release.body?.takeIf { it.isNotBlank() }?.let { releaseBody ->
+                                Text(stringResource(R.string.update_whats_new), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                Spacer(Modifier.height(4.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        releaseBody,
+                                        modifier = Modifier.padding(8.dp),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
                             }
                         }
                     }

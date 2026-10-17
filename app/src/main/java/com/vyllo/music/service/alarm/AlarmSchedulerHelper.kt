@@ -32,33 +32,35 @@ class AlarmSchedulerHelper(
      */
     fun dismissAlarm(alarmId: Long, stopSelf: () -> Unit) {
         handler.removeCallbacks(autoDismissRunnable)
-        // setAlarmClock() schedules are one-shot. Without re-registering the next
-        // occurrence here, a repeating alarm dies permanently after the first
-        // dismissal — which reads to the user as "the alarm stopped working".
-        rescheduleNextOccurrence(alarmId)
-        stopAlarm()
-        stopSelf()
+        scope.launch {
+            try {
+                finalizeDismissal(alarmId)
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Failed to finalize alarm dismissal", e)
+            } finally {
+                stopAlarm()
+                stopSelf()
+            }
+        }
     }
 
     /**
-     * Re-register the next occurrence for repeating alarms.
+     * Persist the post-dismissal state before the service stops.
      *
-     * One-shot alarms are intentionally left disabled after dismissal (standard
-     * alarm behaviour); repeating alarms are rescheduled onto their next enabled
-     * weekday. Snooze paths already reschedule explicitly and skip this.
+     * Repeating alarms are re-registered onto their next enabled weekday.
+     * One-shot alarms are disabled so AlarmBootReceiver does not re-arm them
+     * after a reboot (standard alarm behaviour).
      */
-    fun rescheduleNextOccurrence(alarmId: Long) {
+    private suspend fun finalizeDismissal(alarmId: Long) {
         if (alarmId <= 0L) return
-        scope.launch {
-            try {
-                val alarm = alarmRepository.getAlarmById(alarmId)
-                if (alarm != null && alarm.isEnabled && alarm.repeatDays.isNotEmpty()) {
-                    alarmSchedulerManager.schedule(alarm)
-                    SecureLogger.d(TAG, "Re-scheduled repeating alarm $alarmId after dismissal")
-                }
-            } catch (e: Exception) {
-                SecureLogger.e(TAG, "Failed to re-schedule alarm after dismissal", e)
-            }
+        val alarm = alarmRepository.getAlarmById(alarmId) ?: return
+        if (!alarm.isEnabled) return
+        if (alarm.repeatDays.isEmpty()) {
+            alarmRepository.toggleAlarm(alarm.id, false)
+            SecureLogger.d(TAG, "Disabled one-shot alarm $alarmId after dismissal")
+        } else {
+            alarmSchedulerManager.schedule(alarm)
+            SecureLogger.d(TAG, "Re-scheduled repeating alarm $alarmId after dismissal")
         }
     }
 

@@ -319,7 +319,7 @@ class YouTubeSyncApiService @Inject constructor(
                     }
                 }
 
-                nextPageToken = json.optString("nextPageToken", null)
+                nextPageToken = json.optString("nextPageToken").takeIf { it.isNotBlank() }
             } while (!nextPageToken.isNullOrBlank())
 
             SecureLogger.d(TAG, "Fetched ${allPlaylists.size} total playlists from YouTube account")
@@ -396,7 +396,7 @@ class YouTubeSyncApiService @Inject constructor(
                     }
                 }
 
-                nextPageToken = json.optString("nextPageToken", null)
+                nextPageToken = json.optString("nextPageToken").takeIf { it.isNotBlank() }
             } while (!nextPageToken.isNullOrBlank())
 
             SecureLogger.d(TAG, "Fetched ${allTracks.size} tracks for playlist $playlistId")
@@ -430,17 +430,17 @@ class YouTubeSyncApiService @Inject constructor(
             val extractor = service.getPlaylistExtractor(playlistUrl)
             extractor.fetchPage()
 
-            val bestThumb = extractor.thumbnails?.maxByOrNull { it.width * it.height }?.url
-                ?: extractor.thumbnails?.firstOrNull()?.url
+            val bestThumb = extractor.thumbnails.maxByOrNull { it.width * it.height }?.url
+                ?: extractor.thumbnails.firstOrNull()?.url
                 ?: "https://img.youtube.com/vi/$listId/hqdefault.jpg"
 
-            val title = extractor.name?.takeIf { it.isNotBlank() } ?: "Imported Playlist"
+            val title = extractor.name.takeIf { it.isNotBlank() } ?: "Imported Playlist"
             val trackCount = try { extractor.streamCount.toInt() } catch (e: Exception) { 0 }
 
             val remotePlaylist = YouTubeRemotePlaylist(
-                id = extractor.id ?: listId,
+                id = extractor.id.ifBlank { listId },
                 title = title,
-                description = extractor.description?.content ?: "",
+                description = extractor.description.content ?: "",
                 thumbnailUrl = bestThumb,
                 trackCount = trackCount,
                 privacyStatus = "public"
@@ -451,14 +451,14 @@ class YouTubeSyncApiService @Inject constructor(
             var page = extractor.initialPage
             var pageCount = 0
 
-            while (page != null && pageCount < 15) {
+            while (pageCount < 15) {
                 pageCount++
                 page.items.forEach { item ->
                     if (item is StreamInfoItem) {
                         val videoId = item.url?.substringAfter("v=")?.substringBefore("&") ?: ""
                         if (videoId.isNotBlank()) {
-                            val itemThumb = item.thumbnails?.maxByOrNull { it.width * it.height }?.url
-                                ?: item.thumbnails?.firstOrNull()?.url
+                            val itemThumb = item.thumbnails.maxByOrNull { it.width * it.height }?.url
+                                ?: item.thumbnails.firstOrNull()?.url
                                 ?: "https://img.youtube.com/vi/$videoId/hqdefault.jpg"
                             tracks.add(
                                 YouTubeRemoteTrack(

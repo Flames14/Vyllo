@@ -20,8 +20,11 @@ object LyricsOvhClient {
      */
     fun tryLyricsOvh(client: OkHttpClient, title: String, artist: String): LyricsResult? {
         return try {
-            val eArtist = URLEncoder.encode(artist, "UTF-8")
-            val eTitle = URLEncoder.encode(title, "UTF-8")
+            // URLEncoder emits '+' for spaces, but '+' is a literal plus inside a
+            // URL *path* (only query strings decode it as space) — every
+            // multi-word title/artist 404'd before this. Encode path segments.
+            val eArtist = URLEncoder.encode(artist, "UTF-8").replace("+", "%20")
+            val eTitle = URLEncoder.encode(title, "UTF-8").replace("+", "%20")
             val url = "$LYRICS_OVH_API/$eArtist/$eTitle"
 
             val response = client.newCall(LyricsResponseFactory.newRequest(url)).execute()

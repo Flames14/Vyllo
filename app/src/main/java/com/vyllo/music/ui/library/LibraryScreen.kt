@@ -16,6 +16,7 @@ import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +29,10 @@ import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.R
 import com.vyllo.music.*
 import com.vyllo.music.presentation.components.*
+import com.vyllo.music.presentation.components.common.YTMHeader
+import com.vyllo.music.presentation.components.common.YTMSectionHeader
+import com.vyllo.music.presentation.components.common.CreatePlaylistDialog
+import com.vyllo.music.ui.library.sync.YouTubeSyncBottomSheet
 import com.vyllo.music.presentation.theme.VylloRadius
 import com.vyllo.music.presentation.theme.VylloSize
 import com.vyllo.music.presentation.theme.VylloSpacing
@@ -49,6 +54,8 @@ fun YTMLibraryScreen(
 ) {
     val scrollState = rememberLazyListState()
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showClearHistoryConfirmation by remember { mutableStateOf(false) }
+    val historyItems by viewModel.historyItems.collectAsState()
 
     if (showCreateDialog) {
         CreatePlaylistDialog(
@@ -64,6 +71,25 @@ fun YTMLibraryScreen(
         YouTubeSyncBottomSheet(
             viewModel = viewModel,
             onDismiss = { viewModel.showYouTubeSyncSheet = false }
+        )
+    }
+
+    if (showClearHistoryConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showClearHistoryConfirmation = false },
+            title = { Text(stringResource(R.string.history_clear_title)) },
+            text = { Text(stringResource(R.string.history_clear_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.clearHistory()
+                    showClearHistoryConfirmation = false
+                }) { Text(stringResource(R.string.common_clear)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearHistoryConfirmation = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            }
         )
     }
 
@@ -266,6 +292,70 @@ fun YTMLibraryScreen(
                       }
                   }
               }
+        }
+
+        item(key = "history_header", contentType = "header") {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.library_history_title),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                if (historyItems.isNotEmpty()) {
+                    IconButton(onClick = { showClearHistoryConfirmation = true }) {
+                        Icon(
+                            Icons.Rounded.Delete,
+                            contentDescription = stringResource(R.string.history_clear_action),
+                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f)
+                        )
+                    }
+                }
+            }
+        }
+
+        if (historyItems.isEmpty()) {
+            item(key = "empty_history", contentType = "empty") {
+                VylloEmptyState(
+                    icon = Icons.Rounded.History,
+                    title = stringResource(R.string.library_history_empty),
+                    message = stringResource(R.string.library_history_empty_body)
+                )
+            }
+        } else {
+            items(
+                items = historyItems,
+                key = { "history_${it.url}" },
+                contentType = { "song_row" }
+            ) { historyItem ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        YTMSongRow(
+                            item = historyItem,
+                            isPlaying = currentPlayingItem?.url == historyItem.url,
+                            onClick = { onPlay(historyItem) },
+                            isLoading = loadingItemUrl == historyItem.url
+                        )
+                    }
+                    IconButton(
+                        onClick = { viewModel.removeFromHistory(historyItem.url) },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Delete,
+                            contentDescription = stringResource(R.string.history_remove_action),
+                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -26,7 +26,7 @@ import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.core.network.rememberIsOnline
 import com.vyllo.music.presentation.components.VylloErrorState
-import com.vyllo.music.presentation.components.YTMHeader
+import com.vyllo.music.presentation.components.common.YTMHeader
 import com.vyllo.music.presentation.scroll.HomeScrollTuner
 import com.vyllo.music.presentation.scroll.rememberHomeFlingBehavior
 import com.vyllo.music.presentation.scroll.rememberHomeImagePreloadCursor
@@ -197,7 +197,6 @@ fun YTMHomeScreen(
                     recommendedItems = recommendedItems,
                     currentPlayingItem = currentPlayingItem,
                     onPlay = onPlay,
-                    viewModel = viewModel,
                     loadingItemUrl = loadingItemUrl
                 )
             }

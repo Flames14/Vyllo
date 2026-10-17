@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
-import com.vyllo.music.HomeViewModel
 import com.vyllo.music.domain.model.MusicItem
 
 @Composable
@@ -15,7 +14,6 @@ fun OptimizedHorizontalSection(
     currentPlayingItem: MusicItem?,
     onPlay: (MusicItem) -> Unit,
     isLargeCard: Boolean,
-    homeViewModel: HomeViewModel? = null,
     loadingItemUrl: String? = null
 ) {
     LazyRow(
@@ -32,7 +30,6 @@ fun OptimizedHorizontalSection(
                     item = item,
                     isPlaying = currentPlayingItem?.url == item.url,
                     onClick = { onPlay(item) },
-                    homeViewModel = homeViewModel,
                     isLoading = loadingItemUrl == item.url
                 )
             } else {
@@ -40,7 +37,6 @@ fun OptimizedHorizontalSection(
                     item = item,
                     isPlaying = currentPlayingItem?.url == item.url,
                     onClick = { onPlay(item) },
-                    homeViewModel = homeViewModel,
                     isLoading = loadingItemUrl == item.url
                 )
             }

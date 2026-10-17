@@ -107,7 +107,7 @@ private fun LazyListScope.relatedSection(
     } else {
         itemsIndexed(
             items = songs,
-            key = { index, song -> "${keyPrefix}_${song.url}#$index" },
+            key = { index, song -> song.url.takeIf { it.isNotBlank() } ?: "${keyPrefix}_empty_$index" },
             contentType = { _, _ -> "related_row" }
         ) { _, song ->
             QueueSongRowItem(

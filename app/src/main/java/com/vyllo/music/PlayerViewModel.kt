@@ -72,6 +72,16 @@ data class PlayerUiState(
     val commentCount: Long = -1L,
     val likeCountFormatted: String? = null,
     val commentCountFormatted: String? = null,
+    /** Persisted user rating for the current track: 1 liked, -1 disliked, 0 unrated. */
+    val favoriteRating: Int = 0,
+    /**
+     * The authoritative upcoming queue, mirroring [PlaybackQueueManager].
+     *
+     * Deliberately NOT [relatedSongs]: that is the shared recommendation pool
+     * which autoplay refills, so it cannot represent a user-edited queue. Up
+     * Next renders this so remove/reorder actually change playback order.
+     */
+    val queueItems: List<MusicItem> = emptyList(),
     val isQueueSticky: Boolean = true,
     val sleepTimerRemainingSeconds: Long? = null,
     val isSleepTimerActive: Boolean = false
@@ -81,6 +91,7 @@ data class PlayerUiState(
 class PlayerViewModel @Inject constructor(
     private val repository: IMusicRepository,
     private val getStreamUrlUseCase: GetStreamUrlUseCase,
+    private val playMusicUseCase: com.vyllo.music.domain.usecase.PlayMusicUseCase,
     private val playbackQueueManager: PlaybackQueueManager,
     private val preferenceManager: PreferenceManager,
     private val streamUrlCache: StreamUrlCache,
@@ -99,11 +110,11 @@ class PlayerViewModel @Inject constructor(
     val lyricIndex: StateFlow<Int> = _lyricIndex.asStateFlow()
 
     // Controllers are initialized in init after viewModelScope is available.
-    private lateinit var equalizerController: EqualizerController
-    private lateinit var sleepTimerController: SleepTimerController
-    private lateinit var lyricsController: LyricsController
-    private lateinit var relatedController: RelatedController
-    private lateinit var streamResolver: StreamResolver
+    private val equalizerController: EqualizerController
+    private val sleepTimerController: SleepTimerController
+    private val lyricsController: LyricsController
+    private val relatedController: RelatedController
+    private val streamResolver: StreamResolver
 
     // Convenience properties for backward compatibility with Compose UI
     val currentPlayingItem: MusicItem?
@@ -176,6 +187,10 @@ class PlayerViewModel @Inject constructor(
         get() = _uiState.value.likeCountFormatted
     val commentCountFormatted: String?
         get() = _uiState.value.commentCountFormatted
+    val favoriteRating: Int
+        get() = _uiState.value.favoriteRating
+    val queueItems: List<MusicItem>
+        get() = _uiState.value.queueItems
 
     init {
         equalizerController = EqualizerController(
@@ -218,6 +233,14 @@ class PlayerViewModel @Inject constructor(
             volumeBoostMultiplier = preferenceManager.volumeBoostMultiplier,
             isQueueSticky = preferenceManager.isQueueSticky
         ) }
+        // Keep the Up Next list bound to the real queue. The manager bumps
+        // queueVersion on every structural edit, so this also covers edits made
+        // from the service (autoplay refill, restore, shuffle toggle).
+        viewModelScope.launch {
+            playbackQueueManager.queueVersion.collectLatest {
+                _uiState.update { it.copy(queueItems = playbackQueueManager.getUpcomingSnapshot()) }
+            }
+        }
         viewModelScope.launch {
             playbackQueueManager.currentPlayingItem.collectLatest { item ->
                 _uiState.update { it.copy(
@@ -226,11 +249,16 @@ class PlayerViewModel @Inject constructor(
                     likeCount = -1L,
                     commentCount = -1L,
                     likeCountFormatted = null,
-                    commentCountFormatted = null
+                    commentCountFormatted = null,
+                    favoriteRating = 0
                 ) }
                 if (item != null) {
                     streamResolver.resolveThumbnail(item)
                     streamResolver.loadVideoStats(item)
+                    // Hydrate the persisted rating so the like/dislike pill
+                    // reflects real state on track change instead of a stub.
+                    val rating = runCatching { repository.getRating(item.url) }.getOrDefault(0)
+                    _uiState.update { it.copy(favoriteRating = rating) }
                     val upcoming = playbackQueueManager.getUpcomingSnapshot()
                     val previousRelated = _uiState.value.relatedSongs
                     val isFromCurrentPool = previousRelated.any { it.url == item.url }
@@ -319,6 +347,55 @@ class PlayerViewModel @Inject constructor(
         isQueueSticky = next
     }
 
+    /**
+     * Rate the current track. Passing the already-active rating clears it, which
+     * is what a second tap on the same thumb-up must do.
+     *
+     * Optimistic: the UI updates immediately, then reverts if persistence fails.
+     */
+    fun toggleFavoriteRating(rating: Int) {
+        val item = _uiState.value.currentPlayingItem ?: return
+        val previous = _uiState.value.favoriteRating
+        val next = if (previous == rating) 0 else rating
+        _uiState.update { it.copy(favoriteRating = next) }
+        viewModelScope.launch {
+            val persisted = runCatching { repository.setRating(item, next) }.getOrDefault(false)
+            if (!persisted) {
+                _uiState.update { it.copy(favoriteRating = previous) }
+            }
+        }
+    }
+
+    // --- Up Next queue editing -------------------------------------------------
+    // Indices are upcoming-relative (0 = the next track). Every mutation bumps
+    // queueVersion, which re-syncs queueItems, re-prunes the ExoPlayer lookahead
+    // and persists the queue, so there is nothing extra to refresh by hand.
+
+    /** Removes one upcoming track. Returns it so the caller can offer undo. */
+    fun removeFromQueue(url: String): MusicItem? {
+        val index = playbackQueueManager.upcomingIndexOf(url)
+        if (index < 0) return null
+        return playbackQueueManager.removeUpcomingAt(index)
+    }
+
+    /** Restores a removed track at its original upcoming position. */
+    fun undoQueueRemoval(item: MusicItem, index: Int): Boolean =
+        playbackQueueManager.insertUpcomingAt(index, listOf(item))
+
+    /** Restores a cleared Up Next section at the head of the queue. */
+    fun undoQueueClear(items: List<MusicItem>): Boolean =
+        playbackQueueManager.insertUpcomingAt(0, items)
+
+    /** Reorders upcoming tracks. [from]/[to] are upcoming-relative. */
+    fun moveInQueue(from: Int, to: Int): Boolean = playbackQueueManager.moveUpcoming(from, to)
+
+    /** Moves an upcoming track by an offset, e.g. -1 for "move up". */
+    fun moveInQueueBy(index: Int, delta: Int): Boolean =
+        playbackQueueManager.moveUpcomingBy(index, delta)
+
+    /** Empties Up Next while leaving the current track playing. Returns what was removed. */
+    fun clearUpcoming(): List<MusicItem> = playbackQueueManager.clearUpcoming()
+
     fun forceRefreshRelatedSongs() =
         relatedController.forceRefreshRelatedSongs(currentPlayingItem)
 
@@ -354,6 +431,62 @@ class PlayerViewModel @Inject constructor(
 
     fun setPipMode(enabled: Boolean) {
         _uiState.update { it.copy(isInPipMode = enabled) }
+    }
+
+    // --- Playback orchestration (moved out of MainActivity for 10/10) ---
+    // Last-tap-wins generation + 250ms debounce, previously in Activity.
+    private var playRequestSeq: Long = 0L
+    private var lastPlayRequestAt: Long = 0L
+
+    /**
+     * Resolves + starts playback. Returns PlayResult for UI feedback (toast/snackbar).
+     * Safe to call from Activity/Compose; handles loading flags + related preload.
+     */
+    fun playTrack(
+        item: MusicItem,
+        fromQueue: Boolean = false,
+        onResult: ((com.vyllo.music.domain.model.PlayResult) -> Unit)? = null
+    ) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastPlayRequestAt < 250L) return
+        lastPlayRequestAt = now
+        val mySeq = ++playRequestSeq
+        val isVideo = _uiState.value.isVideoMode
+        setPlaybackLoading(true, item.url)
+        viewModelScope.launch {
+            try {
+                val result = playMusicUseCase.execute(item, isVideo = isVideo, keepQueue = fromQueue)
+                if (mySeq != playRequestSeq) return@launch
+                if (result is com.vyllo.music.domain.model.PlayResult.Success) {
+                    if (!fromQueue || _uiState.value.relatedSongs.isEmpty()) {
+                        loadRelatedSongs(item)
+                    }
+                }
+                onResult?.invoke(result)
+            } finally {
+                if (mySeq == playRequestSeq) {
+                    setPlaybackLoading(false)
+                }
+            }
+        }
+    }
+
+    fun playNextFromQueue(onResult: ((com.vyllo.music.domain.model.PlayResult) -> Unit)? = null) {
+        val queueSnapshot = playbackQueueManager.getQueueSnapshot()
+        val currentIdx = playbackQueueManager.currentIndex
+        if (currentIdx >= 0 && currentIdx < queueSnapshot.size - 1) {
+            playTrack(queueSnapshot[currentIdx + 1], fromQueue = true, onResult = onResult)
+        } else {
+            getNextAutoplayItem()?.let { playTrack(it, fromQueue = true, onResult = onResult) }
+        }
+    }
+
+    fun playPreviousFromQueue() {
+        val queueSnapshot = playbackQueueManager.getQueueSnapshot()
+        val currentIdx = playbackQueueManager.currentIndex
+        if (currentIdx > 0) {
+            playTrack(queueSnapshot[currentIdx - 1], fromQueue = true)
+        }
     }
 
     fun setFullScreenVideo(enabled: Boolean) {

@@ -1,4 +1,7 @@
 <resources>
+    <string name="alarm_channel_name">Alarms</string>
+    <string name="alarm_channel_desc">Alarm notifications</string>
+    <string name="alarm_notif_tap_action">Tap to dismiss or snooze</string>
     <string name="exact_alarm_permission_title">Allow exact alarms</string>
     <string name="exact_alarm_permission_message">Android needs this access so alarms can ring at the time you set. Enable Alarms &amp; reminders for Vyllo, then return and save or enable your alarm.</string>
     <string name="exact_alarm_permission_action">Open settings</string>
@@ -146,6 +149,17 @@
     </plurals>
     <string name="queue_swipe_up_hint">Swipe up for Up Next</string>
     <string name="queue_auto_mix">%1$s â€¢ Auto-Mix</string>
+
+    <string name="queue_move_up">Move up</string>
+    <string name="queue_move_down">Move down</string>
+    <string name="queue_remove">Remove</string>
+    <string name="queue_item_removed">Removed from queue</string>
+    <string name="queue_cleared">Up next cleared</string>
+    <string name="queue_clear_title">Clear Up Next?</string>
+    <string name="queue_clear_message">This will remove all upcoming tracks. This can’t be undone.</string>
+    <string name="cd_clear_queue">Clear Up Next</string>
+    <string name="cd_queue_options">Queue options</string>
+    <string name="action_undo">UNDO</string>
 
     <!-- Downloads / empty / error states -->
     <string name="download_cd_cancel">Cancel</string>
@@ -312,6 +326,10 @@
     <string name="settings_wifi_only_desc">Only download songs on unmetered Wi-Fi</string>
     <string name="settings_pause_low_battery">Pause downloads on low battery</string>
     <string name="settings_pause_low_battery_desc">Wait for healthy battery and storage</string>
+    <string name="settings_autoplay">Autoplay</string>
+    <string name="settings_autoplay_desc">Keep playing similar tracks when the queue ends</string>
+    <string name="settings_sticky_queue">Sticky queue</string>
+    <string name="settings_sticky_queue_desc">Keep your queue when you start something new</string>
     <string name="settings_support">Support Development</string>
     <string name="settings_buy_coffee">Buy me a coffee ☕</string>
     <string name="settings_donate_cd">Donate</string>
@@ -331,6 +349,13 @@
     <string name="library_no_playlists">No playlists yet</string>
     <string name="library_downloads_title">Downloads</string>
     <string name="library_no_downloads">No downloads yet</string>
+    <string name="library_history_title">Recently played</string>
+    <string name="library_history_empty">No listening history yet</string>
+    <string name="library_history_empty_body">Songs you play will appear here.</string>
+    <string name="history_clear_title">Clear listening history?</string>
+    <string name="history_clear_message">This removes all songs from your listening history.</string>
+    <string name="history_clear_action">Clear listening history</string>
+    <string name="history_remove_action">Remove from listening history</string>
     <string name="library_playlist_empty">This playlist is empty</string>
 
     <!-- Google account sync (OAuth) -->

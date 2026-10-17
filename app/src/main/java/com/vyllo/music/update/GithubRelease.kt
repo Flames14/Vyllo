@@ -6,9 +6,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class GithubRelease(
     @SerialName("tag_name") val tagName: String,
-    @SerialName("published_at") val publishedAt: String,
-    @SerialName("body") val body: String,
-    @SerialName("assets") val assets: List<GithubAsset>
+    @SerialName("published_at") val publishedAt: String? = null,
+    @SerialName("body") val body: String? = null,
+    @SerialName("assets") val assets: List<GithubAsset> = emptyList()
 )
 
 @Serializable

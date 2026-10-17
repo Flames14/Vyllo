@@ -43,10 +43,15 @@ class VylloApplication : Application(), Configuration.Provider, ImageLoaderFacto
                     .maxSizeBytes(150L * 1024 * 1024) // 150MB disk cache
                     .build()
             }
-            .allowHardware(true) // Direct GPU texture decoding for 0ms CPU-to-GPU memory copy
-            .allowRgb565(true)
+            .allowHardware(true)
+            .allowRgb565(false)
             .crossfade(150)
             .respectCacheHeaders(false)
+            .okHttpClient {
+                // Reuse hardened client (DoH + TLS + headers) for image fetches.
+                runCatching { com.vyllo.music.core.security.SecurityConfig().createFlexibleSecureHttpClient() }
+                    .getOrElse { okhttp3.OkHttpClient() }
+            }
             .build()
     }
 

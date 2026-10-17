@@ -20,6 +20,7 @@ import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.usecase.SearchMusicUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import org.junit.Rule
 import org.junit.Test
 
@@ -132,4 +133,40 @@ private class FakeMusicRepository(
     override suspend fun getRelatedDiscoveryOrder(url: String, excludeUrls: Set<String>, limit: Int): List<MusicItem> = emptyList()
     override suspend fun getVideoStats(url: String): com.vyllo.music.domain.repository.VideoStats? = null
     override suspend fun getLyrics(title: String, artist: String, duration: Long, url: String): LyricsResponse? = null
+
+    // --- Favorites / ratings ---
+    // Backed by a real (in-memory) store rather than bare TODO()/constant
+    // returns, so this fake keeps behaving consistently if search tests
+    // ever start exercising ratings.
+    private val ratings = mutableMapOf<String, Int>()
+    private val ratedItems = mutableMapOf<String, MusicItem>()
+
+    override suspend fun removeFromHistory(url: String) = Unit
+
+    override suspend fun getRating(url: String): Int = ratings[url] ?: 0
+
+    override fun observeLikedSongs(): Flow<List<MusicItem>> =
+        flowOf(ratedItems.values.filter { ratings[it.url] == 1 })
+
+    override fun observeDislikedSongs(): Flow<List<MusicItem>> =
+        flowOf(ratedItems.values.filter { ratings[it.url] == -1 })
+
+    override fun observeLikedCount(): Flow<Int> = flowOf(ratings.count { it.value == 1 })
+
+    override suspend fun setRating(item: MusicItem, rating: Int): Boolean {
+        if (item.url.isBlank()) return false
+        if (rating == 1 || rating == -1) {
+            ratings[item.url] = rating
+            ratedItems[item.url] = item
+        } else {
+            ratings.remove(item.url)
+            ratedItems.remove(item.url)
+        }
+        return true
+    }
+
+    override suspend fun clearAllRatings() {
+        ratings.clear()
+        ratedItems.clear()
+    }
 }

@@ -23,12 +23,17 @@ class MediaSessionCallback(
         // Handle next/prev ourselves (queue-aware), then return a non-success
         // code so Media3 does not ALSO dispatch the raw command — otherwise the
         // queue advances twice per skip.
-        if (playerCommand == Player.COMMAND_SEEK_TO_NEXT) {
-            playbackQueueOrchestrator.playNextTrack(serviceScope, playerProvider())
-            return SessionResult.RESULT_INFO_SKIPPED
-        } else if (playerCommand == Player.COMMAND_SEEK_TO_PREVIOUS) {
-            playbackQueueOrchestrator.playPreviousTrack(serviceScope, playerProvider())
-            return SessionResult.RESULT_INFO_SKIPPED
+        when (playerCommand) {
+            Player.COMMAND_SEEK_TO_NEXT,
+            Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
+                playbackQueueOrchestrator.playNextTrack(serviceScope, playerProvider())
+                return SessionResult.RESULT_INFO_SKIPPED
+            }
+            Player.COMMAND_SEEK_TO_PREVIOUS,
+            Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
+                playbackQueueOrchestrator.playPreviousTrack(serviceScope, playerProvider())
+                return SessionResult.RESULT_INFO_SKIPPED
+            }
         }
         return super.onPlayerCommandRequest(session, controllerInfo, playerCommand)
     }

@@ -134,17 +134,17 @@ class TrackMetadataResolver @Inject constructor(
         val generic = descriptionParser.parseDescriptionMetadata(description)
         val picked = provided ?: generic
 
-        val title = picked?.title?.takeIf { it.isNotBlank() } ?: info.name?.trim()
+        val title = picked.title?.takeIf { it.isNotBlank() } ?: info.name?.trim()
             ?: fallbackTitle.takeIf { it.isNotBlank() }
-        val artist = picked?.singers?.takeIf { it.isNotBlank() } ?: info.uploaderName?.trim()
+        val artist = picked.singers?.takeIf { it.isNotBlank() } ?: info.uploaderName?.trim()
             ?: fallbackUploader.takeIf { it.isNotBlank() }
 
-        val rawMovie = picked?.movie?.trim()
+        val rawMovie = picked.movie?.trim()
         val movie = rawMovie?.takeIf { it.isNotBlank() && !it.isPureBoilerplate() }
-        val music = picked?.music?.trim()?.takeIf { it.isNotBlank() }
+        val music = picked.music?.trim()?.takeIf { it.isNotBlank() }
 
         val language = resolveLanguage(
-            declared = picked?.language,
+            declared = picked.language,
             title = title ?: fallbackTitle,
             tags = tags,
             uploader = artist ?: fallbackUploader,
@@ -217,16 +217,16 @@ class TrackMetadataResolver @Inject constructor(
         val provided = descriptionParser.parseProvidedToYouTubeDescription(description)
         val generic = descriptionParser.parseDescriptionMetadata(description)
         val picked = provided ?: generic
-        val rawMovie = picked?.movie?.trim()
+        val rawMovie = picked.movie?.trim()
         val movie = rawMovie?.takeIf { it.isNotBlank() && !it.isPureBoilerplate() }
         return TrackMetadata(
-            title = picked?.title?.trim()?.takeIf { it.isNotBlank() },
-            artist = picked?.singers?.trim()?.takeIf { it.isNotBlank() },
+            title = picked.title?.trim()?.takeIf { it.isNotBlank() },
+            artist = picked.singers?.trim()?.takeIf { it.isNotBlank() },
             movie = movie,
-            music = picked?.music?.trim()?.takeIf { it.isNotBlank() },
+            music = picked.music?.trim()?.takeIf { it.isNotBlank() },
             language = resolveLanguage(
-                declared = picked?.language,
-                title = picked?.title.orEmpty(),
+                declared = picked.language,
+                title = picked.title.orEmpty(),
                 tags = emptyList(),
                 movie = movie
             ),

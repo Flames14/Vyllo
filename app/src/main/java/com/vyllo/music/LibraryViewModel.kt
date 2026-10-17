@@ -1,10 +1,12 @@
 package com.vyllo.music
 
-import android.app.Application
-import androidx.compose.runtime.*
-import androidx.lifecycle.AndroidViewModel
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.DownloadEntity
 import com.vyllo.music.domain.model.PlaylistEntity
@@ -17,7 +19,10 @@ import com.vyllo.music.data.network.YouTubeRemotePlaylist
 import com.vyllo.music.data.oauth.YouTubeOAuthManager
 import com.vyllo.music.data.repository.SyncProgress
 import com.vyllo.music.data.repository.YouTubeSyncRepository
+import com.vyllo.music.domain.repository.IMusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -29,10 +34,10 @@ class LibraryViewModel @Inject constructor(
     private val downloadMusicUseCase: DownloadMusicUseCase,
     private val playbackQueueManager: PlaybackQueueManager,
     private val downloadManager: DownloadManager,
-    val youtubeOAuthManager: YouTubeOAuthManager,
-    val youtubeSyncRepository: YouTubeSyncRepository,
-    application: Application
-) : AndroidViewModel(application) {
+    private val youtubeOAuthManager: YouTubeOAuthManager,
+    private val youtubeSyncRepository: YouTubeSyncRepository,
+    private val musicRepository: IMusicRepository
+) : ViewModel() {
 
     var allPlaylists by mutableStateOf<List<PlaylistEntity>>(emptyList())
     var currentPlaylistSongs by mutableStateOf<List<PlaylistSongEntity>>(emptyList())
@@ -64,6 +69,10 @@ class LibraryViewModel @Inject constructor(
         private set
 
     val downloadProgress get() = downloadManager.downloadProgress
+
+    // ---- History (Tier-0: history screen) ----
+    val historyItems = musicRepository.getRecentHistory(50)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     var currentPlayingItem by mutableStateOf<MusicItem?>(null)
 
@@ -228,5 +237,13 @@ class LibraryViewModel @Inject constructor(
 
     fun clearSyncProgress() {
         syncProgressState = null
+    }
+
+    fun clearHistory() {
+        viewModelScope.launch { musicRepository.clearHistory() }
+    }
+
+    fun removeFromHistory(url: String) {
+        viewModelScope.launch { musicRepository.removeFromHistory(url) }
     }
 }

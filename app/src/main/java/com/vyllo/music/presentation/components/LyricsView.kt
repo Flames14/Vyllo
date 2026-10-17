@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -177,7 +178,7 @@ fun LyricsViewContent(
 
                 hasLyricsResponse && playerUiState.lyricsResponse?.plainLyrics != null -> {
                     // Has plain text lyrics
-                    PlainLyricsDisplay(playerUiState, viewModel)
+                    PlainLyricsDisplay(playerUiState)
                 }
 
                 hasLyricsResponse && playerUiState.lyricsResponse?.success != true -> {
@@ -292,7 +293,7 @@ private fun LyricsManualSearchScreen(playerUiState: PlayerUiState, viewModel: Pl
                     SecureLogger.d("LyricsSearch", "User clicked search button for: '${viewModel.lyricsSearchQuery}'")
                     viewModel.searchForLyrics(viewModel.lyricsSearchQuery)
                 }) {
-                    Icon(Icons.Rounded.ArrowForward, stringResource(R.string.nav_search), tint = LyricsColors.textSecondary, modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, stringResource(R.string.nav_search), tint = LyricsColors.textSecondary, modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -465,7 +466,7 @@ private fun SyncedLyricsDisplay(
 // PLAIN LYRICS DISPLAY
 // ============================================================
 @Composable
-private fun PlainLyricsDisplay(playerUiState: PlayerUiState, viewModel: PlayerViewModel) {
+private fun PlainLyricsDisplay(playerUiState: PlayerUiState) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         val text = if (playerUiState.isTranslationEnabled && !playerUiState.translatedPlainLyrics.isNullOrBlank()) {
             playerUiState.translatedPlainLyrics

@@ -2,9 +2,12 @@ package com.vyllo.music.data.manager
 
 import com.vyllo.music.data.alarm.AlarmDao
 import com.vyllo.music.data.alarm.AlarmEntity
+import com.vyllo.music.data.download.FavoriteEntity
+import com.vyllo.music.data.download.FavoritesDao
 import com.vyllo.music.data.download.HistoryDao
 import com.vyllo.music.data.download.HistoryEntity
 import com.vyllo.music.data.download.PlaylistDao
+import com.vyllo.music.domain.model.MusicItemType
 import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.domain.model.PlaylistSongEntity
 import kotlinx.coroutines.test.runTest
@@ -26,6 +29,7 @@ class BackupRestoreManagerTest {
     private lateinit var playlistDao: PlaylistDao
     private lateinit var alarmDao: AlarmDao
     private lateinit var historyDao: HistoryDao
+    private lateinit var favoritesDao: FavoritesDao
     private lateinit var preferenceManager: PreferenceManager
     private lateinit var manager: BackupRestoreManager
 
@@ -65,6 +69,33 @@ class BackupRestoreManagerTest {
                     "gradualVolume": true,
                     "vibrationEnabled": true
                 }
+            ],
+            "history": [
+                {
+                    "url": "https://music.youtube.com/watch?v=123",
+                    "title": "Song A",
+                    "uploader": "Artist A",
+                    "thumbnailUrl": "https://img.youtube.com/123.jpg",
+                    "type": "SONG",
+                    "lastPlayedAt": 1700000000000
+                }
+            ],
+            "favorites": [
+                {
+                    "url": "https://music.youtube.com/watch?v=123",
+                    "title": "Song A",
+                    "uploader": "Artist A",
+                    "thumbnailUrl": "https://img.youtube.com/123.jpg",
+                    "type": "SONG",
+                    "rating": 1,
+                    "likedAt": 1700000000000
+                },
+                {
+                    "url": "https://music.youtube.com/watch?v=999",
+                    "title": "Bogus",
+                    "rating": 7,
+                    "likedAt": 1700000000000
+                }
             ]
         }
     """.trimIndent()
@@ -74,8 +105,9 @@ class BackupRestoreManagerTest {
         playlistDao = mock()
         alarmDao = mock()
         historyDao = mock()
+        favoritesDao = mock()
         preferenceManager = mock()
-        manager = BackupRestoreManager(playlistDao, alarmDao, historyDao, preferenceManager)
+        manager = BackupRestoreManager(playlistDao, alarmDao, historyDao, favoritesDao, preferenceManager)
     }
 
     @Test
@@ -108,6 +140,56 @@ class BackupRestoreManagerTest {
         assertEquals(85, alarm.volume)
         assertTrue(alarm.gradualVolume)
         assertTrue(alarm.vibrationEnabled)
+    }
+
+    @Test
+    fun `restore reapplies playback history`() = runTest {
+        whenever(playlistDao.getPlaylistByName("Favorites")).thenReturn(null)
+        whenever(playlistDao.insertPlaylist(PlaylistEntity(name = "Favorites"))).thenReturn(42L)
+
+        assertTrue(manager.restoreBackupJson(sampleBackup).isSuccess)
+
+        val historyCaptor = argumentCaptor<HistoryEntity>()
+        verify(historyDao).insertHistory(historyCaptor.capture())
+        val entry = historyCaptor.firstValue
+        assertEquals("https://music.youtube.com/watch?v=123", entry.url)
+        assertEquals("Song A", entry.title)
+        assertEquals(MusicItemType.SONG, entry.type)
+        assertEquals(1700000000000L, entry.lastPlayedAt)
+    }
+
+    @Test
+    fun `restore drops favorite entries with an out of range rating`() = runTest {
+        whenever(playlistDao.getPlaylistByName("Favorites")).thenReturn(null)
+        whenever(playlistDao.insertPlaylist(PlaylistEntity(name = "Favorites"))).thenReturn(42L)
+
+        assertTrue(manager.restoreBackupJson(sampleBackup).isSuccess)
+
+        // The sample carries one valid rating (1) and one junk rating (7);
+        // only the valid one may reach the database.
+        val favCaptor = argumentCaptor<FavoriteEntity>()
+        verify(favoritesDao, org.mockito.kotlin.times(1)).upsert(favCaptor.capture())
+        val favorite = favCaptor.firstValue
+        assertEquals(1, favorite.rating)
+        assertEquals("https://music.youtube.com/watch?v=123", favorite.url)
+    }
+
+    @Test
+    fun `restore falls back to SONG for an unparseable item type`() = runTest {
+        val json = """
+            {
+              "version": 1,
+              "history": [
+                { "url": "u1", "title": "T", "type": "NOT_A_REAL_TYPE", "lastPlayedAt": 1 }
+              ]
+            }
+        """.trimIndent()
+
+        assertTrue(manager.restoreBackupJson(json).isSuccess)
+
+        val historyCaptor = argumentCaptor<HistoryEntity>()
+        verify(historyDao).insertHistory(historyCaptor.capture())
+        assertEquals(MusicItemType.SONG, historyCaptor.firstValue.type)
     }
 
     @Test

@@ -52,7 +52,13 @@ class DownloadWorker @AssistedInject constructor(
         .createWifiLock(WifiManager.WIFI_MODE_FULL, "Vyllo:DownloadWifiLock")
 
     private val channelId = "download_channel"
-    private val notificationId = params.id.hashCode()
+    // Unique per-worker notification id: hashCode() collides across parallel
+    // downloads and overwrites notifications. Atomic counter is collision-free.
+    private val notificationId = notificationIdCounter.getAndIncrement()
+
+    companion object {
+        private val notificationIdCounter = java.util.concurrent.atomic.AtomicInteger(2000)
+    }
     private var workingFile: File? = null
 
     // Dedicated OkHttpClient for downloads with generous timeouts

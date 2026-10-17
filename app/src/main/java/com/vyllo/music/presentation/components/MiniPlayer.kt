@@ -9,7 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -199,7 +199,7 @@ fun PremiumMiniPlayer(
                 modifier = Modifier.size(44.dp)
             ) {
                 Icon(
-                    Icons.Rounded.PlaylistAdd,
+                    Icons.AutoMirrored.Rounded.PlaylistAdd,
                     contentDescription = stringResource(R.string.cd_add_to_playlist),
                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
                     modifier = Modifier.size(22.dp)

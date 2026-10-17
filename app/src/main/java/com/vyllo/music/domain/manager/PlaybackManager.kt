@@ -8,11 +8,14 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
-import com.google.common.util.concurrent.MoreExecutors
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.manager.PlaybackQueueManager
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,6 +31,9 @@ class PlaybackManager @Inject constructor(
     private var mediaController: MediaController? = null
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var playerListener: androidx.media3.common.Player.Listener? = null
+
+    private val _isConnected = MutableStateFlow(false)
+    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
     private val listeners = mutableListOf<PlaybackListener>()
 
@@ -53,11 +59,13 @@ class PlaybackManager @Inject constructor(
         future.addListener({
             try {
                 mediaController = future.get()
+                _isConnected.value = true
                 setupPlayerListener()
             } catch (e: Exception) {
+                _isConnected.value = false
                 notifyError(e)
             }
-        }, MoreExecutors.directExecutor())
+        }, ContextCompat.getMainExecutor(context))
 
         return future
     }
@@ -103,16 +111,23 @@ class PlaybackManager @Inject constructor(
         val future = controllerFuture ?: initialize()
 
         return suspendCancellableCoroutine { continuation ->
-            future.addListener({
+            val listener = Runnable {
                 try {
                     val controller = future.get()
                     mediaController = controller
+                    _isConnected.value = true
                     setupPlayerListener()
-                    continuation.resume(controller)
+                    if (continuation.isActive) continuation.resume(controller)
                 } catch (e: Exception) {
-                    continuation.resumeWithException(e)
+                    if (continuation.isActive) continuation.resumeWithException(e)
                 }
-            }, MoreExecutors.directExecutor())
+            }
+            future.addListener(listener, ContextCompat.getMainExecutor(context))
+            continuation.invokeOnCancellation {
+                // No direct remove for ListenableFuture listener; drop ref so
+                // rotation / rapid taps don't leak callbacks via captured continuation.
+                _isConnected.value = mediaController != null
+            }
         }
     }
 
@@ -163,10 +178,13 @@ class PlaybackManager @Inject constructor(
     }
 
     private fun MusicItem.toMediaItem(streamUrl: String): MediaItem {
+        val artworkUri = thumbnailUrl.takeIf { it.isNotBlank() }?.let {
+            runCatching { Uri.parse(it) }.getOrNull()
+        }
         val metadata = MediaMetadata.Builder()
             .setTitle(title)
             .setArtist(uploader)
-            .setArtworkUri(Uri.parse(thumbnailUrl))
+            .apply { artworkUri?.let { setArtworkUri(it) } }
             .build()
         return MediaItem.Builder()
             .setMediaId(url)
@@ -176,13 +194,20 @@ class PlaybackManager @Inject constructor(
     }
 
     suspend fun playFromLocal(localUrl: String, item: MusicItem? = null): Result<Unit> {
-        val controller = mediaController ?: return Result.failure(Exception("MediaController not connected"))
+        val controller = try {
+            awaitConnection()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
 
         return try {
+            val artworkUri = item?.thumbnailUrl?.takeIf { it.isNotBlank() }?.let {
+                runCatching { Uri.parse(it) }.getOrNull()
+            }
             val metadata = MediaMetadata.Builder()
                 .setTitle(item?.title)
                 .setArtist(item?.uploader)
-                .setArtworkUri(item?.thumbnailUrl?.let { Uri.parse(it) })
+                .apply { artworkUri?.let { setArtworkUri(it) } }
                 .build()
 
             // mediaId MUST be the logical queue URL (not the file path) so
@@ -280,6 +305,7 @@ class PlaybackManager @Inject constructor(
             mediaController?.removeListener(listener)
         }
         playerListener = null
+        _isConnected.value = false
         controllerFuture?.let { MediaController.releaseFuture(it) }
         mediaController = null
         controllerFuture = null

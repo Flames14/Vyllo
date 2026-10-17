@@ -9,6 +9,8 @@ import com.vyllo.music.domain.model.LyricsResponse
 import com.vyllo.music.domain.model.DownloadEntity
 import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.domain.model.PlaylistSongEntity
+import com.vyllo.music.data.download.FavoriteEntity
+import com.vyllo.music.data.download.FavoritesDao
 import com.vyllo.music.data.download.HistoryDao
 import com.vyllo.music.data.download.toHistoryEntity
 import com.vyllo.music.data.download.toMusicItem
@@ -39,6 +41,7 @@ class MusicRepositoryImpl @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val downloadRepository: DownloadRepository,
     private val historyDao: HistoryDao,
+    private val favoritesDao: FavoritesDao,
     private val preferenceManager: PreferenceManager,
     private val playbackQueueManager: PlaybackQueueManager,
     private val lyricsEngine: LyricsEngine,
@@ -174,13 +177,56 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun recordListen(item: MusicItem) {
         historyDao.insertHistory(item.toHistoryEntity())
 
-        // Also keep the old pattern analysis logic for now
-        val artist = item.uploader
-        val currentCount = preferenceManager.preferences.getInt("artist_$artist", 0)
-        preferenceManager.preferences.edit().putInt("artist_$artist", currentCount + 1).apply()
+        // Typed accessor - no raw key strings outside PreferenceManager.
+        preferenceManager.recordArtistListen(item.uploader)
     }
 
     override suspend fun clearHistory() = historyDao.clearHistory()
+
+    override suspend fun removeFromHistory(url: String) = historyDao.deleteFromHistory(url)
+
+    // Favorites / Ratings Methods
+    override suspend fun getRating(url: String): Int =
+        favoritesDao.getRating(url) ?: 0
+
+    override fun observeLikedSongs(): Flow<List<MusicItem>> =
+        favoritesDao.observeLiked().map { entities -> entities.map { it.toMusicItem() } }
+
+    override fun observeDislikedSongs(): Flow<List<MusicItem>> =
+        favoritesDao.observeDisliked().map { entities -> entities.map { it.toMusicItem() } }
+
+    override fun observeLikedCount(): Flow<Int> = favoritesDao.observeLikedCount()
+
+    override suspend fun setRating(item: MusicItem, rating: Int): Boolean {
+        // Guard against blank keys: a track with no URL cannot be re-rated later.
+        if (item.url.isBlank()) return false
+        return try {
+            when (rating) {
+                1, -1 -> favoritesDao.upsert(
+                    FavoriteEntity(
+                        url = item.url,
+                        title = item.title.take(300),
+                        uploader = item.uploader.take(200),
+                        thumbnailUrl = item.thumbnailUrl,
+                        type = item.type,
+                        rating = rating
+                    )
+                )
+                // Treat any out-of-range value as "clear" rather than storing junk.
+                else -> favoritesDao.deleteByUrl(item.url)
+            }
+            // A like is an explicit signal of taste; feed artist affinity with it.
+            if (rating == 1) {
+                preferenceManager.recordArtistListen(item.uploader)
+            }
+            true
+        } catch (e: Exception) {
+            SecureLogger.e("MusicRepositoryImpl", "Failed to persist rating for ${item.url}: ${e.message}")
+            false
+        }
+    }
+
+    override suspend fun clearAllRatings() = favoritesDao.clear()
 
     /**
  * Home feed seed.
@@ -191,13 +237,7 @@ class MusicRepositoryImpl @Inject constructor(
  * seed stays serial because it must claim [YouTubeDataSource]'s session slot.
  */
 override suspend fun getPatternSuggestions(): List<MusicItem> = coroutineScope {
-        val allEntries = preferenceManager.preferences.all
-        val topArtists = allEntries
-            .filterKeys { it.startsWith("artist_") }
-            .mapNotNull { (key, value) -> (value as? Int)?.let { key to it } }
-            .sortedByDescending { it.second }
-            .take(10)
-            .map { it.first.removePrefix("artist_") }
+        val topArtists = preferenceManager.getTopArtists(10)
 
         // Dynamic time-of-day contextual music seed
         val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
@@ -266,7 +306,7 @@ override suspend fun getPatternSuggestions(): List<MusicItem> = coroutineScope {
         var extTitle: String? = null
         var extArtist: String? = null
         var extAlbum: String? = null
-        var extLanguage: String? = null
+        var extLanguage: String?
         var extMusic: String? = null
         var subtitleResponse: LyricsResponse? = null
 
@@ -369,7 +409,6 @@ override suspend fun getPatternSuggestions(): List<MusicItem> = coroutineScope {
             extractedTitle = extTitle,
             extractedArtist = extArtist,
             extractedAlbum = extAlbum,
-            extractedLanguage = extLanguage,
             extractedMusic = extMusic
         )
     }

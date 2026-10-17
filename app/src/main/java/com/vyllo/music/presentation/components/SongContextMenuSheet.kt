@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -135,7 +136,7 @@ fun SongContextMenuSheet(
                 )
                 HorizontalDivider(color = Color.White.copy(alpha = 0.06f), thickness = 0.5.dp)
                 IOSActionRow(
-                    icon = Icons.Rounded.PlaylistPlay,
+                    icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
                     title = stringResource(R.string.context_add_to_queue),
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)

@@ -460,8 +460,8 @@ class RelatedPoolManager @Inject constructor(
                 title = infoItem.name ?: "",
                 url = infoItem.url ?: "",
                 uploader = infoItem.uploaderName ?: "",
-                thumbnailUrl = infoItem.thumbnails?.maxByOrNull { it.width * it.height }?.url
-                    ?: infoItem.thumbnails?.lastOrNull()?.url
+                thumbnailUrl = infoItem.thumbnails.maxByOrNull { it.width * it.height }?.url
+                    ?: infoItem.thumbnails.lastOrNull()?.url
                     ?: "",
                 type = MusicItemType.SONG,
                 durationSecs = infoItem.duration
