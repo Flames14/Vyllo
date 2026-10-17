@@ -93,6 +93,7 @@ class MainActivity : ComponentActivity() {
             window.isNavigationBarContrastEnforced = false
             window.isStatusBarContrastEnforced = false
         }
+        applySystemNavigationBarMode()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode = 
                 android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -173,6 +174,28 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleIncomingIntent(intent)
+    }
+
+    /**
+     * Keep the app's bottom edge clear of the system navigation bar. Users can
+     * still reveal Android's controls with a swipe from the screen edge; Android
+     * dismisses the transient bar again automatically.
+     */
+    private fun applySystemNavigationBarMode() {
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        val navigationBars = WindowInsetsCompat.Type.navigationBars()
+        if (isInPictureInPictureMode) {
+            controller.show(navigationBars)
+        } else {
+            controller.hide(navigationBars)
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) applySystemNavigationBarMode()
     }
 
     private fun handleIncomingIntent(intent: Intent?) {
@@ -381,6 +404,7 @@ class MainActivity : ComponentActivity() {
     ) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         playerViewModel.setPipMode(isInPictureInPictureMode)
+        applySystemNavigationBarMode()
         // Leaving PiP: re-evaluate auto-enter from the *current* state, so a
         // user who switched to audio while in PiP does not re-enter next time.
         if (!isInPictureInPictureMode) syncPipAutoEnter()
@@ -393,6 +417,7 @@ class MainActivity : ComponentActivity() {
     
     override fun onResume() {
         super.onResume()
+        applySystemNavigationBarMode()
         // Kill floating player when returning to main app
         val stopFloatingIntent = android.content.Intent(this, com.vyllo.music.service.FloatingWindowService::class.java)
         stopService(stopFloatingIntent)
