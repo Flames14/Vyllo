@@ -46,7 +46,7 @@ jobs:
       run: ./gradlew assembleDebug
 
     - name: Upload debug APK
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
@@ -54,7 +54,7 @@ jobs:
 
     - name: Upload lint report
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: lint-report
         path: app/build/reports/lint-results*
@@ -63,7 +63,7 @@ jobs:
 
     - name: Upload test results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: test-results
         path: app/build/test-results/
@@ -149,7 +149,7 @@ jobs:
 
     - name: Upload instrumented test report
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: instrumented-test-report
         path: app/build/reports/androidTests/connected/
@@ -158,7 +158,7 @@ jobs:
 
     - name: Upload instrumented test results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: instrumented-test-results
         path: app/build/test-results/connected/
