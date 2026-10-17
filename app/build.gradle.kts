@@ -1,4 +1,4 @@
-﻿import java.io.ByteArrayOutputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Properties
 
@@ -370,7 +370,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-service:2.8.7")
     
     // Coroutines Guava (for ListenableFuture)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.11.0")
     
     // Room Database (for download metadata)
     implementation("androidx.room:room-runtime:2.6.1")
@@ -402,7 +402,7 @@ dependencies {
 
     // Mockito for unit tests
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
 
     // Leak detection â€” debug only. Releases are unaffected (LeakCanary's own
     // artifact is already a no-op outside debug, but we keep it off the release
