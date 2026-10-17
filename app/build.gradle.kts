@@ -1,4 +1,4 @@
-﻿import java.io.ByteArrayOutputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Properties
 
@@ -373,9 +373,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.8.1")
     
     // Room Database (for download metadata)
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.room:room-runtime:2.8.5")
+    implementation("androidx.room:room-ktx:2.8.5")
+    ksp("androidx.room:room-compiler:2.8.5")
     
     // WorkManager (for reliable background downloads)
     implementation("androidx.work:work-runtime-ktx:2.10.1")
@@ -396,7 +396,7 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("androidx.room:room-testing:2.6.1")
+    androidTestImplementation("androidx.room:room-testing:2.8.5")
     androidTestImplementation("androidx.test:core-ktx:1.7.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
