@@ -4,12 +4,14 @@ import android.app.PendingIntent
 import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.*
 import com.vyllo.music.MainActivity
+import com.vyllo.music.R
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.core.utils.DevicePerf
 import com.vyllo.music.data.manager.PlaybackAudioEffectsManager
@@ -21,8 +23,10 @@ import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.service.audio.AudioSinkFactory
 import com.vyllo.music.service.audio.CacheProvider
 import com.vyllo.music.service.audio.MediaSessionCallback
+import com.vyllo.music.service.audio.PlaybackCommandsController
 import com.vyllo.music.service.audio.PlaybackHttpClientFactory
 import com.vyllo.music.service.audio.PlaybackPlayerFactory
+import com.vyllo.music.service.audio.PlaybackResumption
 import com.vyllo.music.service.audio.PlayerErrorListener
 import com.vyllo.music.service.audio.QueuePersistenceCoordinator
 import dagger.hilt.android.AndroidEntryPoint
@@ -166,19 +170,50 @@ class MusicService : MediaSessionService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val commandButtons = PlaybackCommandsController(
+            playerProvider = { player },
+            scope = serviceScope,
+            repository = repository,
+            playbackQueueManager = playbackQueueManager,
+            likeLabel = getString(R.string.notification_button_like),
+            shuffleLabel = getString(R.string.notification_button_shuffle),
+            repeatLabel = getString(R.string.notification_button_repeat)
+        )
+
         val sessionCallback = MediaSessionCallback(
             playerProvider = { player },
             serviceScope = serviceScope,
-            playbackQueueOrchestrator = playbackQueueOrchestrator
+            playbackQueueOrchestrator = playbackQueueOrchestrator,
+            commands = commandButtons,
+            resumption = PlaybackResumption(preferenceManager, playbackQueueManager, repository)
         )
 
         // Initialize MediaSession (player was assigned just above; fail soft if builder raced)
         val initializedPlayer = player
             ?: throw IllegalStateException("ExoPlayer not initialized before MediaSession build")
-        mediaSession = MediaSession.Builder(this, initializedPlayer)
+        val session = MediaSession.Builder(this, initializedPlayer)
             .setSessionActivity(pendingIntent)
             .setCallback(sessionCallback)
+            .setCustomLayout(commandButtons.layout())
             .build()
+        mediaSession = session
+        commandButtons.attach(session)
+
+        // Repaint the notification buttons from live player state so the like /
+        // shuffle / repeat toggles never show a stale icon.
+        player?.addListener(object : Player.Listener {
+            override fun onShuffleModeEnabledChanged(enabled: Boolean) {
+                commandButtons.refresh()
+            }
+
+            override fun onRepeatModeChanged(repeatMode: Int) {
+                commandButtons.refresh()
+            }
+
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                commandButtons.onTrackChanged()
+            }
+        })
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {

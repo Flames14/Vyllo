@@ -17,16 +17,18 @@ import org.mockito.kotlin.verify
 /**
  * Regression: notification / headset skip commands must advance the app-owned
  * queue exactly once and must not fall through to Media3's default dispatch
- * (double-advance).
+ * (double-advance). Also covers delegation of the custom notification commands.
  */
 class MediaSessionCallbackTest {
 
     private val player: ExoPlayer = mock()
     private val serviceScope = TestScope()
     private val orchestrator: PlaybackQueueOrchestrator = mock()
+    private val commands: PlaybackCommandsController = mock()
+    private val resumption: PlaybackResumption = mock()
     private val session: MediaSession = mock()
     private val controllerInfo: MediaSession.ControllerInfo = mock()
-    private val callback = MediaSessionCallback({ player }, serviceScope, orchestrator)
+    private val callback = MediaSessionCallback({ player }, serviceScope, orchestrator, commands, resumption)
 
     @Test
     fun `next skips route through queue orchestrator for both command variants`() {

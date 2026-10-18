@@ -508,4 +508,7 @@
         <item quantity="other">Se importó \u2018%1$s\u2019 (%2$d pistas)!</item>
     </plurals>
     <string name="sync_error">Error de sincronización: %1$s</string>
+    <string name="notification_button_like">Me gusta</string>
+    <string name="notification_button_shuffle">Aleatorio</string>
+    <string name="notification_button_repeat">Repetir</string>
 </resources>

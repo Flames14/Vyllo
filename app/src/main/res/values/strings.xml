@@ -502,4 +502,7 @@
         <item quantity="other">Imported \u2018%1$s\u2019 (%2$d tracks)!</item>
     </plurals>
     <string name="sync_error">Sync error: %1$s</string>
+    <string name="notification_button_like">Like</string>
+    <string name="notification_button_shuffle">Shuffle</string>
+    <string name="notification_button_repeat">Repeat</string>
 </resources>
