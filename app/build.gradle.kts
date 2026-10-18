@@ -348,6 +348,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
 
+    // Navigation (NavHost for the app's screen routing)
+    implementation("androidx.navigation:navigation-compose:2.9.8")
+
     // JSON parsing (JVM-only: Android ships org.json in the platform)
     testImplementation("org.json:json:20210307")
 

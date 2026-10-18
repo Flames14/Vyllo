@@ -44,7 +44,6 @@ class LibraryViewModel @Inject constructor(
     private var playlistSongsJob: kotlinx.coroutines.Job? = null
     var showPlaylistAddDialog by mutableStateOf(false)
     var songToAddToPlaylist by mutableStateOf<MusicItem?>(null)
-    var selectedLocalPlaylist by mutableStateOf<PlaylistEntity?>(null)
 
     // YouTube Sync States
     val isGoogleConnected: StateFlow<Boolean> = youtubeOAuthManager.isAuthorized

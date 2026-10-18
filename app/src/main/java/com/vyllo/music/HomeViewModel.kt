@@ -1,6 +1,5 @@
 package com.vyllo.music
 
-import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vyllo.music.core.security.SecureLogger
@@ -108,10 +107,6 @@ class HomeViewModel @Inject constructor(
      * the top of every load so a successful retry clears the error.
      */
     private val failedSections = mutableSetOf<String>()
-
-    // We keep selectedNavTab outside HomeUiState since it's a structural
-    // navigation state directly manipulated by MainActivity.
-    var selectedNavTab by mutableIntStateOf(0)
 
     init {
         viewModelScope.launch {

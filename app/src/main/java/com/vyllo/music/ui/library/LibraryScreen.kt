@@ -26,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.R
 import com.vyllo.music.*
 import com.vyllo.music.presentation.components.*
@@ -50,7 +51,8 @@ fun YTMLibraryScreen(
     currentPlayingItem: MusicItem?,
     onRecognizeClick: () -> Unit,
     loadingItemUrl: String? = null,
-    onNavigateToAlarms: () -> Unit = {}
+    onNavigateToAlarms: () -> Unit = {},
+    onPlaylistClick: (PlaylistEntity) -> Unit = {}
 ) {
     val scrollState = rememberLazyListState()
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -213,10 +215,7 @@ fun YTMLibraryScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .ytmClickable { 
-                            viewModel.selectedLocalPlaylist = playlist
-                            viewModel.loadPlaylistSongs(playlist.id)
-                        }
+                        .ytmClickable { onPlaylistClick(playlist) }
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

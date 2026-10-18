@@ -5,11 +5,9 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
@@ -25,6 +23,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.vyllo.music.core.security.SecurityMonitor
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.ui.components.dialogs.SettingsDialog
@@ -39,7 +44,6 @@ import com.vyllo.music.ui.library.*
 import com.vyllo.music.ui.search.*
 import com.vyllo.music.ui.alarm.AlarmScreen
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.vyllo.music.ui.alarm.AlarmViewModel
 import com.vyllo.music.recognition.ui.RecognitionScreen
 import com.vyllo.music.recognition.presentation.RecognitionViewModel
 import com.vyllo.music.update.AppUpdateViewModel
@@ -52,6 +56,51 @@ private const val TAG = "VylloApp"
  */
 val LocalLibraryViewModel = staticCompositionLocalOf<LibraryViewModel> {
     error("No LibraryViewModel provided")
+}
+
+/**
+ * String routes for the app's [NavHost].
+ *
+ * The bottom-bar tabs (Home / Search / Explore / Library) are top-level routes; the
+ * detail screens (Alarms, Playlist) are pushed on top and popped with system back.
+ */
+object VylloRoutes {
+    const val HOME = "home"
+    const val SEARCH = "search"
+    const val EXPLORE = "explore"
+    const val LIBRARY = "library"
+    const val RECOGNITION = "recognition"
+    const val ALARMS = "alarms"
+
+    const val PLAYLIST_ARG = "playlistId"
+    const val PLAYLIST = "playlist/{$PLAYLIST_ARG}"
+    fun playlist(playlistId: Long) = "playlist/$playlistId"
+}
+
+/** Bottom-bar index (0=Home, 1=Search, 2=Explore, 3=Library) for a route. */
+private fun bottomTabForRoute(route: String?): Int = when (route) {
+    VylloRoutes.SEARCH -> 1
+    VylloRoutes.EXPLORE -> 2
+    VylloRoutes.LIBRARY, VylloRoutes.PLAYLIST, VylloRoutes.ALARMS -> 3
+    else -> 0
+}
+
+/**
+ * Switches the top-level tab without growing the back stack, preserving each tab's
+ * scroll/state (mirrors the old manual `selectedNavTab` behaviour).
+ */
+private fun NavHostController.navigateToTab(tab: Int) {
+    val route = when (tab) {
+        0 -> VylloRoutes.HOME
+        1 -> VylloRoutes.SEARCH
+        2 -> VylloRoutes.EXPLORE
+        else -> VylloRoutes.LIBRARY
+    }
+    navigate(route) {
+        popUpTo(VylloRoutes.HOME) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
 }
 
 /**
@@ -73,14 +122,12 @@ fun VylloNavigation(
     onNext: (MusicItem?) -> Unit,
     onPrev: (MusicItem?) -> Unit
 ) {
+    val navController = rememberNavController()
     var isPlayerExpanded by rememberSaveable { mutableStateOf(false) }
     // Transient playback flag - must NOT survive process restore (controller dies).
     var isPlaying by remember { mutableStateOf(false) }
-    var showSearchScreen by rememberSaveable { mutableStateOf(false) }
-    var showAlarmScreen by rememberSaveable { mutableStateOf(false) }
-    var showRecognitionScreen by rememberSaveable { mutableStateOf(false) }
-    
-    val scrollState = rememberLazyListState()
+
+    val searchScrollState = rememberLazyListState()
     val recognitionViewModel: RecognitionViewModel = hiltViewModel()
     val updateViewModel: AppUpdateViewModel = hiltViewModel()
 
@@ -100,6 +147,10 @@ fun VylloNavigation(
     }.collectAsStateWithLifecycle(initialValue = emptyList())
     // Full state kept only for fullscreen overlay that genuinely needs many fields.
     // Screens above read the slices, not this.
+
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+    val isSearchVisible = currentRoute == VylloRoutes.SEARCH
 
     val appContext = LocalContext.current
     
@@ -125,7 +176,7 @@ fun VylloNavigation(
     // Infinite scroll logic for search results
     val isAtBottom by remember {
        derivedStateOf {
-           val layoutInfo = scrollState.layoutInfo
+           val layoutInfo = searchScrollState.layoutInfo
            val visibleItemsInfo = layoutInfo.visibleItemsInfo
            if (layoutInfo.totalItemsCount == 0) false
            else {
@@ -136,7 +187,7 @@ fun VylloNavigation(
     }
 
     LaunchedEffect(isAtBottom) {
-        if (isAtBottom && searchViewModel.isSearching && showSearchScreen) {
+        if (isAtBottom && searchViewModel.isSearching && isSearchVisible) {
             searchViewModel.loadNextPage()
         }
     }
@@ -180,18 +231,12 @@ fun VylloNavigation(
         isPlaying = controller?.isPlaying == true
     }
 
-    // Handle back button behavior
-    BackHandler(enabled = isPlayerExpanded || showSearchScreen || showAlarmScreen || showRecognitionScreen) {
-        when {
-            isPlayerExpanded -> isPlayerExpanded = false
-            showAlarmScreen -> showAlarmScreen = false
-            showRecognitionScreen -> showRecognitionScreen = false
-            showSearchScreen -> {
-                showSearchScreen = false
-                searchViewModel.onQueryChanged("")
-            }
-        }
+    // The expanded-player overlay owns back while it is open; let the NavHost handle
+    // back (popping subscreens) only when it is collapsed.
+    LaunchedEffect(isPlayerExpanded) {
+        navController.enableOnBackPressed(!isPlayerExpanded)
     }
+    BackHandler(enabled = isPlayerExpanded) { isPlayerExpanded = false }
 
     CompositionLocalProvider(LocalLibraryViewModel provides libraryViewModel) {
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -227,16 +272,10 @@ fun VylloNavigation(
                             }
                             com.vyllo.music.presentation.components.VylloOfflineBanner()
                             YTMBottomNavBar(
-                                selectedTab = if (showSearchScreen) 1 else if (homeViewModel.selectedNavTab == 0) 0 else homeViewModel.selectedNavTab + 1,
-                                onTabSelected = { 
+                                selectedTab = bottomTabForRoute(currentRoute),
+                                onTabSelected = { tab ->
                                     haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
-                                    if (it == 1) {
-                                        showSearchScreen = true
-                                    } else {
-                                        showSearchScreen = false
-                                        homeViewModel.selectedNavTab = if (it == 0) 0 else it - 1
-                                    }
-                                    showRecognitionScreen = false
+                                    navController.navigateToTab(tab)
                                 }
                             )
                         }
@@ -248,96 +287,119 @@ fun VylloNavigation(
                         .fillMaxSize()
                         .padding(paddingValues)
                 ) {
-                    // Navigation Logic
-                    if (showSearchScreen) {
-                        YTMSearchScreen(
-                            viewModel = searchViewModel,
-                            onBack = { 
-                                showSearchScreen = false
-                                searchViewModel.onQueryChanged("")
-                            },
-                            onPlay = { item ->
-                                homeViewModel.addToRecentlyPlayed(item)
-                                onPlay(item)
-                            },
-                            currentPlayingItem = currentPlayingItem,
-                            scrollState = scrollState
-                        )
-                    } else if (showRecognitionScreen) {
-                         RecognitionScreen(
-                            viewModel = recognitionViewModel,
-                            onBack = { showRecognitionScreen = false },
-                            onTrackFound = { item ->
-                                showRecognitionScreen = false
-                                homeViewModel.addToRecentlyPlayed(item)
-                                onPlay(item)
-                            }
-                        )
-                    } else {
-                        when (homeViewModel.selectedNavTab) {
-                            0 -> YTMHomeScreen(
+                    NavHost(
+                        navController = navController,
+                        startDestination = VylloRoutes.HOME,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        composable(VylloRoutes.HOME) {
+                            YTMHomeScreen(
                                 viewModel = homeViewModel,
                                 onPlay = { item ->
                                     homeViewModel.addToRecentlyPlayed(item)
                                     onPlay(item)
                                 },
-                                onSearchClick = { showSearchScreen = true },
+                                onSearchClick = { navController.navigateToTab(1) },
                                 onSettingsClick = { settingsViewModel.showSettings = true },
-                                onRecognizeClick = { showRecognitionScreen = true },
+                                onRecognizeClick = { navController.navigate(VylloRoutes.RECOGNITION) },
                                 currentPlayingItem = currentPlayingItem,
                                 loadingItemUrl = loadingItemUrl,
                                 scrollTuner = homeScrollTuner,
                                 homeScrollState = homeScrollState
                                     ?: androidx.compose.foundation.lazy.rememberLazyListState()
                             )
-                            1 -> YTMExploreScreen(
+                        }
+
+                        composable(VylloRoutes.EXPLORE) {
+                            YTMExploreScreen(
                                 viewModel = homeViewModel,
                                 onPlay = { item ->
                                     homeViewModel.addToRecentlyPlayed(item)
                                     onPlay(item)
                                 },
-                                onSearchClick = { showSearchScreen = true },
+                                onSearchClick = { navController.navigateToTab(1) },
                                 onSettingsClick = { settingsViewModel.showSettings = true },
-                                onRecognizeClick = { showRecognitionScreen = true },
+                                onRecognizeClick = { navController.navigate(VylloRoutes.RECOGNITION) },
                                 currentPlayingItem = currentPlayingItem,
                                 loadingItemUrl = loadingItemUrl
                             )
-                            2 -> {
-                                // Library/Playlist/Alarm navigation
-                                if (showAlarmScreen) {
-                                    AlarmScreen(
-                                        onBackClick = { showAlarmScreen = false }
-                                    )
-                                } else {
-                                    val selectedPlaylist = libraryViewModel.selectedLocalPlaylist
-                                    if (selectedPlaylist != null) {
-                                        YTMPlaylistScreen(
-                                            viewModel = libraryViewModel,
-                                            playlist = selectedPlaylist,
-                                            onBack = { libraryViewModel.selectedLocalPlaylist = null },
-                                            onPlay = { item ->
-                                                homeViewModel.addToRecentlyPlayed(item)
-                                                onPlay(item)
-                                            },
-                                            currentPlayingItem = currentPlayingItem,
-                                            loadingItemUrl = loadingItemUrl
-                                        )
-                                    } else {
-                                        YTMLibraryScreen(
-                                            viewModel = libraryViewModel,
-                                            onPlay = { item ->
-                                                homeViewModel.addToRecentlyPlayed(item)
-                                                onPlay(item)
-                                            },
-                                            onSearchClick = { showSearchScreen = true },
-                                            onSettingsClick = { settingsViewModel.showSettings = true },
-                                            onRecognizeClick = { showRecognitionScreen = true },
-                                            currentPlayingItem = currentPlayingItem,
-                                            loadingItemUrl = loadingItemUrl,
-                                            onNavigateToAlarms = { showAlarmScreen = true }
-                                        )
-                                    }
+                        }
+
+                        composable(VylloRoutes.LIBRARY) {
+                            YTMLibraryScreen(
+                                viewModel = libraryViewModel,
+                                onPlay = { item ->
+                                    homeViewModel.addToRecentlyPlayed(item)
+                                    onPlay(item)
+                                },
+                                onSearchClick = { navController.navigateToTab(1) },
+                                onSettingsClick = { settingsViewModel.showSettings = true },
+                                onRecognizeClick = { navController.navigate(VylloRoutes.RECOGNITION) },
+                                currentPlayingItem = currentPlayingItem,
+                                loadingItemUrl = loadingItemUrl,
+                                onNavigateToAlarms = { navController.navigate(VylloRoutes.ALARMS) },
+                                onPlaylistClick = { playlist ->
+                                    libraryViewModel.loadPlaylistSongs(playlist.id)
+                                    navController.navigate(VylloRoutes.playlist(playlist.id))
                                 }
+                            )
+                        }
+
+                        composable(VylloRoutes.SEARCH) {
+                            // Reset the query whenever the search screen leaves the graph
+                            // so re-opening it starts clean.
+                            DisposableEffect(searchViewModel) {
+                                onDispose { searchViewModel.onQueryChanged("") }
+                            }
+                            YTMSearchScreen(
+                                viewModel = searchViewModel,
+                                onBack = { navController.popBackStack() },
+                                onPlay = { item ->
+                                    homeViewModel.addToRecentlyPlayed(item)
+                                    onPlay(item)
+                                },
+                                currentPlayingItem = currentPlayingItem,
+                                scrollState = searchScrollState
+                            )
+                        }
+
+                        composable(VylloRoutes.RECOGNITION) {
+                            RecognitionScreen(
+                                viewModel = recognitionViewModel,
+                                onBack = { navController.popBackStack() },
+                                onTrackFound = { item ->
+                                    navController.popBackStack()
+                                    homeViewModel.addToRecentlyPlayed(item)
+                                    onPlay(item)
+                                }
+                            )
+                        }
+
+                        composable(VylloRoutes.ALARMS) {
+                            AlarmScreen(onBackClick = { navController.popBackStack() })
+                        }
+
+                        composable(
+                            route = VylloRoutes.PLAYLIST,
+                            arguments = listOf(navArgument(VylloRoutes.PLAYLIST_ARG) { type = NavType.LongType })
+                        ) { entry ->
+                            val playlistId = entry.arguments?.getLong(VylloRoutes.PLAYLIST_ARG) ?: 0L
+                            val playlist = libraryViewModel.allPlaylists.firstOrNull { it.id == playlistId }
+                            if (playlist == null) {
+                                // Deleted or unknown id: nothing to show, back out.
+                                LaunchedEffect(playlistId) { navController.popBackStack() }
+                            } else {
+                                YTMPlaylistScreen(
+                                    viewModel = libraryViewModel,
+                                    playlist = playlist,
+                                    onBack = { navController.popBackStack() },
+                                    onPlay = { item ->
+                                        homeViewModel.addToRecentlyPlayed(item)
+                                        onPlay(item)
+                                    },
+                                    currentPlayingItem = currentPlayingItem,
+                                    loadingItemUrl = loadingItemUrl
+                                )
                             }
                         }
                     }
@@ -489,4 +551,3 @@ fun LazyListScope.YTMGridSection(
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
-
