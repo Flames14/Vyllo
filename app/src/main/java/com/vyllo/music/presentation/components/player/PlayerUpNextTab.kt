@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,6 +24,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.AlertDialog
@@ -85,6 +88,8 @@ fun PlayerUpNextTab(
     val snackbarHostState = remember { SnackbarHostState() }
     var menuForUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var showClearConfirmation by rememberSaveable { mutableStateOf(false) }
+    var playedExpanded by rememberSaveable { mutableStateOf(false) }
+    val playedItems = playerUiState.playedQueueItems
     val isRefreshing = playerUiState.isLoadingRelatedTab
     val undoLabel = stringResource(R.string.action_undo)
     val removedMessage = stringResource(R.string.queue_item_removed)
@@ -189,6 +194,56 @@ fun PlayerUpNextTab(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
             contentPadding = PaddingValues(bottom = 80.dp, top = 8.dp)
         ) {
+            item(key = "played_section_header") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { playedExpanded = !playedExpanded }
+                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.queue_played),
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White.copy(alpha = 0.72f)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = pluralStringResource(
+                                R.plurals.queue_track_count,
+                                playedItems.size,
+                                playedItems.size
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.45f)
+                        )
+                    }
+                    Icon(
+                        imageVector = if (playedExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                        contentDescription = stringResource(
+                            if (playedExpanded) R.string.cd_collapse_played else R.string.cd_expand_played
+                        ),
+                        tint = Color.White.copy(alpha = 0.65f)
+                    )
+                }
+            }
+
+            if (playedExpanded) {
+                itemsIndexed(
+                    items = playedItems,
+                    key = { _, song -> "played_${song.url}" },
+                    contentType = { _, _ -> "played_queue_row" }
+                ) { _, song ->
+                    QueueSongRowItem(
+                        item = song,
+                        isActive = false,
+                        onClick = { onPlayRelated(song) }
+                    )
+                }
+            }
+
             item {
                 QueueSongRowItem(item = item, isActive = true, onClick = { })
                 Spacer(Modifier.height(10.dp))

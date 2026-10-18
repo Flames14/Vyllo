@@ -84,6 +84,8 @@ data class PlayerUiState(
      * Next renders this so remove/reorder actually change playback order.
      */
     val queueItems: List<MusicItem> = emptyList(),
+    /** Played prefix of the live queue, newest first; the current item is excluded. */
+    val playedQueueItems: List<MusicItem> = emptyList(),
     val isQueueSticky: Boolean = true,
     val sleepTimerRemainingSeconds: Long? = null,
     val isSleepTimerActive: Boolean = false
@@ -247,13 +249,19 @@ class PlayerViewModel @Inject constructor(
         // from the service (autoplay refill, restore, shuffle toggle).
         viewModelScope.launch {
             playbackQueueManager.queueVersion.collectLatest {
-                _uiState.update { it.copy(queueItems = playbackQueueManager.getUpcomingSnapshot()) }
+                _uiState.update {
+                    it.copy(
+                        queueItems = playbackQueueManager.getUpcomingSnapshot(),
+                        playedQueueItems = playbackQueueManager.getPlayedSnapshot()
+                    )
+                }
             }
         }
         viewModelScope.launch {
             playbackQueueManager.currentPlayingItem.collectLatest { item ->
                 _uiState.update { it.copy(
                     currentPlayingItem = item,
+                    playedQueueItems = playbackQueueManager.getPlayedSnapshot(),
                     resolvedThumbnailUrl = null,
                     likeCount = -1L,
                     commentCount = -1L,

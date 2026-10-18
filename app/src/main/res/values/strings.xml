@@ -149,6 +149,9 @@
 
     <!-- Queue / Up Next -->
     <string name="queue_playing_from">Playing from Queue</string>
+    <string name="queue_played">Played</string>
+    <string name="cd_expand_played">Show played tracks</string>
+    <string name="cd_collapse_played">Hide played tracks</string>
     <plurals name="queue_track_count">
         <item quantity="one">%1$d track</item>
         <item quantity="other">%1$d tracks</item>

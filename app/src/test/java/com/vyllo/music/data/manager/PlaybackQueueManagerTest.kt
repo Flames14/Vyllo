@@ -126,6 +126,32 @@ class PlaybackQueueManagerTest {
     }
 
     @Test
+    fun playedSnapshotIsEmptyBeforeThePlayheadOrAtTheFirstTrack() {
+        val items = listOf(
+            createTestMusicItem("1", "Song 1"),
+            createTestMusicItem("2", "Song 2")
+        )
+        playbackQueueManager.replaceQueue(items, startIndex = -1)
+        assertTrue(playbackQueueManager.getPlayedSnapshot().isEmpty())
+
+        playbackQueueManager.setCurrentIndexSafe(0)
+        assertTrue(playbackQueueManager.getPlayedSnapshot().isEmpty())
+    }
+
+    @Test
+    fun playedSnapshotReturnsOnlyPastTracksNewestFirst() {
+        val items = listOf(
+            createTestMusicItem("1", "Song 1"),
+            createTestMusicItem("2", "Song 2"),
+            createTestMusicItem("3", "Song 3"),
+            createTestMusicItem("4", "Song 4")
+        )
+        playbackQueueManager.replaceQueue(items, startIndex = 2)
+
+        assertEquals(listOf(items[1], items[0]), playbackQueueManager.getPlayedSnapshot())
+    }
+
+    @Test
     fun testReplaceQueue() {
         playbackQueueManager.addItem(createTestMusicItem("1", "Song 1"))
         val newItems = listOf(

@@ -151,6 +151,9 @@
 
     <!-- Queue / Up Next -->
     <string name="queue_playing_from">Reproduciendo desde la cola</string>
+    <string name="queue_played">Reproducidas</string>
+    <string name="cd_expand_played">Mostrar canciones reproducidas</string>
+    <string name="cd_collapse_played">Ocultar canciones reproducidas</string>
     <plurals name="queue_track_count">
         <item quantity="one">%1$d pista</item>
         <item quantity="many">%1$d pistas</item>

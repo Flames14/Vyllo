@@ -108,6 +108,15 @@ class PlaybackQueueManager @Inject constructor() {
         }
     }
 
+    /** Recently played entries from this queue, newest first; excludes the playhead. */
+    fun getPlayedSnapshot(): List<MusicItem> {
+        return synchronized(lock) {
+            val playedEndExclusive = currentIndex.coerceIn(0, currentQueue.size)
+            if (playedEndExclusive == 0) return@synchronized emptyList()
+            currentQueue.subList(0, playedEndExclusive).distinctBy { it.url }.asReversed()
+        }
+    }
+
     fun setCurrentPlayingItemDirectly(item: MusicItem) {
         synchronized(lock) {
             val idx = currentQueue.indexOfFirst { it.url == item.url }
