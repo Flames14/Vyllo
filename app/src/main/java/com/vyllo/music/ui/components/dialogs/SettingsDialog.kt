@@ -16,16 +16,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -106,228 +102,78 @@ fun SettingsDialog(
 
                 // Background playback directly controls whether music survives the lock
                 // screen and app backgrounding, so surface the battery exemption here.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_background_playback),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            if (isBackgroundEnabled) stringResource(R.string.settings_bg_on) else stringResource(R.string.settings_bg_off),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                        )
-                    }
-                    Switch(
-                        checked = isBackgroundEnabled,
-                        onCheckedChange = onBackgroundEnabledChange
-                    )
-                }
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_background_playback),
+                    subtitle = if (isBackgroundEnabled) stringResource(R.string.settings_bg_on) else stringResource(R.string.settings_bg_off),
+                    checked = isBackgroundEnabled,
+                    onCheckedChange = onBackgroundEnabledChange
+                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_bg_battery_title),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            stringResource(R.string.settings_bg_battery_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                        )
-                    }
-                    Switch(
-                        checked = isBatteryUnrestricted,
-                        onCheckedChange = { onBatteryAccessClick() }
-                    )
-                }
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_bg_battery_title),
+                    subtitle = stringResource(R.string.settings_bg_battery_desc),
+                    checked = isBatteryUnrestricted,
+                    onCheckedChange = { onBatteryAccessClick() }
+                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_keep_audio_playing),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            stringResource(R.string.settings_pause_on_mic),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                        )
-                    }
-                    Switch(
-                        checked = isKeepAudioPlayingEnabled,
-                        onCheckedChange = onKeepAudioPlayingChange
-                    )
-                }
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_keep_audio_playing),
+                    subtitle = stringResource(R.string.settings_pause_on_mic),
+                    checked = isKeepAudioPlayingEnabled,
+                    onCheckedChange = onKeepAudioPlayingChange
+                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_floating_player),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            stringResource(R.string.settings_show_bubble),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                        )
-                    }
-                    Switch(
-                        checked = isFloatingEnabled,
-                        onCheckedChange = onFloatingEnabledChange
-                    )
-                }
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_floating_player),
+                    subtitle = stringResource(R.string.settings_show_bubble),
+                    checked = isFloatingEnabled,
+                    onCheckedChange = onFloatingEnabledChange
+                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_high_refresh),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            if (isHighRefreshRateEnabled) stringResource(R.string.settings_refresh_on) else stringResource(R.string.settings_refresh_off),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                        )
-                    }
-                    Switch(
-                        checked = isHighRefreshRateEnabled,
-                        onCheckedChange = onHighRefreshRateChange
-                    )
-                }
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_high_refresh),
+                    subtitle = if (isHighRefreshRateEnabled) stringResource(R.string.settings_refresh_on) else stringResource(R.string.settings_refresh_off),
+                    checked = isHighRefreshRateEnabled,
+                    onCheckedChange = onHighRefreshRateChange
+                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_wifi_only),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            stringResource(R.string.settings_wifi_only_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                        )
-                    }
-                    Switch(
-                        checked = wifiOnlyDownloads,
-                        onCheckedChange = onWifiOnlyDownloadsChange
-                    )
-                }
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_wifi_only),
+                    subtitle = stringResource(R.string.settings_wifi_only_desc),
+                    checked = wifiOnlyDownloads,
+                    onCheckedChange = onWifiOnlyDownloadsChange
+                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_pause_low_battery),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            stringResource(R.string.settings_pause_low_battery_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                        )
-                    }
-                    Switch(
-                        checked = downloadsRequireBatteryOk,
-                        onCheckedChange = onDownloadsRequireBatteryOkChange
-                    )
-                }
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_pause_low_battery),
+                    subtitle = stringResource(R.string.settings_pause_low_battery_desc),
+                    checked = downloadsRequireBatteryOk,
+                    onCheckedChange = onDownloadsRequireBatteryOkChange
+                )
 
                 // Playback Behaviour Section -- these two prefs were previously
                 // persisted and consumed by the player but had no UI at all, so
                 // the setting existed in code and nowhere else.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_autoplay),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            stringResource(R.string.settings_autoplay_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                        )
-                    }
-                    Switch(
-                        checked = autoplayEnabled,
-                        onCheckedChange = onAutoplayChange
-                    )
-                }
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_autoplay),
+                    subtitle = stringResource(R.string.settings_autoplay_desc),
+                    checked = autoplayEnabled,
+                    onCheckedChange = onAutoplayChange
+                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_sticky_queue),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            stringResource(R.string.settings_sticky_queue_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                        )
-                    }
-                    Switch(
-                        checked = isQueueSticky,
-                        onCheckedChange = onQueueStickyChange
-                    )
-                }
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_sticky_queue),
+                    subtitle = stringResource(R.string.settings_sticky_queue_desc),
+                    checked = isQueueSticky,
+                    onCheckedChange = onQueueStickyChange
+                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_upnext_variants),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            stringResource(R.string.settings_upnext_variants_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                        )
-                    }
-                    Switch(
-                        checked = upNextIncludeVariants,
-                        onCheckedChange = onUpNextIncludeVariantsChange
-                    )
-                }
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_upnext_variants),
+                    subtitle = stringResource(R.string.settings_upnext_variants_desc),
+                    checked = upNextIncludeVariants,
+                    onCheckedChange = onUpNextIncludeVariantsChange
+                )
 
                 // Backup & Restore Section
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -372,59 +218,21 @@ fun SettingsDialog(
                 }
 
                 val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { uriHandler.openUri("https://ko-fi.com/betadeveloper") }
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_support),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            stringResource(R.string.settings_buy_coffee),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                        )
-                    }
-                    Icon(
-                        Icons.Rounded.Favorite,
-                        contentDescription = stringResource(R.string.settings_donate_cd),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+                SettingsActionRow(
+                    title = stringResource(R.string.settings_support),
+                    subtitle = stringResource(R.string.settings_buy_coffee),
+                    icon = Icons.Rounded.Favorite,
+                    onClick = { uriHandler.openUri("https://ko-fi.com/betadeveloper") },
+                    iconContentDescription = stringResource(R.string.settings_donate_cd)
+                )
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { onCheckUpdateClick() }
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.settings_check_updates),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            stringResource(R.string.settings_check_updates_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
-                        )
-                    }
-                    Icon(
-                        Icons.Rounded.Update,
-                        contentDescription = stringResource(R.string.settings_update_cd),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+                SettingsActionRow(
+                    title = stringResource(R.string.settings_check_updates),
+                    subtitle = stringResource(R.string.settings_check_updates_desc),
+                    icon = Icons.Rounded.Update,
+                    onClick = { onCheckUpdateClick() },
+                    iconContentDescription = stringResource(R.string.settings_update_cd)
+                )
             }
         },
         confirmButton = {
