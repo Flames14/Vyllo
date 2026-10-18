@@ -19,6 +19,13 @@ interface PlaylistDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSongToPlaylist(song: PlaylistSongEntity)
 
+    /** Returns -1 when the playlist/url primary key already exists. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertSongIfAbsent(song: PlaylistSongEntity): Long
+
+    @Update
+    suspend fun updatePlaylistSongs(songs: List<PlaylistSongEntity>)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSongsToPlaylist(songs: List<PlaylistSongEntity>)
 
@@ -34,9 +41,9 @@ interface PlaylistDao {
     @Query("SELECT * FROM playlists")
     suspend fun getAllPlaylistsList(): List<PlaylistEntity>
 
-    @Query("SELECT * FROM playlist_songs WHERE playlistId = :playlistId ORDER BY addedAt ASC")
+    @Query("SELECT * FROM playlist_songs WHERE playlistId = :playlistId ORDER BY addedAt ASC, rowid ASC")
     fun getSongsByPlaylist(playlistId: Long): Flow<List<PlaylistSongEntity>>
 
-    @Query("SELECT * FROM playlist_songs WHERE playlistId = :playlistId ORDER BY addedAt ASC")
+    @Query("SELECT * FROM playlist_songs WHERE playlistId = :playlistId ORDER BY addedAt ASC, rowid ASC")
     suspend fun getSongsByPlaylistList(playlistId: Long): List<PlaylistSongEntity>
 }

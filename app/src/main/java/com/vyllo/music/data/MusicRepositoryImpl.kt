@@ -160,8 +160,11 @@ class MusicRepositoryImpl @Inject constructor(
     override fun getAllPlaylists(): Flow<List<PlaylistEntity>> = playlistRepository.getAllPlaylists()
     override suspend fun createPlaylist(name: String) = playlistRepository.createPlaylist(name)
     override suspend fun deletePlaylist(playlist: PlaylistEntity) = playlistRepository.deletePlaylist(playlist)
-    override suspend fun addSongToPlaylist(playlistId: Long, item: MusicItem) = playlistRepository.addSongToPlaylist(playlistId, item)
+    override suspend fun addSongToPlaylist(playlistId: Long, item: MusicItem): Boolean =
+        playlistRepository.addSongToPlaylist(playlistId, item)
     override suspend fun removeSongFromPlaylist(playlistId: Long, url: String) = playlistRepository.removeSongFromPlaylist(playlistId, url)
+    override suspend fun moveSongInPlaylist(playlistId: Long, fromIndex: Int, toIndex: Int): Boolean =
+        playlistRepository.moveSongInPlaylist(playlistId, fromIndex, toIndex)
     override fun getSongsInPlaylist(playlistId: Long): Flow<List<PlaylistSongEntity>> = playlistRepository.getSongsInPlaylist(playlistId)
 
     // Download Methods

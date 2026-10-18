@@ -105,6 +105,15 @@ fun PlaylistAddDialog(
                         }
                     }
                 }
+
+                if (viewModel.playlistAddWasDuplicate) {
+                    Text(
+                        text = stringResource(R.string.playlist_song_already_added),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
             }
         },
         confirmButton = {

@@ -2,7 +2,7 @@ package com.vyllo.music.ui.library
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
@@ -78,11 +78,11 @@ fun YTMPlaylistScreen(
                     )
                 }
             } else {
-                items(
+                itemsIndexed(
                     items = viewModel.currentPlaylistSongs,
-                    key = { "playlist_song_${it.playlistId}_${it.url}" },
-                    contentType = { "song_row" }
-                ) { song ->
+                    key = { _, song -> "playlist_song_${song.playlistId}_${song.url}" },
+                    contentType = { _, _ -> "song_row" }
+                ) { index, song ->
                     val musicItem = MusicItem(song.title, song.url, song.uploader, song.thumbnailUrl)
                     YTMSongRow(
                         item = musicItem,
@@ -91,6 +91,12 @@ fun YTMPlaylistScreen(
                         onRemoveClick = {
                             viewModel.removeSongFromPlaylist(playlist.id, song.url)
                         },
+                        onMoveUpClick = if (index > 0) {
+                            { viewModel.moveSongInPlaylist(playlist.id, index, index - 1) }
+                        } else null,
+                        onMoveDownClick = if (index < viewModel.currentPlaylistSongs.lastIndex) {
+                            { viewModel.moveSongInPlaylist(playlist.id, index, index + 1) }
+                        } else null,
                         isLoading = loadingItemUrl == song.url
                     )
                 }

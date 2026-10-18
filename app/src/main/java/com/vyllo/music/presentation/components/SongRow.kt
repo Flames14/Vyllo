@@ -18,6 +18,7 @@ import com.vyllo.music.presentation.components.common.DownloadButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,10 +47,13 @@ fun YTMSongRow(
     isPlaying: Boolean,
     onClick: () -> Unit,
     onRemoveClick: (() -> Unit)? = null,
+    onMoveUpClick: (() -> Unit)? = null,
+    onMoveDownClick: (() -> Unit)? = null,
     isLoading: Boolean = false
 ) {
     val libraryViewModel = LocalLibraryViewModel.current
     var showContextMenu by remember { mutableStateOf(false) }
+    var showPlaylistOrderMenu by rememberSaveable(item.url) { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
@@ -113,6 +117,41 @@ fun YTMSongRow(
         
         Row(verticalAlignment = Alignment.CenterVertically) {
             DownloadButton(item)
+
+            if (onMoveUpClick != null || onMoveDownClick != null) {
+                Box {
+                    IconButton(onClick = { showPlaylistOrderMenu = true }) {
+                        Icon(
+                            Icons.Rounded.MoreVert,
+                            contentDescription = stringResource(R.string.cd_playlist_song_order),
+                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showPlaylistOrderMenu,
+                        onDismissRequest = { showPlaylistOrderMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.playlist_move_up)) },
+                            leadingIcon = { Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = null) },
+                            enabled = onMoveUpClick != null,
+                            onClick = {
+                                showPlaylistOrderMenu = false
+                                onMoveUpClick?.invoke()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.playlist_move_down)) },
+                            leadingIcon = { Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null) },
+                            enabled = onMoveDownClick != null,
+                            onClick = {
+                                showPlaylistOrderMenu = false
+                                onMoveDownClick?.invoke()
+                            }
+                        )
+                    }
+                }
+            }
             
             if (onRemoveClick != null) {
                 IconButton(onClick = onRemoveClick) {

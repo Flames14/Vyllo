@@ -134,6 +134,10 @@
     <!-- Playlist dialogs -->
     <string name="playlist_add_to">Add to Playlist</string>
     <string name="playlist_new">New Playlist</string>
+    <string name="playlist_song_already_added">This song is already in that playlist.</string>
+    <string name="playlist_move_up">Move up</string>
+    <string name="playlist_move_down">Move down</string>
+    <string name="cd_playlist_song_order">Playlist song order</string>
     <string name="playlist_none_yet">No playlists yet</string>
     <string name="playlist_name">Playlist Name</string>
     <string name="playlist_create">Create</string>

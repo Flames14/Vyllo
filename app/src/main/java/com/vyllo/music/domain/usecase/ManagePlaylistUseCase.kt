@@ -21,6 +21,9 @@ class ManagePlaylistUseCase @Inject constructor(
     
     suspend fun removeSongFromPlaylist(playlistId: Long, url: String) = 
         repository.removeSongFromPlaylist(playlistId, url)
+
+    suspend fun moveSongInPlaylist(playlistId: Long, fromIndex: Int, toIndex: Int) =
+        repository.moveSongInPlaylist(playlistId, fromIndex, toIndex)
     
     fun getSongsInPlaylist(playlistId: Long): Flow<List<PlaylistSongEntity>> = 
         repository.getSongsInPlaylist(playlistId)

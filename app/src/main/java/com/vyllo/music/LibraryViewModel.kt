@@ -43,6 +43,7 @@ class LibraryViewModel @Inject constructor(
     var currentPlaylistSongs by mutableStateOf<List<PlaylistSongEntity>>(emptyList())
     private var playlistSongsJob: kotlinx.coroutines.Job? = null
     var showPlaylistAddDialog by mutableStateOf(false)
+    var playlistAddWasDuplicate by mutableStateOf(false)
     var songToAddToPlaylist by mutableStateOf<MusicItem?>(null)
 
     // YouTube Sync States
@@ -125,9 +126,21 @@ class LibraryViewModel @Inject constructor(
 
     fun addSongToPlaylist(playlistId: Long, item: MusicItem) {
         viewModelScope.launch {
-            managePlaylistUseCase.addSongToPlaylist(playlistId, item)
-            showPlaylistAddDialog = false
-            songToAddToPlaylist = null
+            playlistAddWasDuplicate = false
+            val added = managePlaylistUseCase.addSongToPlaylist(playlistId, item)
+            if (added) {
+                showPlaylistAddDialog = false
+                songToAddToPlaylist = null
+            } else {
+                playlistAddWasDuplicate = true
+            }
+        }
+    }
+
+    fun moveSongInPlaylist(playlistId: Long, fromIndex: Int, toIndex: Int) {
+        if (fromIndex == toIndex) return
+        viewModelScope.launch {
+            managePlaylistUseCase.moveSongInPlaylist(playlistId, fromIndex, toIndex)
         }
     }
 
@@ -148,6 +161,7 @@ class LibraryViewModel @Inject constructor(
 
     fun showPlaylistAddDialog(item: MusicItem) {
         songToAddToPlaylist = item
+        playlistAddWasDuplicate = false
         showPlaylistAddDialog = true
     }
 
