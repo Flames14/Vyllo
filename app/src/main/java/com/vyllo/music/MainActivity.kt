@@ -39,6 +39,7 @@ import com.vyllo.music.VylloNavigation
 import com.vyllo.music.domain.manager.PlaybackManager
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.PlayResult
+import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.service.MusicService
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.presentation.theme.ThemeManager
@@ -64,6 +65,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var preferenceManager: PreferenceManager
+
+    @Inject
+    lateinit var musicRepository: IMusicRepository
 
     @Inject
     lateinit var homeScrollTuner: com.vyllo.music.presentation.scroll.HomeScrollTuner
@@ -222,6 +226,28 @@ class MainActivity : ComponentActivity() {
     private fun handleIncomingIntent(intent: Intent?) {
         if (VylloDeepLinks.isOAuthRedirect(intent)) {
             intent?.data?.let { libraryViewModel.handleGoogleAuthRedirect(it) }
+            return
+        }
+        val videoId = VylloDeepLinks.videoIdFor(intent)
+        if (videoId != null) {
+            // Consume before the async metadata fetch so a configuration change
+            // cannot replay the same content intent and start it twice.
+            intent?.data = null
+            intent?.removeExtra(Intent.EXTRA_TEXT)
+            lifecycleScope.launch {
+                val item = runCatching {
+                    musicRepository.resolveTrack(VylloDeepLinks.watchUrlFor(videoId))
+                }.getOrNull()
+                if (item != null && !isFinishing && !isDestroyed) {
+                    playMusic(item)
+                } else if (!isFinishing && !isDestroyed) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        R.string.content_link_open_failed,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
             return
         }
         VylloDeepLinks.routeFor(intent)?.let { pendingRoute.value = it }

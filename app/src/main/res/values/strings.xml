@@ -329,6 +329,7 @@
     <string name="shortcut_search_short">Search</string>
     <string name="shortcut_library_short">Library</string>
     <string name="qs_tile_recognize">Recognize music</string>
+    <string name="content_link_open_failed">Could not open that link</string>
     <string name="settings_pause_low_battery">Pause downloads on low battery</string>
     <string name="settings_pause_low_battery_desc">Wait for healthy battery and storage</string>
     <string name="settings_autoplay">Autoplay</string>

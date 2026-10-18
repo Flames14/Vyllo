@@ -11,6 +11,9 @@ interface IMusicRepository {
     suspend fun getSuggestions(query: String): List<String>
     suspend fun searchMusic(query: String, maintainSession: Boolean = true): List<MusicItem>
     suspend fun loadMoreResults(): List<MusicItem>
+
+    /** Full metadata (title/artist/art/duration) for a watch URL — content deep links. */
+    suspend fun resolveTrack(url: String): MusicItem?
     suspend fun getTrendingMusic(): List<MusicItem>
     suspend fun getStreamUrl(url: String, force: Boolean = false, isVideo: Boolean = false): String?
     suspend fun getLocalStreamUrl(url: String): String?

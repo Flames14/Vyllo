@@ -240,6 +240,28 @@ suspend fun getTrendingMusic(): List<MusicItem> = withContext(feedDispatcher) {
     searchMusicRaw(TRENDING_FALLBACK_QUERY, maintainSession = false)
 }
 
+    /** Resolve display metadata for a single shared video URL. The stream info is
+     * cached, so playback's subsequent stream lookup reuses this extraction. */
+    suspend fun resolveTrackByUrl(url: String): MusicItem? = withContext(playbackDispatcher) {
+        val info = try {
+            getOrFetchStreamInfo(url, force = false)
+        } catch (e: Exception) {
+            SecureLogger.w("YouTubeDataSource", "Shared track metadata lookup failed", e)
+            return@withContext null
+        }
+        val thumbnail = info.thumbnails.maxByOrNull { it.width * it.height }?.url
+            ?: info.thumbnails.lastOrNull()?.url
+            ?: ""
+        MusicItem(
+            title = info.name ?: "Unknown",
+            url = url,
+            uploader = info.uploaderName ?: "Unknown",
+            thumbnailUrl = thumbnail,
+            type = MusicItemType.SONG,
+            durationSecs = info.duration
+        )
+    }
+
     suspend fun getOrFetchStreamInfo(url: String, force: Boolean): StreamInfo = withContext(playbackDispatcher) {
         if (!force) {
             val cached = synchronized(streamInfoCacheLock) {

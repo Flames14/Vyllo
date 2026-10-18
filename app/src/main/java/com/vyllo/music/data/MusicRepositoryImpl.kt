@@ -67,6 +67,9 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun loadMoreResults(): List<MusicItem> =
         youtubeDataSource.loadMoreResults()
 
+    override suspend fun resolveTrack(url: String): MusicItem? =
+        youtubeDataSource.resolveTrackByUrl(url)
+
     override suspend fun getTrendingMusic(): List<MusicItem> =
         youtubeDataSource.getTrendingMusic()
 

@@ -96,6 +96,7 @@ private class FakeMusicRepository(
     override suspend fun getSuggestions(query: String): List<String> = suggestions[query].orEmpty()
     override suspend fun searchMusic(query: String, maintainSession: Boolean): List<MusicItem> = searchResults[query].orEmpty()
     override suspend fun loadMoreResults(): List<MusicItem> = emptyList()
+    override suspend fun resolveTrack(url: String): MusicItem? = null
     override suspend fun getTrendingMusic(): List<MusicItem> = emptyList()
     override suspend fun getStreamUrl(url: String, force: Boolean, isVideo: Boolean): String? = null
     override suspend fun getLocalStreamUrl(url: String): String? = null
