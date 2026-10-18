@@ -38,6 +38,8 @@
     <string name="settings_language_system">Predeterminado del sistema</string>
     <string name="settings_language_english">English</string>
     <string name="settings_language_spanish">Español</string>
+    <string name="widget_description">Controles de reproducción de Vyllo</string>
+    <string name="widget_nothing_playing">No se está reproduciendo nada</string>
 
     <!-- Player -->
     <string name="player_autoplay">Reproducción automática</string>

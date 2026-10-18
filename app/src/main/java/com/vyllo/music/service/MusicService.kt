@@ -29,6 +29,7 @@ import com.vyllo.music.service.audio.PlaybackPlayerFactory
 import com.vyllo.music.service.audio.PlaybackResumption
 import com.vyllo.music.service.audio.PlayerErrorListener
 import com.vyllo.music.service.audio.QueuePersistenceCoordinator
+import com.vyllo.music.widget.VylloPlayerWidget
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -212,8 +213,32 @@ class MusicService : MediaSessionService() {
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 commandButtons.onTrackChanged()
+                updatePlayerWidget()
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                updatePlayerWidget()
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                updatePlayerWidget()
             }
         })
+        updatePlayerWidget()
+    }
+
+    private fun updatePlayerWidget() {
+        val activePlayer = player ?: return
+        val mediaMetadata = activePlayer.currentMediaItem?.mediaMetadata
+        val title = mediaMetadata?.title?.toString()?.takeIf { it.isNotBlank() }
+            ?: getString(R.string.widget_nothing_playing)
+        val artist = mediaMetadata?.artist?.toString().orEmpty()
+        val isPlaying = activePlayer.isPlaying
+        serviceScope.launch {
+            runCatching {
+                VylloPlayerWidget().publish(this@MusicService, title, artist, isPlaying)
+            }.onFailure { SecureLogger.w("MusicService", "Player widget update failed", it) }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
