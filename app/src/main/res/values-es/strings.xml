@@ -333,6 +333,8 @@
     <string name="settings_autoplay_desc">Sigue reproduciendo temas similares cuando termine la cola</string>
     <string name="settings_sticky_queue">Cola persistente</string>
     <string name="settings_sticky_queue_desc">Mantén tu cola cuando inicies algo nuevo</string>
+    <string name="settings_upnext_variants">Incluir versiones en vivo y covers</string>
+    <string name="settings_upnext_variants_desc">Permitir versiones en vivo, acústicas y covers en A continuación</string>
     <string name="settings_support">Apoyar el desarrollo</string>
     <string name="settings_buy_coffee">Invítame a un café ☕</string>
     <string name="settings_donate_cd">Donar</string>

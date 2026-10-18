@@ -404,6 +404,8 @@ downloadsRequireBatteryOk = settingsViewModel.downloadsRequireBatteryOk,
                             onAutoplayChange = { playerViewModel.autoplayEnabled = it },
                             isQueueSticky = playerViewModel.isQueueSticky,
                             onQueueStickyChange = { playerViewModel.isQueueSticky = it },
+                            upNextIncludeVariants = playerViewModel.upNextIncludeVariants,
+                            onUpNextIncludeVariantsChange = { playerViewModel.upNextIncludeVariants = it },
                            onExportBackupClick = { exportLauncher.launch("vyllo_backup_${System.currentTimeMillis()}.json") },
                            onImportBackupClick = { importLauncher.launch(arrayOf("application/json", "text/*")) },
                            onCheckUpdateClick = { updateViewModel.checkForUpdates() }

@@ -54,6 +54,8 @@ fun SettingsDialog(
     onAutoplayChange: (Boolean) -> Unit = {},
     isQueueSticky: Boolean = true,
     onQueueStickyChange: (Boolean) -> Unit = {},
+    upNextIncludeVariants: Boolean = false,
+    onUpNextIncludeVariantsChange: (Boolean) -> Unit = {},
     onExportBackupClick: () -> Unit = {},
     onImportBackupClick: () -> Unit = {},
     onCheckUpdateClick: () -> Unit = {}
@@ -302,6 +304,28 @@ fun SettingsDialog(
                     Switch(
                         checked = isQueueSticky,
                         onCheckedChange = onQueueStickyChange
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.settings_upnext_variants),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Text(
+                            stringResource(R.string.settings_upnext_variants_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(0.7f)
+                        )
+                    }
+                    Switch(
+                        checked = upNextIncludeVariants,
+                        onCheckedChange = onUpNextIncludeVariantsChange
                     )
                 }
 

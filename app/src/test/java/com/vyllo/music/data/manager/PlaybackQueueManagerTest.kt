@@ -236,4 +236,72 @@ class PlaybackQueueManagerTest {
         assertEquals(2, playbackQueueManager.indexOf(radio))
         assertEquals(2, playbackQueueManager.currentIndex)
     }
+
+    // --- Up Next swipe-to-reorder contract: moveUpcoming is the single commit the
+    // --- drag gesture calls on drop, so its drop-at-target semantics are locked here.
+
+    private fun queueOf(vararg ids: String): Pair<PlaybackQueueManager, List<MusicItem>> {
+        val items = ids.map { createTestMusicItem(it, "Song $it") }
+        playbackQueueManager.replaceQueue(items)
+        playbackQueueManager.setCurrentIndexSafe(0)
+        return playbackQueueManager to items
+    }
+
+    private fun upcomingTitles(): List<String> =
+        playbackQueueManager.getUpcomingSnapshot().map { it.title }
+
+    @Test
+    fun moveUpcoming_movesItemDownToTargetIndex() {
+        queueOf("a", "b", "c", "d") // a is playing; upcoming = b, c, d
+        val moved = playbackQueueManager.moveUpcoming(from = 0, to = 2)
+        assertTrue(moved)
+        assertEquals(listOf("Song c", "Song d", "Song b"), upcomingTitles())
+    }
+
+    @Test
+    fun moveUpcoming_movesItemUpToThePlayheadEdge() {
+        queueOf("a", "b", "c", "d")
+        val moved = playbackQueueManager.moveUpcoming(from = 2, to = 0)
+        assertTrue(moved)
+        assertEquals(listOf("Song d", "Song b", "Song c"), upcomingTitles())
+    }
+
+    @Test
+    fun moveUpcoming_toLastIndexKeepsEveryItem() {
+        queueOf("a", "b", "c") // upcoming = b, c ; lastIndex = 1
+        val moved = playbackQueueManager.moveUpcoming(from = 0, to = 1)
+        assertTrue(moved)
+        assertEquals(listOf("Song c", "Song b"), upcomingTitles())
+        assertEquals(2, playbackQueueManager.getUpcomingSnapshot().size)
+    }
+
+    @Test
+    fun moveUpcoming_noOpReturnsFalse() {
+        queueOf("a", "b", "c")
+        assertFalse(playbackQueueManager.moveUpcoming(from = 1, to = 1))
+        assertEquals(listOf("Song b", "Song c"), upcomingTitles())
+    }
+
+    @Test
+    fun moveUpcoming_outOfRangeReturnsFalse() {
+        queueOf("a", "b", "c")
+        assertFalse(playbackQueueManager.moveUpcoming(from = 0, to = 99))
+        assertEquals(listOf("Song b", "Song c"), upcomingTitles())
+    }
+
+    @Test
+    fun moveUpcomingBy_shiftsOnePosition() {
+        queueOf("a", "b", "c", "d")
+        assertTrue(playbackQueueManager.moveUpcomingBy(upcomingIndex = 0, delta = 1))
+        assertEquals(listOf("Song c", "Song b", "Song d"), upcomingTitles())
+    }
+
+    @Test
+    fun moveUpcoming_neverTouchesThePlayedPrefix() {
+        queueOf("a", "b", "c", "d")
+        playbackQueueManager.moveUpcoming(from = 0, to = 2)
+        // The currently playing track and the played prefix stay put.
+        assertEquals("Song a", playbackQueueManager.currentItem?.title)
+        assertEquals(0, playbackQueueManager.currentIndex)
+    }
 }

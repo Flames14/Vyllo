@@ -199,6 +199,115 @@ class RelatedRankingTest {
     }
 
     // -----------------------------------------------------------------
+    // Live / event / non-song recognition
+    // -----------------------------------------------------------------
+
+    @Test
+    fun `live and event uploads are recognised`() {
+        listOf(
+            "Kesariya (Live)",
+            "Song Live at Wembley",
+            "Song - Live From Mumbai",
+            "Song (Concert Version)",
+            "Song Festival Mix",
+            "Song (MTV Unplugged)",
+            "Song - Coke Studio",
+            "Song Tiny Desk Concert",
+            "Song (Live Session)",
+            "Song Jukebox",
+            "Song Medley",
+            "Song Awards Performance"
+        ).forEach { title ->
+            assertTrue("expected live match for: $title", RelatedRanking.isLiveEventUpload(title))
+        }
+        assertFalse(RelatedRanking.isLiveEventUpload("Ordinary Studio Track"))
+    }
+
+    @Test
+    fun `non song uploads are recognised`() {
+        listOf(
+            "Song (Karaoke)",
+            "Song Instrumental",
+            "Song Backing Track",
+            "Song Cover",
+            "Song (Guitar Cover)",
+            "Song Guitar Tabs",
+            "Song Tutorial",
+            "Song Reaction"
+        ).forEach { title ->
+            assertTrue("expected non-song match for: $title", RelatedRanking.isNonSongUpload(title))
+        }
+        assertFalse(RelatedRanking.isNonSongUpload("Ordinary Studio Track"))
+    }
+
+    @Test
+    fun `studio anchor drops live and non song candidates`() {
+        val a = anchor()
+        val live = item("Kesariya (Live at Wembley)", "Some Band")
+        val karaoke = item("Kesariya Karaoke", "Some Band")
+        val clean = item("Kesariya", "Some Band")
+
+        assertFalse(
+            "live take must be dropped for a studio anchor",
+            RelatedRanking.isAcceptable(live, a.title, a.uploader, "x", anchorIsLive = false, includeVariants = false)
+        )
+        assertFalse(
+            "karaoke must be dropped for a studio anchor",
+            RelatedRanking.isAcceptable(karaoke, a.title, a.uploader, "x", anchorIsLive = false, includeVariants = false)
+        )
+        assertTrue(
+            "clean studio upload must survive",
+            RelatedRanking.isAcceptable(clean, a.title, a.uploader, "x", anchorIsLive = false, includeVariants = false)
+        )
+    }
+
+    @Test
+    fun `live anchor keeps live takes but still drops non songs`() {
+        val a = anchor()
+        val live = item("Kesariya (Live at Wembley)", "Some Band")
+        val karaoke = item("Kesariya Karaoke", "Some Band")
+
+        assertTrue(
+            "a live take is fine when the anchor itself is live",
+            RelatedRanking.isAcceptable(live, a.title, a.uploader, "x", anchorIsLive = true, includeVariants = false)
+        )
+        assertFalse(
+            "karaoke never belongs, live anchor or not",
+            RelatedRanking.isAcceptable(karaoke, a.title, a.uploader, "x", anchorIsLive = true, includeVariants = false)
+        )
+    }
+
+    @Test
+    fun `opt in keeps live candidates`() {
+        val a = anchor()
+        val live = item("Kesariya (Live at Wembley)", "Some Band")
+        assertTrue(
+            RelatedRanking.isAcceptable(live, a.title, a.uploader, "x", anchorIsLive = false, includeVariants = true)
+        )
+    }
+
+    // -----------------------------------------------------------------
+    // Studio source bonus
+    // -----------------------------------------------------------------
+
+    @Test
+    fun `topic uploads score above the identical non-topic upload`() {
+        val a = anchor()
+        val topic = item("Song", "Rival - Topic")
+        val reupload = item("Song", "Rival")
+
+        assertTrue(
+            "Topic=${RelatedRanking.score(topic, a, null, 0)} must beat reupload=${RelatedRanking.score(reupload, a, null, 0)}",
+            RelatedRanking.score(topic, a, null, 0) > RelatedRanking.score(reupload, a, null, 0)
+        )
+    }
+
+    @Test
+    fun `studio bonus can never outrank the weakest artist signal`() {
+        assertTrue(RelatedRanking.SCORE_STUDIO_SOURCE_BONUS < RelatedRanking.SCORE_TITLE_MATCH)
+    }
+
+    // -----------------------------------------------------------------
     // Normalization
     // -----------------------------------------------------------------
 

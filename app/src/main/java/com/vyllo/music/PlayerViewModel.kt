@@ -46,6 +46,8 @@ data class PlayerUiState(
     val isLoadingArtistSongs: Boolean = false,
     val isLoadingSimilarSongs: Boolean = false,
     val autoplayEnabled: Boolean = true,
+    /** Whether Up Next keeps live/event takes and non-song uploads (default off). */
+    val upNextIncludeVariants: Boolean = false,
     val isLoadingPlayer: Boolean = false,
     val loadingItemUrl: String? = null,
     val isVideoMode: Boolean = false,
@@ -132,6 +134,12 @@ class PlayerViewModel @Inject constructor(
         set(value) {
             preferenceManager.isAutoplayEnabled = value
             _uiState.update { it.copy(autoplayEnabled = value) }
+        }
+    var upNextIncludeVariants: Boolean
+        get() = _uiState.value.upNextIncludeVariants
+        set(value) {
+            preferenceManager.upNextIncludeVariants = value
+            _uiState.update { it.copy(upNextIncludeVariants = value) }
         }
     val isLoadingPlayer: Boolean
         get() = _uiState.value.isLoadingPlayer
@@ -231,7 +239,8 @@ class PlayerViewModel @Inject constructor(
         _uiState.update { it.copy(
             equalizerSettings = preferenceManager.loadEqualizerSettings(),
             volumeBoostMultiplier = preferenceManager.volumeBoostMultiplier,
-            isQueueSticky = preferenceManager.isQueueSticky
+            isQueueSticky = preferenceManager.isQueueSticky,
+            upNextIncludeVariants = preferenceManager.upNextIncludeVariants
         ) }
         // Keep the Up Next list bound to the real queue. The manager bumps
         // queueVersion on every structural edit, so this also covers edits made

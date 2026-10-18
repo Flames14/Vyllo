@@ -83,10 +83,43 @@ object RelatedRanking {
     const val SCORE_VARIANT_DEMOTE = -1.0
     const val SCORE_LANGUAGE_MISMATCH = -1.5
 
+    /**
+     * Official "Artist - Topic" channels are the label/artist's own upload, so the
+     * audio is the studio master. Small on purpose: it only ever breaks ties between
+     * candidates whose relevance is otherwise identical, and it stays well below the
+     * weakest artist signal (SCORE_TITLE_MATCH, 2.0) so it can never invert relevance.
+     */
+    const val SCORE_STUDIO_SOURCE_BONUS = 0.5
+
+    /**
+     * Same recording under a different label — demoted but never dropped, because a
+     * lyric video or remix of the track you are listening to is still that track.
+     */
     private val VARIANT_PATTERN = Regex(
-        "\\b(lyrics?|lyric video|visualizer|official video|audio only|" +
-            "live|cover|remix|sped|slowed|reverb|karaoke|instrumental|mashup|" +
-            "reaction|karaoke|nightcore|8d audio|\\btabs\\b|tutorial|lesson)\\b",
+        "\\b(lyrics?|lyric video|visualizer|official video|official audio|audio only|" +
+            "remix|sped up|slowed|reverb|nightcore|8d audio|mashup)\\b",
+        RegexOption.IGNORE_CASE
+    )
+
+    /**
+     * Live / event uploads — a *different* recording. When the anchor is a studio
+     * track the listener almost never wants a concert take queued next, so these are
+     * dropped unless the anchor itself is live or the user opts in.
+     */
+    private val LIVE_EVENT_PATTERN = Regex(
+        "\\b(live|concert|festival|unplugged|acoustic|mtv|coke studio|tiny desk|" +
+            "live session|bootleg|soundcheck|rehearsal|on stage|performance|" +
+            "world tour|jukebox|medley|awards)\\b",
+        RegexOption.IGNORE_CASE
+    )
+
+    /**
+     * Uploads that are not songs at all (karaoke, instrumental, tutorials...). These
+     * are dropped whenever the anchor is a studio track — live anchor or not.
+     */
+    private val NON_SONG_PATTERN = Regex(
+        "\\b(karaoke|instrumental|backing track|cover|guitar cover|piano cover|" +
+            "tabs|tutorial|lesson|reaction|type beat|ringtone)\\b",
         RegexOption.IGNORE_CASE
     )
 
@@ -116,7 +149,23 @@ object RelatedRanking {
     fun cleanArtist(uploader: String): String =
         uploader.replace(TOPIC_SUFFIX_REGEX, "").trim()
 
-    fun isVariantUpload(title: String): Boolean = VARIANT_PATTERN.containsMatchIn(title)
+    /**
+     * Any alternate-upload marker (benign variant, live/event, or non-song). Used
+     * only to *demote* a candidate's score, never to drop it.
+     */
+    fun isVariantUpload(title: String): Boolean =
+        VARIANT_PATTERN.containsMatchIn(title) ||
+            LIVE_EVENT_PATTERN.containsMatchIn(title) ||
+            NON_SONG_PATTERN.containsMatchIn(title)
+
+    /** A live / concert / event recording rather than the studio master. */
+    fun isLiveEventUpload(title: String): Boolean = LIVE_EVENT_PATTERN.containsMatchIn(title)
+
+    /** Not a song at all (karaoke, instrumental, tutorial...). */
+    fun isNonSongUpload(title: String): Boolean = NON_SONG_PATTERN.containsMatchIn(title)
+
+    /** Official "Artist - Topic" upload — the studio master for that uploader. */
+    fun isTopicUpload(uploader: String): Boolean = TOPIC_SUFFIX_REGEX.containsMatchIn(uploader)
 
     /**
      * Normalized (title, uploader) key so different uploads of the same song
@@ -150,17 +199,32 @@ object RelatedRanking {
     /**
      * Candidate acceptance gate. Rejects playlists, the anchor itself, Shorts,
      * long-form uploads and variant uploads of the anchor track.
+     *
+     * @param anchorIsLive true when the anchor track is itself a live/event upload.
+     *   Live candidates are then allowed through (the listener is clearly fine with
+     *   live audio) even when [includeVariants] is false.
+     * @param includeVariants the user's "include live versions & covers" preference.
+     *   When false, live/event and non-song uploads are hard-dropped so a studio
+     *   anchor's Up Next never queues a concert take or a karaoke track.
      */
     fun isAcceptable(
         item: MusicItem,
         anchorTitle: String,
         anchorUploader: String,
-        anchorUrl: String
+        anchorUrl: String,
+        anchorIsLive: Boolean = false,
+        includeVariants: Boolean = true
     ): Boolean {
         if (item.url.isBlank() || item.title.isBlank()) return false
         if (item.url == anchorUrl) return false
         if (isShortsUrl(item.url)) return false
         if (!isAcceptableDuration(item.durationSecs)) return false
+        if (!includeVariants) {
+            // Non-songs never belong in Up Next, even when the anchor is live.
+            if (isNonSongUpload(item.title)) return false
+            // Live/event takes only offend when the anchor itself is studio.
+            if (!anchorIsLive && isLiveEventUpload(item.title)) return false
+        }
         val isSameTrack = item.title.equals(anchorTitle, ignoreCase = true) &&
             item.uploader.equals(anchorUploader, ignoreCase = true)
         return !isSameTrack
@@ -184,6 +248,10 @@ object RelatedRanking {
         val titleLower = item.title.lowercase()
 
         var relevance = 0.0
+
+        // Studio-source preference: an official "- Topic" upload is the label's own
+        // master, so prefer it over a third-party reupload when everything else ties.
+        if (isTopicUpload(item.uploader)) relevance += SCORE_STUDIO_SOURCE_BONUS
 
         // Artist affinity.
         if (anchorUploaderKey.isNotBlank() && uploaderKey == anchorUploaderKey) {

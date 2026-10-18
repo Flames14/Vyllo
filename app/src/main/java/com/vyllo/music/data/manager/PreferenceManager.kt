@@ -81,6 +81,15 @@ class PreferenceManager @Inject constructor(
         get() = preferences.getBoolean("autoplay_enabled", true)
         set(value) { preferences.edit().putBoolean("autoplay_enabled", value).apply() }
 
+    /**
+     * When false (default), Up Next and the related sections drop live/event takes
+     * and non-song uploads (covers, karaoke, instrumentals) so a studio track never
+     * queues a concert recording. Enabled = keep them.
+     */
+    var upNextIncludeVariants: Boolean
+        get() = preferences.getBoolean("upnext_include_variants", false)
+        set(value) { preferences.edit().putBoolean("upnext_include_variants", value).apply() }
+
     var batteryRationaleShown: Boolean
         get() = preferences.getBoolean("battery_rationale_shown", false)
         set(value) { preferences.edit().putBoolean("battery_rationale_shown", value).apply() }

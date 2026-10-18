@@ -324,10 +324,11 @@ fun QueueSongRowItem(
     item: MusicItem,
     isActive: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     trailingContent: (@Composable RowScope.() -> Unit)? = null
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             // background(shape) rather than clip(shape) + background: no child
             // crosses the row bounds, so the clip was only ever a way to round

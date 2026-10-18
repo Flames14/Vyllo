@@ -2,6 +2,7 @@
 
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.data.download.HistoryDao
+import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.data.network.YouTubeDataSource
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.MusicItemType
@@ -23,6 +24,8 @@ import javax.inject.Singleton
 class RelatedPool(
     val anchorUrl: String,
     val anchor: RecommendationAnchor,
+    /** True when the anchor track is a live/event upload; gates live candidate acceptance. */
+    val anchorIsLive: Boolean = false,
     val ranked: MutableList<ScoredCandidate> = mutableListOf(),
     val seenKeys: MutableSet<String> = mutableSetOf(),
     val fetchedAt: Long = System.currentTimeMillis(),
@@ -35,7 +38,8 @@ class RelatedPool(
 class RelatedPoolManager @Inject constructor(
     private val youtubeDataSource: YouTubeDataSource,
     private val historyDao: HistoryDao,
-    private val trackMetadataResolver: TrackMetadataResolver
+    private val trackMetadataResolver: TrackMetadataResolver,
+    private val preferenceManager: PreferenceManager
 ) {
 
     companion object {
@@ -327,8 +331,18 @@ class RelatedPoolManager @Inject constructor(
         val relatedItems = mapRelatedItems(info.relatedItems).map { TaggedItem(it, null) }
         val searchResults = fetchRelatedSearchResults(batch)
 
-        val pool = RelatedPool(anchorUrl = url, anchor = anchor, ladder = ladder)
-        val scored = scoreCandidates(items = relatedItems + searchResults, anchor = anchor, anchorUrl = url)
+        val pool = RelatedPool(
+            anchorUrl = url,
+            anchor = anchor,
+            anchorIsLive = RelatedRanking.isLiveEventUpload(anchorTitle),
+            ladder = ladder
+        )
+        val scored = scoreCandidates(
+            items = relatedItems + searchResults,
+            anchor = anchor,
+            anchorUrl = url,
+            anchorIsLive = pool.anchorIsLive
+        )
         pool.ranked += scored
         pool.seenKeys += scored.mapTo(HashSet()) { RelatedRanking.normalizedTrackKey(it.item) }
         pool.ranked.sortByDescending { it.score }
@@ -345,6 +359,7 @@ class RelatedPoolManager @Inject constructor(
             items = results,
             anchor = pool.anchor,
             anchorUrl = pool.anchorUrl,
+            anchorIsLive = pool.anchorIsLive,
             seenKeys = pool.seenKeys
         )
         if (fresh.isEmpty()) return emptyList()
@@ -405,14 +420,21 @@ class RelatedPoolManager @Inject constructor(
         items: List<TaggedItem>,
         anchor: RecommendationAnchor,
         anchorUrl: String,
+        anchorIsLive: Boolean = false,
         seenKeys: MutableSet<String>? = null
     ): List<ScoredCandidate> {
         val out = ArrayList<ScoredCandidate>(items.size)
         val batchSeen = HashSet<String>()
+        val includeVariants = preferenceManager.upNextIncludeVariants
         for (tagged in items) {
             val item = tagged.item
             if (item.type != MusicItemType.SONG) continue
-            if (!RelatedRanking.isAcceptable(item, anchor.title, anchor.uploader, anchorUrl)) continue
+            if (!RelatedRanking.isAcceptable(
+                    item, anchor.title, anchor.uploader, anchorUrl,
+                    anchorIsLive = anchorIsLive,
+                    includeVariants = includeVariants
+                )
+            ) continue
             if (item.url == anchorUrl) continue
 
             val key = RelatedRanking.normalizedTrackKey(item)
@@ -440,6 +462,7 @@ class RelatedPoolManager @Inject constructor(
         val out = ArrayList<MusicItem>(items.size)
         val seenKeys = HashSet<String>()
         val seenUrls = HashSet<String>()
+        val includeVariants = preferenceManager.upNextIncludeVariants
         for (item in items) {
             if (item.type != MusicItemType.SONG) continue
             if (item.url.isBlank() || item.title.isBlank()) continue
@@ -447,6 +470,13 @@ class RelatedPoolManager @Inject constructor(
             if (!seenUrls.add(item.url)) continue
             if (RelatedRanking.isShortsUrl(item.url)) continue
             if (!RelatedRanking.isAcceptableDuration(item.durationSecs)) continue
+            // Artist / similar sections have no track anchor, so treat them as
+            // studio sources: drop live/event takes and non-songs unless the user
+            // has opted into variants.
+            if (!includeVariants) {
+                if (RelatedRanking.isNonSongUpload(item.title)) continue
+                if (RelatedRanking.isLiveEventUpload(item.title)) continue
+            }
             if (!seenKeys.add(RelatedRanking.normalizedTrackKey(item))) continue
             out += item
         }

@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -37,26 +39,35 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.vyllo.music.PlayerUiState
 import com.vyllo.music.PlayerViewModel
 import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @Composable
@@ -92,6 +103,84 @@ fun PlayerUpNextTab(
         r
     } else {
         0f
+    }
+
+    // ------------------------------------------------------------------
+    // Long-press drag to reorder Up Next (hand-rolled; no dependency).
+    //
+    // A drag freezes the queue into [draggingList] so a mid-gesture autoplay
+    // refill cannot shift rows under the finger. Rows swap live as the dragged
+    // row's centre crosses a neighbour, but the order is committed to the queue
+    // manager exactly ONCE, on drop — so queueVersion, persistence and the
+    // ExoPlayer lookahead are touched a single time per reorder, not per frame.
+    // ------------------------------------------------------------------
+    val density = LocalDensity.current
+    val autoScrollEdgePx = with(density) { 72.dp.toPx() }
+    val autoScrollStepPx = with(density) { 14.dp.toPx() }
+
+    var draggingStartIndex by remember { mutableStateOf<Int?>(null) }
+    var draggingIndex by remember { mutableStateOf<Int?>(null) }
+    var draggingOffsetY by remember { mutableFloatStateOf(0f) }
+    var draggingList by remember { mutableStateOf<List<MusicItem>?>(null) }
+    var autoScrollDir by remember { mutableIntStateOf(0) }
+
+    // Latest queue for the gesture callback, which outlives its composition.
+    val latestQueue by rememberUpdatedState(queueItems)
+
+    fun resetDrag() {
+        draggingStartIndex = null
+        draggingIndex = null
+        draggingOffsetY = 0f
+        autoScrollDir = 0
+    }
+
+    // Recomputes the edge auto-scroll direction and performs at most one swap.
+    fun evaluateReorder() {
+        val from = draggingIndex ?: return
+        val list = draggingList ?: return
+        val dragged = list.getOrNull(from) ?: return
+        val draggedKey = "upnext_${dragged.url}"
+        val layout = queueListState.layoutInfo
+        val draggedInfo = layout.visibleItemsInfo.firstOrNull { it.key == draggedKey } ?: return
+        val size = draggedInfo.size
+        if (size <= 0) return
+
+        val center = draggedInfo.offset + draggingOffsetY + size / 2f
+        autoScrollDir = when {
+            center < layout.viewportStartOffset + autoScrollEdgePx -> -1
+            center > layout.viewportEndOffset - autoScrollEdgePx -> 1
+            else -> 0
+        }
+
+        val target = layout.visibleItemsInfo.firstOrNull { vi ->
+            val key = vi.key as? String
+            key != null && key.startsWith("upnext_") && key != draggedKey &&
+                center >= vi.offset && center < vi.offset + vi.size
+        } ?: return
+        val to = list.indexOfFirst { "upnext_${it.url}" == target.key }
+        if (to < 0 || to == from) return
+
+        draggingList = list.toMutableList().also { it.add(to, it.removeAt(from)) }
+        draggingOffsetY -= (to - from) * size
+        draggingIndex = to
+    }
+
+    // Keeps scrolling while the finger hovers near an edge, so long queues are
+    // reachable in one gesture; each step re-checks for a swap under the finger.
+    LaunchedEffect(autoScrollDir, draggingIndex) {
+        if (draggingIndex == null || autoScrollDir == 0) return@LaunchedEffect
+        while (isActive) {
+            val consumed = queueListState.scrollBy(autoScrollDir * autoScrollStepPx)
+            if (consumed == 0f) break
+            evaluateReorder()
+            withFrameNanos { }
+        }
+    }
+
+    // Drop the frozen snapshot only once the committed order has propagated back,
+    // so there is no flicker between the local order and the queue flow.
+    LaunchedEffect(queueItems) {
+        if (draggingIndex == null) draggingList = null
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -175,14 +264,58 @@ fun PlayerUpNextTab(
             // This list mirrors PlaybackQueueManager, not relatedSongs. The latter
             // is a recommendation pool and cannot safely represent user edits.
             itemsIndexed(
-                items = queueItems,
+                items = draggingList ?: queueItems,
                 key = { _, song -> "upnext_${song.url}" },
                 contentType = { _, _ -> "queue_row" }
             ) { index, song ->
+                val isDragging = draggingIndex == index
+                val currentIndex by rememberUpdatedState(index)
+                val rowModifier = Modifier
+                    .zIndex(if (isDragging) 1f else 0f)
+                    .graphicsLayer {
+                        if (isDragging) {
+                            translationY = draggingOffsetY
+                            shadowElevation = 12f
+                        }
+                    }
+                    .pointerInput(song.url) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                draggingList = latestQueue
+                                draggingStartIndex = currentIndex
+                                draggingIndex = currentIndex
+                                draggingOffsetY = 0f
+                                autoScrollDir = 0
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                if (draggingIndex == null) return@detectDragGesturesAfterLongPress
+                                draggingOffsetY += dragAmount.y
+                                evaluateReorder()
+                            },
+                            onDragEnd = {
+                                val from = draggingStartIndex
+                                val to = draggingIndex
+                                if (from != null && to != null && from != to) {
+                                    viewModel.moveInQueue(from, to)
+                                } else {
+                                    // No-op drag: nothing to wait for, unfreeze now.
+                                    draggingList = null
+                                }
+                                resetDrag()
+                            },
+                            onDragCancel = {
+                                draggingList = null
+                                resetDrag()
+                            }
+                        )
+                    }
                 QueueSongRowItem(
                     item = song,
                     isActive = false,
                     onClick = { onPlayRelated(song) },
+                    modifier = rowModifier,
                     trailingContent = {
                         Box {
                             IconButton(onClick = { menuForUrl = song.url }) {

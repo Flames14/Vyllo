@@ -330,6 +330,8 @@
     <string name="settings_autoplay_desc">Keep playing similar tracks when the queue ends</string>
     <string name="settings_sticky_queue">Sticky queue</string>
     <string name="settings_sticky_queue_desc">Keep your queue when you start something new</string>
+    <string name="settings_upnext_variants">Include live versions &amp; covers</string>
+    <string name="settings_upnext_variants_desc">Allow live, acoustic and cover versions in Up Next</string>
     <string name="settings_support">Support Development</string>
     <string name="settings_buy_coffee">Buy me a coffee ☕</string>
     <string name="settings_donate_cd">Donate</string>
