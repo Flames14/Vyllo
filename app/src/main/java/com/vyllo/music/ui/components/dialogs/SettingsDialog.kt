@@ -40,6 +40,8 @@ fun SettingsDialog(
     onKeepAudioPlayingChange: (Boolean) -> Unit = {},
     themeMode: String,
     onThemeModeChange: (String) -> Unit,
+    languageTag: String = "",
+    onLanguageChange: (String) -> Unit = {},
     isHighRefreshRateEnabled: Boolean = true,
     onHighRefreshRateChange: (Boolean) -> Unit = {},
     isBlockScreenshotsEnabled: Boolean = false,
@@ -96,6 +98,44 @@ fun SettingsDialog(
                                     text = theme,
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        stringResource(R.string.settings_language),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val languages = listOf(
+                            "" to R.string.settings_language_system,
+                            "en" to R.string.settings_language_english,
+                            "es" to R.string.settings_language_spanish
+                        )
+                        val selectedLanguage = languageTag.substringBefore('-').lowercase()
+                        languages.forEach { (tag, labelRes) ->
+                            val selected = tag == selectedLanguage
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .clickable { onLanguageChange(tag) }
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(labelRes),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                                    )
                                 )
                             }
                         }

@@ -471,6 +471,8 @@ fun VylloNavigation(
                            onKeepAudioPlayingChange = { settingsViewModel.toggleKeepAudioPlaying(it) },
                            themeMode = settingsViewModel.themeMode,
                            onThemeModeChange = { settingsViewModel.updateThemeMode(it) },
+                           languageTag = settingsViewModel.languageTag,
+                           onLanguageChange = { settingsViewModel.updateLanguage(it) },
                            isHighRefreshRateEnabled = settingsViewModel.isHighRefreshRateEnabled,
                            onHighRefreshRateChange = { settingsViewModel.toggleHighRefreshRate(it) },
                            isBlockScreenshotsEnabled = settingsViewModel.isBlockScreenshotsEnabled,

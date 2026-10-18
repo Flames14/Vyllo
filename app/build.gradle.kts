@@ -337,6 +337,8 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.10.1")
+    // Per-app language picker with Android 13+ system integration and pre-33 backport.
+    implementation("androidx.appcompat:appcompat:1.7.1")
 
     // Image Loading
     implementation("io.coil-kt:coil-compose:2.6.0")

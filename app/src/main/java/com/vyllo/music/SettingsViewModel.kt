@@ -1,6 +1,8 @@
 package com.vyllo.music
 
 import androidx.compose.runtime.*
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vyllo.music.data.manager.BackupRestoreManager
@@ -23,6 +25,7 @@ class SettingsViewModel @Inject constructor(
         private set
     var isKeepAudioPlayingEnabled by mutableStateOf(preferenceManager.isKeepAudioPlayingEnabled)
     var themeMode by mutableStateOf(preferenceManager.themeMode)
+    var languageTag by mutableStateOf(AppCompatDelegate.getApplicationLocales().toLanguageTags())
     var isHighRefreshRateEnabled by mutableStateOf(preferenceManager.isHighRefreshRateEnabled)
     var isBlockScreenshotsEnabled by mutableStateOf(preferenceManager.isBlockScreenshotsEnabled)
     var wifiOnlyDownloads by mutableStateOf(preferenceManager.wifiOnlyDownloads)
@@ -69,6 +72,11 @@ class SettingsViewModel @Inject constructor(
     fun updateThemeMode(newTheme: String) {
         themeMode = newTheme
         preferenceManager.themeMode = newTheme
+    }
+
+    fun updateLanguage(tag: String) {
+        languageTag = tag
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tag))
     }
 
     fun toggleHighRefreshRate(enabled: Boolean) {

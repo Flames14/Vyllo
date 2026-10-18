@@ -33,6 +33,10 @@
     <string name="settings_background_playback">Background playback</string>
     <string name="settings_keep_audio_playing">Keep audio playing</string>
     <string name="settings_theme_mode">Theme</string>
+    <string name="settings_language">App language</string>
+    <string name="settings_language_system">System default</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_spanish">Español</string>
 
     <!-- Player -->
     <string name="player_autoplay">Autoplay</string>

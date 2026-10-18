@@ -34,6 +34,10 @@
     <string name="settings_background_playback">Reproducción en segundo plano</string>
     <string name="settings_keep_audio_playing">Mantener el audio en reproducción</string>
     <string name="settings_theme_mode">Tema</string>
+    <string name="settings_language">Idioma de la aplicación</string>
+    <string name="settings_language_system">Predeterminado del sistema</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_spanish">Español</string>
 
     <!-- Player -->
     <string name="player_autoplay">Reproducción automática</string>
