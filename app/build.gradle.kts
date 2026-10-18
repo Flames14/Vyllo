@@ -1,16 +1,19 @@
-﻿import java.io.ByteArrayOutputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Properties
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    // Compose compiler is a Kotlin compiler plugin since Kotlin 2.0; its version
+    // is pinned to the Kotlin version in the root build file.
+    id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
     id("org.jetbrains.kotlin.plugin.serialization")
     // Ships the generated baseline profile inside the APK/AAB (AOT-compiles hot
     // scroll paths, eliminating JIT stalls like the 9.5ms optimized compile seen
-    // in the scroll trace). Inert until `baseline-prof.txt` is generated â€” see
+    // in the scroll trace). Inert until `baseline-prof.txt` is generated — see
     // baseline-profile/BaselineProfileGenerator.kt. Version pinned in root build file.
     id("androidx.baselineprofile")
 }
@@ -37,7 +40,7 @@ fun resolveSecretProperty(name: String, envName: String): String? {
 }
 
 // Public SPKI pins for api.github.com (leaf + Sectigo intermediate + root).
-// Pins are public key hashes, not secrets â€” safe to commit. They cover the
+// Pins are public key hashes, not secrets — safe to commit. They cover the
 // in-app update metadata endpoint only; asset hosts stay unpinned on purpose.
 // Rotate by setting VYLLO_CERT_PINS (or certPins in keystore.local.properties).
 val defaultCertPins = listOf(
@@ -60,7 +63,7 @@ android {
         versionName = "v2.7.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
-        // Sensitive values come from env vars or local (gitignored) properties â€” never from source.
+        // Sensitive values come from env vars or local (gitignored) properties — never from source.
         // See keystore.local.properties.example for the full list of supported keys.
         buildConfigField("String", "LYRICS_API_BASE", "\"https://lrclib.net/api\"")
         buildConfigField("String", "NETEASE_SEARCH_API", "\"https://music.163.com/api/search/get\"")
@@ -83,18 +86,10 @@ android {
         buildConfig = true
     }
 
-    composeOptions {
-        // This version is strictly tied to Kotlin 1.9.24
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
-
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-    kotlinOptions {
-        jvmTarget = "11"
     }
     packaging {
         resources.excludes.add("META-INF/DEPENDENCIES")
@@ -138,7 +133,7 @@ android {
                 "proguard-rules.pro"
             )
 
-            // Real devices are arm64-v8a/armeabi-v7a â€” x86/x86_64 .so files only
+            // Real devices are arm64-v8a/armeabi-v7a — x86/x86_64 .so files only
             // serve emulators. Dropping them from release cuts download/install
             // size and install-time dexopt work. Debug keeps all ABIs so
             // emulator testing is unaffected.
@@ -225,7 +220,7 @@ android {
         // Fail the build on real errors (catches NewApi / missing permissions / etc.)
         checkReleaseBuilds = true
         abortOnError = true
-        // NOTE: MissingTranslation is deliberately NOT disabled — values-es must
+        // NOTE: MissingTranslation is deliberately NOT disabled � values-es must
         // stay complete. Add a locale, add its translations, in the same change.
         // Media3 intentionally exposes many APIs as @UnstableApi; we pin versions
         // and verify at runtime, so project-wide opt-in is safe here.
@@ -234,40 +229,33 @@ android {
         // universal APK stays small; Play filters ABI per device anyway. ChromeOS
         // / x86_64 users are excluded on purpose rather than by accident.
         disable += "ChromeOsAbiSupport"
-        // "A newer version is available" advisories, not defects. Several are
-        // hard pins: kotlinx-serialization 1.6.x is the last line that compiles
-        // on Kotlin 1.9.24, and Room / Hilt / Compose-BOM / Media3 upgrades all
-        // need a Kotlin 2.x + AGP toolchain bump first (attempted: Datastore
-        // 1.2.1 alone drags serialization 1.7.3 in, which refuses to compile).
-        // Freshness is tracked by .github/dependabot.yml instead of lint.
+        // "A newer version is available" advisories, not defects. The remaining
+        // gaps are deliberate: AGP 8.13.x caps at compileSdk 36, so libraries in
+        // the Compose 1.10+/lifecycle 2.10+/Room 2.8+ lines (which demand AGP 9.1
+        // and compileSdk 37) are held back to the newest AGP-8.13-compatible
+        // releases. Freshness is tracked by .github/dependabot.yml instead.
         disable += "GradleDependency"
     }
 }
 
-// Enable Compose Strong Skipping Mode for better scroll performance
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+// JVM target for all Kotlin compilation (replaces the removed `android.kotlinOptions`).
+kotlin {
     compilerOptions {
-        freeCompilerArgs.addAll(
-            "-P",
-            "plugin:androidx.compose.compiler.plugins.kotlin:strongSkipping=true"
-        )
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
+}
 
-        // Opt-in Compose compiler instrumentation, used to find which composables are
-        // recomposing unskippable during a scroll. Off by default so normal builds pay
-        // nothing for it.
-        //
-        //   ./gradlew :app:assembleBenchmark -PcomposeMetrics
-        //
-        // Output: app/build/composeMetrics/metrics/  (per-file recomposition counts)
-        //         app/build/composeMetrics/reports/  (stability + skippability reports)
-        if (project.hasProperty("composeMetrics")) {
-            val out = layout.buildDirectory.dir("composeMetrics").get().asFile
-                .absolutePath.replace('\\', '/')
-            freeCompilerArgs.addAll(
-                "-P", "plugin:androidx.compose.compiler.plugins.kotlin:metricsDestination=$out/metrics",
-                "-P", "plugin:androidx.compose.compiler.plugins.kotlin:reportsDestination=$out/reports"
-            )
-        }
+// Compose compiler options. Strong Skipping is on by default since Kotlin 2.0.20,
+// so it no longer needs an opt-in flag. Metrics/reports stay opt-in:
+//
+//   ./gradlew :app:assembleBenchmark -PcomposeMetrics
+//
+// Output: app/build/composeMetrics/metrics/  (per-file recomposition counts)
+//         app/build/composeMetrics/reports/  (stability + skippability reports)
+composeCompiler {
+    if (project.hasProperty("composeMetrics")) {
+        metricsDestination.set(layout.buildDirectory.dir("composeMetrics/metrics"))
+        reportsDestination.set(layout.buildDirectory.dir("composeMetrics/reports"))
     }
 }
 
@@ -337,15 +325,15 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // Media3 (ExoPlayer)
-    implementation("androidx.media3:media3-exoplayer:1.3.0")
-    implementation("androidx.media3:media3-session:1.3.0")
-    implementation("androidx.media3:media3-common:1.3.0")
-    implementation("androidx.media3:media3-database:1.3.0")
-    implementation("androidx.media3:media3-datasource-okhttp:1.3.0")
-    implementation("androidx.media3:media3-ui:1.3.0")
+    implementation("androidx.media3:media3-exoplayer:1.8.1")
+    implementation("androidx.media3:media3-session:1.8.1")
+    implementation("androidx.media3:media3-common:1.8.1")
+    implementation("androidx.media3:media3-database:1.8.1")
+    implementation("androidx.media3:media3-datasource-okhttp:1.8.1")
+    implementation("androidx.media3:media3-ui:1.8.1")
 
     // UI (Jetpack Compose)
-    implementation(platform("androidx.compose:compose-bom:2024.10.01"))
+    implementation(platform("androidx.compose:compose-bom:2025.10.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.10.1")
@@ -357,8 +345,8 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
 
     // Lifecycle (collectAsStateWithLifecycle - avoids bg recomposition)
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
 
     // JSON parsing (JVM-only: Android ships org.json in the platform)
     testImplementation("org.json:json:20210307")
@@ -367,36 +355,36 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     
     // Lifecycle Service
-    implementation("androidx.lifecycle:lifecycle-service:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-service:2.9.4")
     
     // Coroutines Guava (for ListenableFuture)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.8.1")
     
     // Room Database (for download metadata)
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    ksp("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.room:room-runtime:2.7.2")
+    implementation("androidx.room:room-ktx:2.7.2")
+    ksp("androidx.room:room-compiler:2.7.2")
     
     // WorkManager (for reliable background downloads)
-    implementation("androidx.work:work-runtime-ktx:2.10.1")
+    implementation("androidx.work:work-runtime-ktx:2.11.2")
 
     // Hilt for Dependency Injection
-    implementation("com.google.dagger:hilt-android:2.51.1")
-    ksp("com.google.dagger:hilt-android-compiler:2.51.1")
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-    implementation("androidx.hilt:hilt-work:1.2.0")
-    ksp("androidx.hilt:hilt-compiler:1.2.0")
+    implementation("com.google.dagger:hilt-android:2.57.2")
+    ksp("com.google.dagger:hilt-android-compiler:2.57.2")
+    implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
+    implementation("androidx.hilt:hilt-work:1.3.0")
+    ksp("androidx.hilt:hilt-compiler:1.3.0")
 
     // ConstraintLayout for alarm activity
     implementation("androidx.constraintlayout:constraintlayout:2.2.2")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.10.01"))
+    androidTestImplementation(platform("androidx.compose:compose-bom:2025.10.01"))
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("androidx.room:room-testing:2.6.1")
+    androidTestImplementation("androidx.room:room-testing:2.7.2")
     androidTestImplementation("androidx.test:core-ktx:1.7.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
@@ -404,12 +392,12 @@ dependencies {
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
 
-    // Leak detection â€” debug only. Releases are unaffected (LeakCanary's own
+    // Leak detection — debug only. Releases are unaffected (LeakCanary's own
     // artifact is already a no-op outside debug, but we keep it off the release
     // classpath entirely so R8 never sees it).
     debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
 
-    // Serialization (1.6.x is the last line compatible with Kotlin 1.9.x;
-    // 1.7.x requires Kotlin 2.0+ at compile time)
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    // Serialization (kept in step with the Kotlin 2.2 serialization compiler plugin;
+    // the 1.6.x line cannot be compiled by the Kotlin 2.x plugin)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
 }

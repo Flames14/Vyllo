@@ -1,7 +1,8 @@
 # Dependency freshness is handled here rather than by lint's GradleDependency
-# check (which is disabled in app/build.gradle.kts). Several libraries are hard
-# pins for the Kotlin 1.9.24 / AGP 8.6.1 toolchain; when that toolchain moves,
-# these PRs are the signal to lift the pins.
+# check (which is disabled in app/build.gradle.kts). AGP 8.13.x tops out at
+# compileSdk 36, so the Compose 1.10+/lifecycle 2.10+/Room 2.8+ lines (which
+# require AGP 9.1 + compileSdk 37) are intentionally held back; these PRs are
+# the signal to take them once the toolchain moves to AGP 9.
 #
 # `patterns` values are regular expressions matched against the dependency name.
 version: 2

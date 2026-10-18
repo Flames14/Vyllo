@@ -44,9 +44,10 @@ Install the downloaded `app-release.apk` and follow Android’s prompt if it ask
 
 - JDK 17
 - Android SDK Platform 36 and its build tools
-- Gradle 8.11.1 (the checked-in wrapper downloads and verifies it for you)
+- Gradle 8.14.3 (the checked-in wrapper downloads and verifies it for you)
 
-The project currently uses Kotlin 1.9.24 and Android Gradle Plugin 8.9.1.
+The project uses Kotlin 2.2.21, Android Gradle Plugin 8.13.2 and the Compose
+compiler bundled with Kotlin.
 
 ### Build and verify
 

@@ -19,8 +19,8 @@ import android.view.WindowManager
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
-import android.annotation.SuppressLint
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -76,6 +76,15 @@ class AlarmTriggerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         SecureLogger.d(TAG, "onCreate called")
+
+        // Swallow back (button and predictive gesture). The alarm must be dismissed
+        // through its explicit UI actions; the backward-compatible dispatcher is the
+        // supported replacement for the deprecated Activity.onBackPressed override.
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // Intentionally no-op.
+            }
+        })
 
         // Initialize vibrator
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
@@ -260,13 +269,6 @@ class AlarmTriggerActivity : ComponentActivity() {
             }
         }
         cpuWakeLock = null
-    }
-
-    @SuppressLint("MissingSuperCall")
-    @Suppress("OVERRIDE_DEPRECATION")
-    override fun onBackPressed() {
-        // Prevent back button from dismissing the alarm UI.
-        // Intentionally no super call — alarm must be dismissed via UI actions.
     }
 
     override fun onDestroy() {
