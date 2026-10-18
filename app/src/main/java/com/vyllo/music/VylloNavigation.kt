@@ -120,7 +120,9 @@ fun VylloNavigation(
     onPlay: (MusicItem) -> Unit,
     onPlayFromQueue: (MusicItem) -> Unit = onPlay,
     onNext: (MusicItem?) -> Unit,
-    onPrev: (MusicItem?) -> Unit
+    onPrev: (MusicItem?) -> Unit,
+    pendingRoute: String? = null,
+    onPendingRouteConsumed: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     var isPlayerExpanded by rememberSaveable { mutableStateOf(false) }
@@ -151,6 +153,19 @@ fun VylloNavigation(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val isSearchVisible = currentRoute == VylloRoutes.SEARCH
+
+    // External entry points (launcher shortcuts, quick-settings tile, deep links)
+    // hand us a target route; navigate once and clear it so a recomposition or a
+    // config change never re-navigates.
+    LaunchedEffect(pendingRoute) {
+        val route = pendingRoute ?: return@LaunchedEffect
+        when (route) {
+            VylloRoutes.HOME, VylloRoutes.SEARCH, VylloRoutes.EXPLORE, VylloRoutes.LIBRARY ->
+                navController.navigateToTab(bottomTabForRoute(route))
+            else -> navController.navigate(route) { launchSingleTop = true }
+        }
+        onPendingRouteConsumed()
+    }
 
     val appContext = LocalContext.current
     
@@ -458,6 +473,8 @@ fun VylloNavigation(
                            onThemeModeChange = { settingsViewModel.updateThemeMode(it) },
                            isHighRefreshRateEnabled = settingsViewModel.isHighRefreshRateEnabled,
                            onHighRefreshRateChange = { settingsViewModel.toggleHighRefreshRate(it) },
+                           isBlockScreenshotsEnabled = settingsViewModel.isBlockScreenshotsEnabled,
+                           onBlockScreenshotsChange = { settingsViewModel.toggleBlockScreenshots(it) },
                            wifiOnlyDownloads = settingsViewModel.wifiOnlyDownloads,
                            onWifiOnlyDownloadsChange = { settingsViewModel.toggleWifiOnlyDownloads(it) },
 downloadsRequireBatteryOk = settingsViewModel.downloadsRequireBatteryOk,

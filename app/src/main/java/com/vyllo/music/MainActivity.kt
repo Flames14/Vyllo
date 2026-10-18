@@ -68,6 +68,12 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var homeScrollTuner: com.vyllo.music.presentation.scroll.HomeScrollTuner
 
+    /**
+     * Route requested by an external entry point (launcher shortcut, quick-settings
+     * tile, deep link). Compose observes it, navigates, then clears it.
+     */
+    private val pendingRoute = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
@@ -94,6 +100,7 @@ class MainActivity : ComponentActivity() {
             window.isStatusBarContrastEnforced = false
         }
         applySystemNavigationBarMode()
+        applySecureScreen()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode = 
                 android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -143,7 +150,15 @@ class MainActivity : ComponentActivity() {
                         onPlay = { item -> playMusic(item) },
                         onPlayFromQueue = { item -> playMusic(item, fromQueue = true) },
                         onNext = { playNext() },
-                        onPrev = { playPrevious() }
+                        onPrev = { playPrevious() },
+                        pendingRoute = pendingRoute.collectAsStateWithLifecycle().value,
+                        onPendingRouteConsumed = {
+                            pendingRoute.value = null
+                            // Clear the launch data too: the activity is recreated
+                            // for some config changes (theme, locale, font scale)
+                            // and the same intent would otherwise replay.
+                            intent?.data = null
+                        }
                     )
 
                     val playerState by playerViewModel.uiState.collectAsStateWithLifecycle()
@@ -164,6 +179,12 @@ class MainActivity : ComponentActivity() {
                     // Dynamic refresh rate listener
                     LaunchedEffect(settingsViewModel.isHighRefreshRateEnabled) {
                         setupDisplayMode()
+                    }
+
+                    // Re-apply FLAG_SECURE the moment the user toggles it, without
+                    // waiting for the next resume.
+                    LaunchedEffect(settingsViewModel.isBlockScreenshotsEnabled) {
+                        self.applySecureScreen()
                     }
                 }
             }
@@ -199,9 +220,25 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIncomingIntent(intent: Intent?) {
-        val data = intent?.data ?: return
-        if (data.scheme == "com.vyllo.music" && data.host == "oauth2redirect") {
-            libraryViewModel.handleGoogleAuthRedirect(data)
+        if (VylloDeepLinks.isOAuthRedirect(intent)) {
+            intent?.data?.let { libraryViewModel.handleGoogleAuthRedirect(it) }
+            return
+        }
+        VylloDeepLinks.routeFor(intent)?.let { pendingRoute.value = it }
+    }
+
+    /**
+     * Blocks screenshots / screen recording / the recents thumbnail when the user
+     * opted in. Applied to the window flags so it covers every screen at once.
+     */
+    private fun applySecureScreen() {
+        if (preferenceManager.isBlockScreenshotsEnabled) {
+            window.setFlags(
+                android.view.WindowManager.LayoutParams.FLAG_SECURE,
+                android.view.WindowManager.LayoutParams.FLAG_SECURE
+            )
+        } else {
+            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
 
@@ -418,6 +455,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         applySystemNavigationBarMode()
+        applySecureScreen()
         // Kill floating player when returning to main app
         val stopFloatingIntent = android.content.Intent(this, com.vyllo.music.service.FloatingWindowService::class.java)
         stopService(stopFloatingIntent)

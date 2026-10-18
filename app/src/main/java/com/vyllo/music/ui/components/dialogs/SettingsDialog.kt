@@ -42,6 +42,8 @@ fun SettingsDialog(
     onThemeModeChange: (String) -> Unit,
     isHighRefreshRateEnabled: Boolean = true,
     onHighRefreshRateChange: (Boolean) -> Unit = {},
+    isBlockScreenshotsEnabled: Boolean = false,
+    onBlockScreenshotsChange: (Boolean) -> Unit = {},
     wifiOnlyDownloads: Boolean = false,
     onWifiOnlyDownloadsChange: (Boolean) -> Unit = {},
     downloadsRequireBatteryOk: Boolean = false,
@@ -135,6 +137,13 @@ fun SettingsDialog(
                     subtitle = if (isHighRefreshRateEnabled) stringResource(R.string.settings_refresh_on) else stringResource(R.string.settings_refresh_off),
                     checked = isHighRefreshRateEnabled,
                     onCheckedChange = onHighRefreshRateChange
+                )
+
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_block_screenshots),
+                    subtitle = stringResource(R.string.settings_block_screenshots_desc),
+                    checked = isBlockScreenshotsEnabled,
+                    onCheckedChange = onBlockScreenshotsChange
                 )
 
                 SettingsToggleRow(

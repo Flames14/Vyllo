@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Static launcher shortcuts (long-press the app icon).
+  Each intent targets MainActivity via the com.vyllo.music://open/<destination>
+  scheme, which VylloDeepLinks translates into an in-app route.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_search"
+        android:shortcutId="search"
+        android:shortcutShortLabel="@string/shortcut_search_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="com.vyllo.music://open/search" />
+    </shortcut>
+
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_library"
+        android:shortcutId="library"
+        android:shortcutShortLabel="@string/shortcut_library_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="com.vyllo.music://open/library" />
+    </shortcut>
+
+</shortcuts>

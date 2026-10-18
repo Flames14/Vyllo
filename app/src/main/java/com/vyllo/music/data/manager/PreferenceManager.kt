@@ -65,6 +65,15 @@ class PreferenceManager @Inject constructor(
         get() = preferences.getBoolean("high_refresh_rate_enabled", true)
         set(value) { preferences.edit().putBoolean("high_refresh_rate_enabled", value).apply() }
 
+    /**
+     * Blocks screenshots and screen recording of the app window (and hides the
+     * app from the recents thumbnail) via FLAG_SECURE. Off by default so it
+     * never surprises a user who expects to share what they see.
+     */
+    var isBlockScreenshotsEnabled: Boolean
+        get() = preferences.getBoolean("block_screenshots_enabled", false)
+        set(value) { preferences.edit().putBoolean("block_screenshots_enabled", value).apply() }
+
     var homeScrollPrefetchDistancePx: Int
         get() = preferences.getInt("home_scroll_prefetch_px", 1200)
         set(value) { preferences.edit().putInt("home_scroll_prefetch_px", value.coerceIn(600, 2400)).apply() }

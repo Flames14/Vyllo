@@ -81,6 +81,17 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="com.vyllo.music" android:host="oauth2redirect" />
             </intent-filter>
+            <!-- In-app destinations reached from launcher shortcuts, the
+                 quick-settings tile and (later) shared/browsable links. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.vyllo.music" android:host="open" />
+            </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!-- exported=false: Media3 binds this service from inside this app only.
@@ -108,6 +119,21 @@
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
         </receiver>
+
+        <!-- Quick-settings tile: opens the app on music recognition. A tile is a
+             stateless launcher; the actual recognition session runs in the app.
+             exported=true because the SystemUI tile host binds it, protected by
+             BIND_QUICK_SETTINGS_TILE (system-only grant). -->
+        <service
+            android:name=".service.MediaRecognitionTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_qs_recognize"
+            android:label="@string/qs_tile_recognize"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".service.FloatingWindowService"

@@ -324,6 +324,11 @@
     <string name="settings_refresh_off">Battery saver (60Hz lock)</string>
     <string name="settings_wifi_only">Wi-Fi only downloads</string>
     <string name="settings_wifi_only_desc">Only download songs on unmetered Wi-Fi</string>
+    <string name="settings_block_screenshots">Block screenshots</string>
+    <string name="settings_block_screenshots_desc">Hide Vyllo from screenshots, screen recording and the recents preview</string>
+    <string name="shortcut_search_short">Search</string>
+    <string name="shortcut_library_short">Library</string>
+    <string name="qs_tile_recognize">Recognize music</string>
     <string name="settings_pause_low_battery">Pause downloads on low battery</string>
     <string name="settings_pause_low_battery_desc">Wait for healthy battery and storage</string>
     <string name="settings_autoplay">Autoplay</string>

@@ -327,6 +327,11 @@
     <string name="settings_refresh_off">Ahorro de batería (fijo a 60Hz)</string>
     <string name="settings_wifi_only">Descargas solo por Wi-Fi</string>
     <string name="settings_wifi_only_desc">Descarga canciones solo mediante Wi-Fi</string>
+    <string name="settings_block_screenshots">Bloquear capturas de pantalla</string>
+    <string name="settings_block_screenshots_desc">Oculta Vyllo en capturas, grabaciones y la vista de recientes</string>
+    <string name="shortcut_search_short">Buscar</string>
+    <string name="shortcut_library_short">Biblioteca</string>
+    <string name="qs_tile_recognize">Reconocer música</string>
     <string name="settings_pause_low_battery">Pausar descargas con poca batería</string>
     <string name="settings_pause_low_battery_desc">Espera a que la batería y el almacenamiento estén en buen estado</string>
     <string name="settings_autoplay">Reproducción automática</string>

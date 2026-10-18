@@ -39,6 +39,7 @@ class BackupRestoreManager @Inject constructor(
             put("volumeBoostMultiplier", preferenceManager.volumeBoostMultiplier.toDouble())
             put("isQueueSticky", preferenceManager.isQueueSticky)
             put("upNextIncludeVariants", preferenceManager.upNextIncludeVariants)
+            put("isBlockScreenshotsEnabled", preferenceManager.isBlockScreenshotsEnabled)
         }
         root.put("preferences", prefs)
 
@@ -142,6 +143,7 @@ class BackupRestoreManager @Inject constructor(
                 if (prefs.has("volumeBoostMultiplier")) preferenceManager.volumeBoostMultiplier = prefs.getDouble("volumeBoostMultiplier").toFloat()
                 if (prefs.has("isQueueSticky")) preferenceManager.isQueueSticky = prefs.getBoolean("isQueueSticky")
                 if (prefs.has("upNextIncludeVariants")) preferenceManager.upNextIncludeVariants = prefs.getBoolean("upNextIncludeVariants")
+                if (prefs.has("isBlockScreenshotsEnabled")) preferenceManager.isBlockScreenshotsEnabled = prefs.getBoolean("isBlockScreenshotsEnabled")
             }
 
             // Restore playlists (capped: a crafted file must not OOM the restore)

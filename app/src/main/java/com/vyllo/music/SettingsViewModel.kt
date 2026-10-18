@@ -24,6 +24,7 @@ class SettingsViewModel @Inject constructor(
     var isKeepAudioPlayingEnabled by mutableStateOf(preferenceManager.isKeepAudioPlayingEnabled)
     var themeMode by mutableStateOf(preferenceManager.themeMode)
     var isHighRefreshRateEnabled by mutableStateOf(preferenceManager.isHighRefreshRateEnabled)
+    var isBlockScreenshotsEnabled by mutableStateOf(preferenceManager.isBlockScreenshotsEnabled)
     var wifiOnlyDownloads by mutableStateOf(preferenceManager.wifiOnlyDownloads)
     var downloadsRequireBatteryOk by mutableStateOf(preferenceManager.downloadsRequireBatteryOk)
 
@@ -75,6 +76,11 @@ class SettingsViewModel @Inject constructor(
         preferenceManager.isHighRefreshRateEnabled = enabled
     }
 
+    fun toggleBlockScreenshots(enabled: Boolean) {
+        isBlockScreenshotsEnabled = enabled
+        preferenceManager.isBlockScreenshotsEnabled = enabled
+    }
+
     fun toggleWifiOnlyDownloads(enabled: Boolean) {
         wifiOnlyDownloads = enabled
         preferenceManager.wifiOnlyDownloads = enabled
@@ -106,6 +112,7 @@ class SettingsViewModel @Inject constructor(
                 isBackgroundPlaybackEnabled = preferenceManager.isBackgroundPlaybackEnabled
                 isKeepAudioPlayingEnabled = preferenceManager.isKeepAudioPlayingEnabled
                 isHighRefreshRateEnabled = preferenceManager.isHighRefreshRateEnabled
+                isBlockScreenshotsEnabled = preferenceManager.isBlockScreenshotsEnabled
                 onComplete(true)
             } else {
                 onComplete(false)
