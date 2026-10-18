@@ -12,6 +12,8 @@ import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.domain.usecase.GetHomeContentUseCase
 import com.vyllo.music.domain.usecase.RecordListenUseCase
 import com.vyllo.music.domain.usecase.LoadMoreRecommendationsUseCase
+import com.vyllo.music.ui.home.HomeFeedShaper
+import com.vyllo.music.ui.home.HomeQueries
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -87,22 +89,6 @@ class HomeViewModel @Inject constructor(
     companion object {
         private const val MAX_RECOMMENDED_ITEMS = 200
 
-        private const val NEW_RELEASES_QUERY = "new music releases"
-        private const val CHILL_QUERY = "chill lofi music"
-        private const val WORKOUT_QUERY = "workout gym music"
-        private const val FOCUS_QUERY = "focus study music"
-
-        /** Cards are laid out 4-per-row on the Home grid. */
-        private const val HOME_ROW_SIZE = 4
-
-        private const val QUICK_PICKS_CARD_COUNT = 16
-        private const val MIXED_FOR_YOU_COUNT = 8
-        private const val QUICK_PICKS_COUNT = 8
-        private const val TRENDING_INLINE_COUNT = 8
-        private const val TRENDING_ROW_COUNT = 16
-        private const val NEW_RELEASES_COUNT = 8
-        private const val MOOD_COUNT = 8
-
         /** Lets the independent section loads land before the cache is written. */
         private const val CACHE_SETTLE_MS = 1500L
     }
@@ -176,14 +162,12 @@ class HomeViewModel @Inject constructor(
                 val trending = attempt("Trending fetch") { repository.getTrendingMusic() }
                 if (trending != null && trending.isNotEmpty()) {
                     sectionsSeen += HomeFeedSnapshot.KEY_TRENDING
-                    val title = homeTitleLabel()
+                    val title = currentHomeTitle()
                     _uiState.update { state ->
                         state.copy(
                             homeTitle = title,
-                            trendingNowItems = trending.take(TRENDING_INLINE_COUNT),
-                            trendingNowRows = trending.drop(TRENDING_INLINE_COUNT)
-                                .take(TRENDING_ROW_COUNT)
-                                .chunked(HOME_ROW_SIZE),
+                            trendingNowItems = HomeFeedShaper.inlineTrending(trending),
+                            trendingNowRows = HomeFeedShaper.extraTrendingRows(trending),
                             isLoadingTrending = false
                         )
                     }
@@ -197,14 +181,13 @@ class HomeViewModel @Inject constructor(
                 if (recommendations != null && recommendations.isNotEmpty()) {
                     sectionsSeen += HomeFeedSnapshot.KEY_QUICK_PICKS
                     sectionsSeen += HomeFeedSnapshot.KEY_MIXED_FOR_YOU
-                    val title = homeTitleLabel()
+                    val title = currentHomeTitle()
                     _uiState.update { state ->
                         state.copy(
                             homeTitle = title,
-                            quickPicksRows = recommendations.take(QUICK_PICKS_CARD_COUNT).chunked(HOME_ROW_SIZE),
-                            mixedForYouItems = recommendations.drop(QUICK_PICKS_CARD_COUNT).take(MIXED_FOR_YOU_COUNT),
-                            quickPicksItems = recommendations.drop(QUICK_PICKS_CARD_COUNT + MIXED_FOR_YOU_COUNT)
-                                .take(QUICK_PICKS_COUNT),
+                            quickPicksRows = HomeFeedShaper.quickPicksGrid(recommendations),
+                            mixedForYouItems = HomeFeedShaper.mixedForYou(recommendations),
+                            quickPicksItems = HomeFeedShaper.moreQuickPicks(recommendations),
                             isLoadingRecommendations = false
                         )
                     }
@@ -255,12 +238,12 @@ class HomeViewModel @Inject constructor(
 
             launch {
                 val releases = attempt("New releases search") {
-                    repository.searchMusic(NEW_RELEASES_QUERY, maintainSession = false)
+                    repository.searchMusic(HomeQueries.NEW_RELEASES, maintainSession = false)
                 }
                 if (releases != null && releases.isNotEmpty()) {
                     sectionsSeen += HomeFeedSnapshot.KEY_NEW_RELEASES
                     _uiState.update {
-                        it.copy(newReleasesItems = releases.take(NEW_RELEASES_COUNT), isLoadingNewReleases = false)
+                        it.copy(newReleasesItems = HomeFeedShaper.topNewReleases(releases), isLoadingNewReleases = false)
                     }
                 } else {
                     _uiState.update { it.copy(isLoadingNewReleases = false) }
@@ -274,22 +257,22 @@ class HomeViewModel @Inject constructor(
 
     /** Chill / Workout / Focus rows, now concurrent instead of serial. */
     private suspend fun loadMoodContent() {
-        val chill = attempt("Chill search") { repository.searchMusic(CHILL_QUERY, maintainSession = false) }
+        val chill = attempt("Chill search") { repository.searchMusic(HomeQueries.CHILL, maintainSession = false) }
         if (chill != null && chill.isNotEmpty()) {
             sectionsSeen += HomeFeedSnapshot.KEY_CHILL
-            _uiState.update { it.copy(chillItems = chill.take(MOOD_COUNT), isLoadingMoods = false) }
+            _uiState.update { it.copy(chillItems = HomeFeedShaper.topMoods(chill), isLoadingMoods = false) }
         }
 
-        val workout = attempt("Workout search") { repository.searchMusic(WORKOUT_QUERY, maintainSession = false) }
+        val workout = attempt("Workout search") { repository.searchMusic(HomeQueries.WORKOUT, maintainSession = false) }
         if (workout != null && workout.isNotEmpty()) {
             sectionsSeen += HomeFeedSnapshot.KEY_WORKOUT
-            _uiState.update { it.copy(workoutItems = workout.take(MOOD_COUNT)) }
+            _uiState.update { it.copy(workoutItems = HomeFeedShaper.topMoods(workout)) }
         }
 
-        val focus = attempt("Focus search") { repository.searchMusic(FOCUS_QUERY, maintainSession = false) }
+        val focus = attempt("Focus search") { repository.searchMusic(HomeQueries.FOCUS, maintainSession = false) }
         if (focus != null && focus.isNotEmpty()) {
             sectionsSeen += HomeFeedSnapshot.KEY_FOCUS
-            _uiState.update { it.copy(focusItems = focus.take(MOOD_COUNT), isLoadingMoods = false) }
+            _uiState.update { it.copy(focusItems = HomeFeedShaper.topMoods(focus), isLoadingMoods = false) }
         }
 
         if (_uiState.value.chillItems.isEmpty() &&
@@ -311,69 +294,17 @@ class HomeViewModel @Inject constructor(
             // Give the independent section loads a turn to land.
             kotlinx.coroutines.delay(CACHE_SETTLE_MS)
             if (_uiState.value.isRefreshing) return@launch
-            val snapshot = buildSnapshot() ?: return@launch
+            val snapshot = HomeFeedShaper.buildSnapshot(_uiState.value, sectionsSeen) ?: return@launch
             homeFeedCache.save(snapshot)
         }
     }
 
-    private fun buildSnapshot(): HomeFeedSnapshot? {
-        val state = _uiState.value
-        val rows = HashMap<String, List<MusicItem>>()
-        if (HomeFeedSnapshot.KEY_TRENDING in sectionsSeen) {
-            rows[HomeFeedSnapshot.KEY_TRENDING] = state.trendingNowItems + state.trendingNowRows.flatten()
-        }
-        if (HomeFeedSnapshot.KEY_QUICK_PICKS in sectionsSeen) {
-            rows[HomeFeedSnapshot.KEY_QUICK_PICKS] = state.quickPicksRows.flatten()
-        }
-        if (HomeFeedSnapshot.KEY_MIXED_FOR_YOU in sectionsSeen) {
-            rows[HomeFeedSnapshot.KEY_MIXED_FOR_YOU] = state.mixedForYouItems
-        }
-        if (HomeFeedSnapshot.KEY_NEW_RELEASES in sectionsSeen) {
-            rows[HomeFeedSnapshot.KEY_NEW_RELEASES] = state.newReleasesItems
-        }
-        if (HomeFeedSnapshot.KEY_CHILL in sectionsSeen) rows[HomeFeedSnapshot.KEY_CHILL] = state.chillItems
-        if (HomeFeedSnapshot.KEY_WORKOUT in sectionsSeen) rows[HomeFeedSnapshot.KEY_WORKOUT] = state.workoutItems
-        if (HomeFeedSnapshot.KEY_FOCUS in sectionsSeen) rows[HomeFeedSnapshot.KEY_FOCUS] = state.focusItems
-        if (rows.isEmpty()) return null
-        return HomeFeedSnapshot(rows = rows, cachedAtMs = System.currentTimeMillis())
-    }
-
     /** Paints a cached snapshot into the UI so the feed is visible immediately. */
     private fun applySnapshot(snapshot: HomeFeedSnapshot) {
-        val trending = snapshot.section(HomeFeedSnapshot.KEY_TRENDING)
-        val quickPicks = snapshot.section(HomeFeedSnapshot.KEY_QUICK_PICKS)
-        val mixedForYou = snapshot.section(HomeFeedSnapshot.KEY_MIXED_FOR_YOU)
-        val newReleases = snapshot.section(HomeFeedSnapshot.KEY_NEW_RELEASES)
-        val chill = snapshot.section(HomeFeedSnapshot.KEY_CHILL)
-        val workout = snapshot.section(HomeFeedSnapshot.KEY_WORKOUT)
-        val focus = snapshot.section(HomeFeedSnapshot.KEY_FOCUS)
-        _uiState.update { state ->
-            state.copy(
-                homeTitle = homeTitleLabel(state.recentlyPlayed.isEmpty()),
-                trendingNowItems = trending.take(TRENDING_INLINE_COUNT),
-                trendingNowRows = trending.drop(TRENDING_INLINE_COUNT)
-                    .take(TRENDING_ROW_COUNT)
-                    .chunked(HOME_ROW_SIZE),
-                quickPicksRows = quickPicks.take(QUICK_PICKS_CARD_COUNT).chunked(HOME_ROW_SIZE),
-                mixedForYouItems = mixedForYou,
-                newReleasesItems = newReleases,
-                chillItems = chill,
-                workoutItems = workout,
-                focusItems = focus,
-                isLoading = false
-            )
-        }
+        _uiState.update { HomeFeedShaper.applySnapshot(it, snapshot) }
         // The painted sections now hold real content. Mark them so the next cache
-        // save keeps them even when this launch never re-fetches them (offline) —
-        // buildSnapshot only persists keys sectionsSeen knows about, so without
-        // this an offline launch silently dropped every unfetched cached section.
-        if (trending.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_TRENDING
-        if (quickPicks.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_QUICK_PICKS
-        if (mixedForYou.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_MIXED_FOR_YOU
-        if (newReleases.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_NEW_RELEASES
-        if (chill.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_CHILL
-        if (workout.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_WORKOUT
-        if (focus.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_FOCUS
+        // save keeps them even when this launch never re-fetches them (offline).
+        sectionsSeen += HomeFeedShaper.snapshotSeenKeys(snapshot)
     }
 
     /**
@@ -432,17 +363,7 @@ class HomeViewModel @Inject constructor(
     private fun searchExploreCategory(category: String) {
         viewModelScope.launch {
             try {
-                val query = when (category) {
-                    "New releases" -> "new music releases official"
-                    "Charts" -> "top music charts global official"
-                    "Moods & genres" -> "moods and genres music mix"
-                    "Party" -> "party playlist official"
-                    "Romance" -> "romantic love songs playlist"
-                    "Sleep" -> "sleep relaxing music"
-                    "Workout" -> "workout gym motivation playlist"
-                    else -> "$category playlist"
-                }
-                val items = repository.searchMusic(query, maintainSession = false)
+                val items = repository.searchMusic(HomeQueries.exploreQuery(category), maintainSession = false)
                 _uiState.update { it.copy(exploreTrendingItems = items, exploreLoadFailed = false) }
             } catch (e: Exception) {
                 SecureLogger.e("HomeViewModel", "Explore category search failed", e)
@@ -480,24 +401,16 @@ class HomeViewModel @Inject constructor(
         if (chip != "All") {
             chipSelectionJob = viewModelScope.launch {
                 _uiState.update { it.copy(isLoadingRecommendations = true) }
-                val query = when (chip) {
-                    "Relax" -> "relaxing chill music"
-                    "Energize" -> "energetic upbeat music"
-                    "Workout" -> "workout gym motivation music"
-                    "Focus" -> "focus concentration study music"
-                    "Commute" -> "driving road trip music"
-                    else -> "trending music"
-                }
                 // attempt() both logs and records the failure: without it an offline
                 // chip tap threw straight out of this launch, which is treated as an
                 // uncaught exception on viewModelScope and took the app down.
                 val results = attempt("Chip recommendations ($chip)") {
-                    repository.searchMusic(query)
+                    repository.searchMusic(HomeQueries.chipQuery(chip))
                 }.orEmpty()
                 _uiState.update { state ->
                     state.copy(
-                        quickPicksRows = results.take(QUICK_PICKS_CARD_COUNT).chunked(HOME_ROW_SIZE),
-                        mixedForYouItems = results.drop(QUICK_PICKS_CARD_COUNT).take(MIXED_FOR_YOU_COUNT),
+                        quickPicksRows = HomeFeedShaper.quickPicksGrid(results),
+                        mixedForYouItems = HomeFeedShaper.mixedForYou(results),
                         isLoadingRecommendations = false
                     )
                 }
@@ -570,7 +483,7 @@ class HomeViewModel @Inject constructor(
             sectionsSeen.clear()
             try {
                 val trending = async { repository.getTrendingMusic() }
-                val newReleases = async { repository.searchMusic(NEW_RELEASES_QUERY, maintainSession = false) }
+                val newReleases = async { repository.searchMusic(HomeQueries.NEW_RELEASES, maintainSession = false) }
                 val recommendations = async { getHomeContentUseCase() }
 
                 val trendingResult = trending.await()
@@ -586,18 +499,16 @@ class HomeViewModel @Inject constructor(
                 }
                 if (newReleasesResult.isNotEmpty()) sectionsSeen += HomeFeedSnapshot.KEY_NEW_RELEASES
 
+                val title = currentHomeTitle()
                 _uiState.update { state ->
                     state.copy(
-                        homeTitle = homeTitleLabel(state.recentlyPlayed.isEmpty()),
-                        quickPicksRows = recommendationsResult.take(QUICK_PICKS_CARD_COUNT).chunked(HOME_ROW_SIZE),
-                        mixedForYouItems = recommendationsResult.drop(QUICK_PICKS_CARD_COUNT).take(MIXED_FOR_YOU_COUNT),
-                        newReleasesItems = newReleasesResult.take(NEW_RELEASES_COUNT),
-                        trendingNowItems = trendingResult.take(TRENDING_INLINE_COUNT),
-                        trendingNowRows = trendingResult.drop(TRENDING_INLINE_COUNT)
-                            .take(TRENDING_ROW_COUNT)
-                            .chunked(HOME_ROW_SIZE),
-                        quickPicksItems = recommendationsResult
-                            .drop(QUICK_PICKS_CARD_COUNT + MIXED_FOR_YOU_COUNT),
+                        homeTitle = title,
+                        quickPicksRows = HomeFeedShaper.quickPicksGrid(recommendationsResult),
+                        mixedForYouItems = HomeFeedShaper.mixedForYou(recommendationsResult),
+                        newReleasesItems = HomeFeedShaper.topNewReleases(newReleasesResult),
+                        trendingNowItems = HomeFeedShaper.inlineTrending(trendingResult),
+                        trendingNowRows = HomeFeedShaper.extraTrendingRows(trendingResult),
+                        quickPicksItems = HomeFeedShaper.remainingQuickPicks(recommendationsResult),
                         isLoadingTrending = false,
                         isLoadingRecommendations = false,
                         isLoadingNewReleases = false
@@ -616,7 +527,7 @@ class HomeViewModel @Inject constructor(
                 SecureLogger.e("HomeViewModel", "Refresh all content failed", e)
             } finally {
                 _uiState.update { it.copy(isRefreshing = false, isLoading = false) }
-                buildSnapshot()?.let(homeFeedCache::save)
+                HomeFeedShaper.buildSnapshot(_uiState.value, sectionsSeen)?.let(homeFeedCache::save)
             }
         }
     }
@@ -625,6 +536,6 @@ class HomeViewModel @Inject constructor(
     // Helpers
     // ---------------------------------------------------------------------
 
-    private fun homeTitleLabel(hasHistory: Boolean = _uiState.value.recentlyPlayed.isEmpty()): String =
-        if (!hasHistory) "Recommended For You" else "Trending Now"
+    private fun currentHomeTitle(): String =
+        HomeFeedShaper.homeTitle(_uiState.value.recentlyPlayed.isEmpty())
 }

@@ -2,38 +2,35 @@ package com.vyllo.music.service
 
 import android.app.PendingIntent
 import android.content.Intent
-import android.media.AudioManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.datasource.cache.CacheDataSource
-import androidx.media3.datasource.cache.SimpleCache
-import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.DefaultLoadControl
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.session.*
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackParameters
+import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.*
 import com.vyllo.music.MainActivity
-import com.vyllo.music.domain.manager.PlaybackQueueManager
+import com.vyllo.music.core.security.SecureLogger
+import com.vyllo.music.core.utils.DevicePerf
 import com.vyllo.music.data.manager.PlaybackAudioEffectsManager
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.data.manager.WakeLockManager
 import com.vyllo.music.domain.manager.PlaybackErrorHandler
+import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.domain.repository.IMusicRepository
-import dagger.hilt.android.AndroidEntryPoint
-import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.service.audio.AudioSinkFactory
 import com.vyllo.music.service.audio.CacheProvider
 import com.vyllo.music.service.audio.MediaSessionCallback
+import com.vyllo.music.service.audio.PlaybackHttpClientFactory
+import com.vyllo.music.service.audio.PlaybackPlayerFactory
 import com.vyllo.music.service.audio.PlayerErrorListener
+import com.vyllo.music.service.audio.QueuePersistenceCoordinator
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -74,6 +71,11 @@ class MusicService : MediaSessionService() {
 
     private val volumeBoostProcessor = VolumeBoostAudioProcessor()
 
+    // lazy: the constructor must not read the @Inject lateinit fields, which Hilt
+    // only populates during super.onCreate().
+    private val queuePersistence by lazy {
+        QueuePersistenceCoordinator(playbackQueueManager, preferenceManager)
+    }
 
     private val playbackErrorHandler = PlaybackErrorHandler(
         maxRetries = 3,
@@ -104,91 +106,11 @@ class MusicService : MediaSessionService() {
             CacheProvider.getSimpleCache(context)
     }
 
-    @OptIn(kotlinx.coroutines.FlowPreview::class)
     override fun onCreate() {
         super.onCreate()
 
-        // Hardened base (DoH + TLS + security headers), then playback tuning.
-        // followSslRedirects=false preserved: no HTTPS->HTTP downgrade for media.
-        val secureBase = runCatching {
-            com.vyllo.music.core.security.SecurityConfig().createFlexibleSecureHttpClient()
-        }.getOrNull()
-        val okHttpClient = (secureBase?.newBuilder() ?: OkHttpClient.Builder())
-            .connectionPool(okhttp3.ConnectionPool(10, 5, TimeUnit.MINUTES))
-            .readTimeout(15, TimeUnit.SECONDS)
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .followRedirects(true)
-            .followSslRedirects(false)
-            .addInterceptor { chain ->
-                val request = chain.request()
-                val url = request.url.toString()
-                if (request.url.host.contains("googlevideo.com")) {
-                    val userAgent = when {
-                        url.contains("c=ANDROID", ignoreCase = true) -> {
-                            "com.google.android.youtube/21.03.36 (Linux; U; Android 15; US) gzip"
-                        }
-                        url.contains("c=IOS", ignoreCase = true) -> {
-                            "com.google.ios.youtube/21.03.2(iPhone16,2; U; CPU iOS 18_7_2 like Mac OS X; US)"
-                        }
-                        url.contains("c=WEB", ignoreCase = true) -> {
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.3"
-                        }
-                        else -> request.header("User-Agent")
-                    }
-                    if (userAgent != null) {
-                        val playbackRequest = request.newBuilder()
-                            .header("User-Agent", userAgent)
-                            .header("Accept", "*/*")
-                            .header("Accept-Encoding", "identity")
-                            .build()
-                        // log all outgoing headers
-                        SecureLogger.d("MusicService") {
-                            val hdrs = playbackRequest.headers.toMultimap().entries.joinToString { "${it.key}=${it.value}" }
-                            "ExoPlayer request: method=${playbackRequest.method}, url_prefix=${url.take(120)}, headers=[$hdrs]"
-                        }
-                        val response = chain.proceed(playbackRequest)
-                        if (!response.isSuccessful) {
-                            // Log response headers for diagnosis
-                            val headerNames = response.headers.toMultimap().keys.joinToString()
-                            SecureLogger.w(
-                                "MusicService",
-                                "googlevideo REJECTED: code=${response.code}, client=${clientNameFromUrl(url)}, header_names=[$headerNames]"
-                            )
-                        } else {
-                            SecureLogger.d("MusicService") { "googlevideo ACCEPTED: code=${response.code}, client=${clientNameFromUrl(url)}" }
-                        }
-                        return@addInterceptor response
-                    }
-                }
-                chain.proceed(request)
-            }
-            .build()
-
-        // Configure Cache
-        val upstreamFactory = androidx.media3.datasource.DefaultDataSource.Factory(this, OkHttpDataSource.Factory(okHttpClient))
-        val cacheDataSourceFactory = CacheDataSource.Factory()
-            .setCache(CacheProvider.getSimpleCache(this))
-            .setUpstreamDataSourceFactory(upstreamFactory)
-            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-
-        // Configure LoadControl: full 30s/60s buffers on capable devices;
-        // halved on low-RAM devices to cut steady-state memory + radio bursts.
-        //
-        // bufferForPlaybackMs was 1500ms, which starts playback fast but leaves too
-        // little margin: any single rebuffer is audible as a stall. 2500ms costs
-        // ~125ms more start latency on a fast connection and removes that class of
-        // glitch; the after-rebuffer target went up more, because rebuffering is
-        // where an audible gap actually happens.
-        val lowRamPlayback = com.vyllo.music.core.utils.DevicePerf.isLowRamDevice(this)
-        val loadControl = if (lowRamPlayback) {
-            DefaultLoadControl.Builder()
-                .setBufferDurationsMs(15000, 30000, 2000, 4000)
-                .build()
-        } else {
-            DefaultLoadControl.Builder()
-                .setBufferDurationsMs(30000, 60000, 2500, 6000)
-                .build()
-        }
+        val okHttpClient = PlaybackHttpClientFactory.create()
+        val cacheDataSourceFactory = PlaybackPlayerFactory.createCacheDataSourceFactory(this, okHttpClient)
 
         val keepAudioPlaying = preferenceManager.isKeepAudioPlayingEnabled
 
@@ -197,22 +119,13 @@ class MusicService : MediaSessionService() {
 
         val renderersFactory = AudioSinkFactory.createRenderersFactory(this, volumeBoostProcessor)
 
-        // Initialize Player
-        player = ExoPlayer.Builder(this)
-            .setRenderersFactory(renderersFactory)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(this).setDataSourceFactory(cacheDataSourceFactory))
-            .setLoadControl(loadControl)
-            .setAudioAttributes(
-                AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).setUsage(C.USAGE_MEDIA).build(),
-                !keepAudioPlaying // Re-enable automatic audio focus if keepAudioPlaying is false
-            )
-            // WAKE_MODE_NETWORK keeps both the CPU and the Wi-Fi radio awake
-            // while the screen is off so mid-track rebuffering never stalls
-            // (the failure mode we hit with WAKE_MODE_LOCAL during long
-            // screen-off sessions).
-            .setWakeMode(C.WAKE_MODE_NETWORK)
-            .setHandleAudioBecomingNoisy(true)
-            .build()
+        player = PlaybackPlayerFactory.buildPlayer(
+            context = this,
+            cacheDataSourceFactory = cacheDataSourceFactory,
+            renderersFactory = renderersFactory,
+            keepAudioPlaying = keepAudioPlaying,
+            lowRamPlayback = DevicePerf.isLowRamDevice(this)
+        )
 
         player?.addListener(
             PlayerErrorListener(
@@ -234,7 +147,7 @@ class MusicService : MediaSessionService() {
         })
 
         // Force 1.0x playback speed to prevent "super fast" playback bugs on some devices/emulators
-        player?.playbackParameters = androidx.media3.common.PlaybackParameters(1.0f)
+        player?.playbackParameters = PlaybackParameters(1.0f)
         player?.audioSessionId?.let { playbackAudioEffectsManager.attachToAudioSession(it) }
 
         serviceScope.launch {
@@ -243,37 +156,9 @@ class MusicService : MediaSessionService() {
             }
         }
 
-        // Restore last session's queue (process death / reboot). No autoplay:
-        // items are restored for Up Next continuity only.
-        serviceScope.launch {
-            try {
-                if (playbackQueueManager.getQueueSnapshot().isEmpty()) {
-                    preferenceManager.restoreQueue()
-                        ?.let { (items, index) ->
-                            playbackQueueManager.replaceQueue(items, index)
-                        }
-                }
-            } catch (e: Exception) {
-                com.vyllo.music.core.security.SecureLogger.w("MusicService", "queue restore failed", e)
-            }
-        }
-
-        // Persist the queue on every structural change (debounced by the
-        // collector: saves are cheap SharedPreferences writes).
-        serviceScope.launch {
-            playbackQueueManager.queueVersion
-                .debounce(2000L)
-                .collectLatest {
-                    try {
-                        preferenceManager.saveQueue(
-                            playbackQueueManager.getQueueSnapshot(),
-                            playbackQueueManager.currentIndex
-                        )
-                    } catch (e: Exception) {
-                        com.vyllo.music.core.security.SecureLogger.w("MusicService", "queue save failed", e)
-                    }
-                }
-        }
+        // Restore the last session's queue (process death / reboot) and persist
+        // structural edits back to storage.
+        queuePersistence.start(serviceScope)
 
         val openIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
@@ -333,14 +218,5 @@ class MusicService : MediaSessionService() {
             mediaSession = null
         }
         super.onDestroy()
-    }
-
-    private fun clientNameFromUrl(url: String): String {
-        return when {
-            url.contains("c=IOS", ignoreCase = true) -> "IOS"
-            url.contains("c=ANDROID", ignoreCase = true) -> "ANDROID"
-            url.contains("c=WEB", ignoreCase = true) -> "WEB"
-            else -> "UNKNOWN"
-        }
     }
 }

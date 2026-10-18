@@ -148,12 +148,6 @@ class AlarmViewModel @Inject constructor(
         }.onFailure { SecureLogger.e("AlarmVM", "dismiss failed", it) }
     }
 
-    @Deprecated("Use dismissActiveAlarm() - ViewModel must not take Activity context", ReplaceWith("dismissActiveAlarm()"))
-    @Suppress("UNUSED_PARAMETER")
-    fun dismissActiveAlarm(context: android.content.Context) {
-        dismissActiveAlarm()
-    }
-
     /**
      * Observe downloaded songs for real-time updates.
      */
@@ -456,36 +450,19 @@ class AlarmViewModel @Inject constructor(
      * Update countdown display.
      */
     private fun updateCountdown() {
-        val enabledAlarms = alarms.filter { it.isEnabled }
-        if (enabledAlarms.isEmpty()) {
-            timeUntilNextAlarm = ""
-            return
-        }
-
-        // Find the absolute earliest next trigger time
-        val nextAlarmTime = enabledAlarms.map { it.calculateNextTriggerTime() }.minOrNull()
-        
-        if (nextAlarmTime == null) {
-            timeUntilNextAlarm = ""
-            return
-        }
-
-        val now = System.currentTimeMillis()
-        val millisUntil = nextAlarmTime - now
-        
-        if (millisUntil <= 0) {
-            timeUntilNextAlarm = appContext.getString(R.string.alarm_countdown_ringing_now)
-            return
-        }
-
-        val hours = millisUntil / 3600000
-        val minutes = (millisUntil % 3600000) / 60000
-        val seconds = (millisUntil % 60000) / 1000
-
-        timeUntilNextAlarm = when {
-            hours > 0 -> appContext.getString(R.string.alarm_countdown_next_hm, hours, minutes)
-            minutes > 0 -> appContext.getString(R.string.alarm_countdown_next_ms, minutes, seconds)
-            else -> appContext.getString(R.string.alarm_countdown_next_s, seconds)
+        val countdown = AlarmCountdownFormatter.next(
+            enabledAlarms = alarms.filter { it.isEnabled },
+            now = System.currentTimeMillis()
+        )
+        timeUntilNextAlarm = when (countdown) {
+            AlarmCountdown.Idle -> ""
+            AlarmCountdown.Ringing -> appContext.getString(R.string.alarm_countdown_ringing_now)
+            is AlarmCountdown.HoursMinutes ->
+                appContext.getString(R.string.alarm_countdown_next_hm, countdown.hours, countdown.minutes)
+            is AlarmCountdown.MinutesSeconds ->
+                appContext.getString(R.string.alarm_countdown_next_ms, countdown.minutes, countdown.seconds)
+            is AlarmCountdown.Seconds ->
+                appContext.getString(R.string.alarm_countdown_next_s, countdown.seconds)
         }
     }
 
