@@ -46,10 +46,14 @@ class PlaybackResumption(
             null
         }
 
+        // Resume where the last session left off, but only for the same track:
+        // a saved position from another song must never be applied here.
+        val startPositionMs = preferenceManager.savedPlaybackPosition(start.url) ?: C.TIME_UNSET
+
         return MediaSession.MediaItemsWithStartPosition(
             listOf(start.toMediaItem(startUri)),
             0,
-            C.TIME_UNSET
+            startPositionMs
         )
     }
 

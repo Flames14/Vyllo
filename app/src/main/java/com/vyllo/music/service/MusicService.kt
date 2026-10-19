@@ -27,6 +27,7 @@ import com.vyllo.music.service.audio.PlaybackCommandsController
 import com.vyllo.music.service.audio.PlaybackHttpClientFactory
 import com.vyllo.music.service.audio.PlaybackPlayerFactory
 import com.vyllo.music.service.audio.PlaybackResumption
+import com.vyllo.music.service.audio.PlayheadPersistence
 import com.vyllo.music.service.audio.PlayerErrorListener
 import com.vyllo.music.service.audio.QueuePersistenceCoordinator
 import com.vyllo.music.widget.VylloPlayerWidget
@@ -62,6 +63,7 @@ class MusicService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
     private var player: ExoPlayer? = null
+    private lateinit var playheadPersistence: PlayheadPersistence
 
     private val serviceJob = SupervisorJob()
     // Safety net: background queue work must never be able to crash the app.
@@ -200,6 +202,10 @@ class MusicService : MediaSessionService() {
         mediaSession = session
         commandButtons.attach(session)
 
+        // Persist the playhead so a process death resumes mid-track.
+        playheadPersistence = PlayheadPersistence(preferenceManager)
+        playheadPersistence.start(serviceScope) { player }
+
         // Repaint the notification buttons from live player state so the like /
         // shuffle / repeat toggles never show a stale icon.
         player?.addListener(object : Player.Listener {
@@ -214,14 +220,19 @@ class MusicService : MediaSessionService() {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 commandButtons.onTrackChanged()
                 updatePlayerWidget()
+                // New track starts at zero; store that immediately so the old
+                // position is not left dangling against the new URL.
+                playheadPersistence.persist(player)
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 updatePlayerWidget()
+                if (!isPlaying) playheadPersistence.persist(player)
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 updatePlayerWidget()
+                if (playbackState == Player.STATE_ENDED) playheadPersistence.clear()
             }
         })
         updatePlayerWidget()
@@ -252,6 +263,7 @@ class MusicService : MediaSessionService() {
         if (!preferenceManager.isBackgroundPlaybackEnabled) {
             try {
                 mediaSession?.player?.run {
+                    playheadPersistence.persist(this)
                     playWhenReady = false
                     stop()
                 }
@@ -273,6 +285,7 @@ class MusicService : MediaSessionService() {
         wakeLockManager.release()
 
         mediaSession?.run {
+            if (::playheadPersistence.isInitialized) playheadPersistence.persist(player)
             player.release()
             release()
             mediaSession = null

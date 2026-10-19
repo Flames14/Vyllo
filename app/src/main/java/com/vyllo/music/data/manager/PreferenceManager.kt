@@ -328,11 +328,41 @@ class PreferenceManager @Inject constructor(
         return com.vyllo.music.data.manager.QueuePersistence.restore(preferences)
     }
 
+    // --- Playhead (mid-track resume after process death) ---
+
+    /** Persists the playhead for [url]. Blank URLs and negative positions are ignored. */
+    fun savePlaybackPosition(url: String?, positionMs: Long) {
+        if (url.isNullOrBlank() || positionMs < 0L) return
+        preferences.edit()
+            .putString(KEY_PLAYBACK_POSITION_URL, url)
+            .putLong(KEY_PLAYBACK_POSITION_MS, positionMs)
+            .apply()
+    }
+
+    /**
+     * Saved position for [url], or null when the last session was on a different
+     * track or sits at the very start (nothing worth resuming).
+     */
+    fun savedPlaybackPosition(url: String): Long? {
+        val savedUrl = preferences.getString(KEY_PLAYBACK_POSITION_URL, null)
+        if (savedUrl != url) return null
+        return preferences.getLong(KEY_PLAYBACK_POSITION_MS, 0L).takeIf { it > 0L }
+    }
+
+    fun clearPlaybackPosition() {
+        preferences.edit()
+            .remove(KEY_PLAYBACK_POSITION_URL)
+            .remove(KEY_PLAYBACK_POSITION_MS)
+            .apply()
+    }
+
     companion object {
         const val KEY_EQUALIZER_ENABLED = "equalizer_enabled"
         const val KEY_EQUALIZER_BASS_BOOST = "equalizer_bass_boost"
         const val KEY_EQUALIZER_VIRTUALIZER = "equalizer_virtualizer"
         const val KEY_EQUALIZER_BANDS = "equalizer_bands"
         const val KEY_VOLUME_BOOST = "volume_boost_multiplier"
+        const val KEY_PLAYBACK_POSITION_URL = "playback_position_url"
+        const val KEY_PLAYBACK_POSITION_MS = "playback_position_ms"
     }
 }
