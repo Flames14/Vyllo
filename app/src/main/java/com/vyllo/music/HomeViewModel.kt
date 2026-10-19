@@ -7,7 +7,9 @@ import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.data.manager.HomeFeedCache
 import com.vyllo.music.data.manager.HomeFeedSnapshot
+import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.domain.manager.PlaybackQueueManager
+import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.domain.usecase.GetHomeContentUseCase
 import com.vyllo.music.domain.usecase.RecordListenUseCase
 import com.vyllo.music.domain.usecase.LoadMoreRecommendationsUseCase
@@ -66,7 +68,9 @@ data class HomeUiState(
      */
     val loadFailed: Boolean = false,
 
-    val currentPlayingItem: MusicItem? = null
+    val currentPlayingItem: MusicItem? = null,
+    val pinnedPlaylistIds: List<Long> = emptyList(),
+    val pinnedPlaylists: List<PlaylistEntity> = emptyList()
 ) {
     /** True when nothing is on screen yet, so the UI can show a full-screen loader. */
     val hasAnyContent: Boolean
@@ -82,7 +86,8 @@ class HomeViewModel @Inject constructor(
     private val loadMoreRecommendationsUseCase: LoadMoreRecommendationsUseCase,
     private val recordListenUseCase: RecordListenUseCase,
     private val playbackQueueManager: PlaybackQueueManager,
-    private val homeFeedCache: HomeFeedCache
+    private val homeFeedCache: HomeFeedCache,
+    private val preferenceManager: PreferenceManager
 ) : ViewModel() {
 
     companion object {
@@ -94,6 +99,7 @@ class HomeViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+    private var availablePlaylists: List<PlaylistEntity> = emptyList()
 
     /** Tracks the below-the-fold load so it is never duplicated. */
     private var belowTheFoldJob: Job? = null
@@ -109,6 +115,16 @@ class HomeViewModel @Inject constructor(
     private val failedSections = mutableSetOf<String>()
 
     init {
+        val initialPinnedIds = preferenceManager.pinnedPlaylistIds
+        _uiState.update { it.copy(pinnedPlaylistIds = initialPinnedIds) }
+
+        viewModelScope.launch {
+            repository.getAllPlaylists().collectLatest { playlists ->
+                availablePlaylists = playlists
+                refreshPinnedPlaylists()
+            }
+        }
+
         viewModelScope.launch {
             playbackQueueManager.currentPlayingItem.collectLatest { item ->
                 _uiState.update { it.copy(currentPlayingItem = item) }
@@ -136,6 +152,32 @@ class HomeViewModel @Inject constructor(
             }
         }
         loadHomeContent()
+    }
+
+    fun togglePinnedPlaylist(playlistId: Long) {
+        val pinnedIds = preferenceManager.pinnedPlaylistIds.toMutableList()
+        if (playlistId in pinnedIds) pinnedIds.remove(playlistId) else pinnedIds.add(playlistId)
+        preferenceManager.pinnedPlaylistIds = pinnedIds
+        val byId = availablePlaylists.associateBy { it.id }
+        _uiState.update {
+            it.copy(
+                pinnedPlaylistIds = pinnedIds,
+                pinnedPlaylists = pinnedIds.mapNotNull(byId::get)
+            )
+        }
+    }
+
+    private fun refreshPinnedPlaylists() {
+        val ids = preferenceManager.pinnedPlaylistIds
+        val byId = availablePlaylists.associateBy { it.id }
+        val validIds = ids.filter { it in byId }
+        if (validIds != ids) preferenceManager.pinnedPlaylistIds = validIds
+        _uiState.update {
+            it.copy(
+                pinnedPlaylistIds = validIds,
+                pinnedPlaylists = validIds.mapNotNull(byId::get)
+            )
+        }
     }
 
     /**

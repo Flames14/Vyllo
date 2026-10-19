@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -22,6 +23,7 @@ import com.vyllo.music.HomeUiState
 import com.vyllo.music.R
 import com.vyllo.music.YTMGridSection
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.presentation.components.common.OptimizedHorizontalSection
 import com.vyllo.music.presentation.components.VylloLoadingIndicator
 import com.vyllo.music.presentation.components.HomeSkeleton
@@ -36,7 +38,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.background
@@ -210,8 +215,56 @@ fun LazyListScope.HomeListSections(
     recommendedItems: List<MusicItem>,
     currentPlayingItem: MusicItem?,
     onPlay: (MusicItem) -> Unit,
-    loadingItemUrl: String?
+    loadingItemUrl: String?,
+    onPlaylistClick: (PlaylistEntity) -> Unit
 ) {
+    if (uiState.pinnedPlaylists.isNotEmpty()) {
+        item(key = "pinned_playlists_header", contentType = "header") {
+            YTMSectionHeader(title = stringResource(R.string.section_pinned_playlists))
+        }
+        item(key = "pinned_playlists_row", contentType = "horizontal_section") {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(
+                    items = uiState.pinnedPlaylists,
+                    key = { "pinned_playlist_${it.id}" },
+                    contentType = { "pinned_playlist_card" }
+                ) { playlist ->
+                    Surface(
+                        modifier = Modifier
+                            .width(190.dp)
+                            .height(68.dp)
+                            .clickable { onPlaylistClick(playlist) },
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.PlaylistPlay,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(26.dp)
+                            )
+                            Spacer(Modifier.size(10.dp))
+                            Text(
+                                text = playlist.name,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Listen Again Section
     if (uiState.listenAgainItems.isNotEmpty()) {
         item(key = "listen_again_header", contentType = "header") {

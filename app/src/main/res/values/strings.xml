@@ -13,6 +13,7 @@
     <!-- Home screen sections -->
     <string name="section_listen_again">Listen again</string>
     <string name="section_quick_picks">Quick picks</string>
+    <string name="section_pinned_playlists">Pinned playlists</string>
     <string name="section_mixed_for_you">Mixed for you</string>
     <string name="section_new_releases">New releases</string>
     <string name="section_chill_vibes">Chill vibes</string>
@@ -138,6 +139,8 @@
     <string name="playlist_move_up">Move up</string>
     <string name="playlist_move_down">Move down</string>
     <string name="cd_playlist_song_order">Playlist song order</string>
+    <string name="playlist_pin_to_home">Pin playlist to Home</string>
+    <string name="playlist_unpin_from_home">Unpin playlist from Home</string>
     <string name="playlist_none_yet">No playlists yet</string>
     <string name="playlist_name">Playlist Name</string>
     <string name="playlist_create">Create</string>

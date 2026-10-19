@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,7 +32,9 @@ fun YTMPlaylistScreen(
     onBack: () -> Unit,
     onPlay: (MusicItem) -> Unit,
     currentPlayingItem: MusicItem?,
-    loadingItemUrl: String? = null
+    loadingItemUrl: String? = null,
+    isPinned: Boolean = false,
+    onTogglePinned: () -> Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -59,8 +62,17 @@ fun YTMPlaylistScreen(
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = VylloSpacing.sm)
+                modifier = Modifier.padding(start = VylloSpacing.sm).weight(1f)
             )
+            IconButton(onClick = onTogglePinned) {
+                Icon(
+                    imageVector = Icons.Rounded.PushPin,
+                    contentDescription = stringResource(
+                        if (isPinned) R.string.playlist_unpin_from_home else R.string.playlist_pin_to_home
+                    ),
+                    tint = if (isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         LazyColumn(

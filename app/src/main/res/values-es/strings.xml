@@ -14,6 +14,7 @@
     <!-- Home screen sections -->
     <string name="section_listen_again">Escuchar de nuevo</string>
     <string name="section_quick_picks">Selección rápida</string>
+    <string name="section_pinned_playlists">Listas fijadas</string>
     <string name="section_mixed_for_you">Mezcla para ti</string>
     <string name="section_new_releases">Nuevos lanzamientos</string>
     <string name="section_chill_vibes">Vibras relax</string>
@@ -140,6 +141,8 @@
     <string name="playlist_move_up">Mover arriba</string>
     <string name="playlist_move_down">Mover abajo</string>
     <string name="cd_playlist_song_order">Orden de canciones de la lista</string>
+    <string name="playlist_pin_to_home">Fijar lista en Inicio</string>
+    <string name="playlist_unpin_from_home">Quitar lista de Inicio</string>
     <string name="playlist_none_yet">Aún no hay listas</string>
     <string name="playlist_name">Nombre de la lista</string>
     <string name="playlist_create">Crear</string>

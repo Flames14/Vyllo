@@ -147,6 +147,9 @@ fun VylloNavigation(
     val relatedSongs by remember(playerViewModel) {
         playerViewModel.uiState.map { it.relatedSongs }.distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val pinnedPlaylistIds by remember(homeViewModel) {
+        homeViewModel.uiState.map { it.pinnedPlaylistIds }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
     // Full state kept only for fullscreen overlay that genuinely needs many fields.
     // Screens above read the slices, not this.
 
@@ -317,6 +320,10 @@ fun VylloNavigation(
                                 onSearchClick = { navController.navigateToTab(1) },
                                 onSettingsClick = { settingsViewModel.showSettings = true },
                                 onRecognizeClick = { navController.navigate(VylloRoutes.RECOGNITION) },
+                                onPlaylistClick = { playlist ->
+                                    libraryViewModel.loadPlaylistSongs(playlist.id)
+                                    navController.navigate(VylloRoutes.playlist(playlist.id))
+                                },
                                 currentPlayingItem = currentPlayingItem,
                                 loadingItemUrl = loadingItemUrl,
                                 scrollTuner = homeScrollTuner,
@@ -408,6 +415,8 @@ fun VylloNavigation(
                                     viewModel = libraryViewModel,
                                     playlist = playlist,
                                     onBack = { navController.popBackStack() },
+                                    isPinned = playlist.id in pinnedPlaylistIds,
+                                    onTogglePinned = { homeViewModel.togglePinnedPlaylist(playlist.id) },
                                     onPlay = { item ->
                                         homeViewModel.addToRecentlyPlayed(item)
                                         onPlay(item)

@@ -28,6 +28,8 @@ class BackupRestoreManager @Inject constructor(
         val root = JSONObject()
         root.put("version", 1)
         root.put("timestamp", System.currentTimeMillis())
+        val playlists = playlistDao.getAllPlaylistsList()
+        val playlistNamesById = playlists.associate { it.id to it.name }
 
         // Preferences
         val prefs = JSONObject().apply {
@@ -40,12 +42,14 @@ class BackupRestoreManager @Inject constructor(
             put("isQueueSticky", preferenceManager.isQueueSticky)
             put("upNextIncludeVariants", preferenceManager.upNextIncludeVariants)
             put("isBlockScreenshotsEnabled", preferenceManager.isBlockScreenshotsEnabled)
+            put("pinnedPlaylistNames", JSONArray(
+                preferenceManager.pinnedPlaylistIds.mapNotNull(playlistNamesById::get)
+            ))
         }
         root.put("preferences", prefs)
 
         // Playlists
         val playlistsArray = JSONArray()
-        val playlists = playlistDao.getAllPlaylistsList()
         for (playlist in playlists) {
             val playlistObj = JSONObject().apply {
                 put("name", playlist.name)
@@ -133,6 +137,7 @@ class BackupRestoreManager @Inject constructor(
             }
 
             // Restore preferences
+            var pinnedPlaylistNames: List<String> = emptyList()
             if (root.has("preferences")) {
                 val prefs = root.getJSONObject("preferences")
                 if (prefs.has("themeMode")) preferenceManager.themeMode = prefs.getString("themeMode")
@@ -144,9 +149,15 @@ class BackupRestoreManager @Inject constructor(
                 if (prefs.has("isQueueSticky")) preferenceManager.isQueueSticky = prefs.getBoolean("isQueueSticky")
                 if (prefs.has("upNextIncludeVariants")) preferenceManager.upNextIncludeVariants = prefs.getBoolean("upNextIncludeVariants")
                 if (prefs.has("isBlockScreenshotsEnabled")) preferenceManager.isBlockScreenshotsEnabled = prefs.getBoolean("isBlockScreenshotsEnabled")
+                if (prefs.has("pinnedPlaylistNames")) {
+                    val namesArray = prefs.getJSONArray("pinnedPlaylistNames")
+                    pinnedPlaylistNames = (0 until minOf(namesArray.length(), 100))
+                        .mapNotNull { namesArray.optString(it, "").takeIf { n -> n.isNotBlank() } }
+                }
             }
 
             // Restore playlists (capped: a crafted file must not OOM the restore)
+            val restoredPlaylistIdsByName = mutableMapOf<String, Long>()
             if (root.has("playlists")) {
                 val playlistsArray = root.getJSONArray("playlists")
                 for (i in 0 until minOf(playlistsArray.length(), 200)) {
@@ -154,12 +165,13 @@ class BackupRestoreManager @Inject constructor(
                     val name = playlistObj.optString("name", "").take(120)
                     if (name.isBlank()) continue
 
-                    var playlist = playlistDao.getPlaylistByName(name)
+                    val playlist = playlistDao.getPlaylistByName(name)
                     val playlistId = if (playlist != null) {
                         playlist.id
                     } else {
                         playlistDao.insertPlaylist(PlaylistEntity(name = name))
                     }
+                    restoredPlaylistIdsByName[name] = playlistId
 
                     if (playlistObj.has("songs")) {
                         val songsArray = playlistObj.getJSONArray("songs")
@@ -185,6 +197,14 @@ class BackupRestoreManager @Inject constructor(
                         }
                     }
                 }
+            }
+
+            // Pinned playlists travel by name so they survive a device change
+            if (pinnedPlaylistNames.isNotEmpty()) {
+                val pinnedIds = pinnedPlaylistNames
+                    .mapNotNull { restoredPlaylistIdsByName[it] }
+                    .distinct()
+                preferenceManager.pinnedPlaylistIds = pinnedIds
             }
 
             // Restore alarms (capped + range-checked)

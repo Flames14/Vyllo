@@ -24,6 +24,7 @@ import coil.request.ImageRequest
 import com.vyllo.music.HomeViewModel
 import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.core.network.rememberIsOnline
 import com.vyllo.music.presentation.components.VylloErrorState
 import com.vyllo.music.presentation.components.common.YTMHeader
@@ -48,6 +49,7 @@ fun YTMHomeScreen(
     onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onRecognizeClick: () -> Unit,
+    onPlaylistClick: (PlaylistEntity) -> Unit = {},
     currentPlayingItem: MusicItem?,
     loadingItemUrl: String? = null,
     scrollTuner: HomeScrollTuner? = null,
@@ -197,7 +199,8 @@ fun YTMHomeScreen(
                     recommendedItems = recommendedItems,
                     currentPlayingItem = currentPlayingItem,
                     onPlay = onPlay,
-                    loadingItemUrl = loadingItemUrl
+                    loadingItemUrl = loadingItemUrl,
+                    onPlaylistClick = onPlaylistClick
                 )
             }
         } // End LazyColumn

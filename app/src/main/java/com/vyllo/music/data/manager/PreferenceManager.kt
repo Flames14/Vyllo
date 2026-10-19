@@ -99,6 +99,19 @@ class PreferenceManager @Inject constructor(
         get() = preferences.getBoolean("upnext_include_variants", false)
         set(value) { preferences.edit().putBoolean("upnext_include_variants", value).apply() }
 
+    /** Locally pinned playlist ids, kept in user-selected order. */
+    var pinnedPlaylistIds: List<Long>
+        get() = preferences.getString("pinned_playlist_ids", null)
+            .orEmpty()
+            .split(',')
+            .mapNotNull { it.toLongOrNull() }
+            .distinct()
+        set(value) {
+            preferences.edit()
+                .putString("pinned_playlist_ids", value.distinct().joinToString(","))
+                .apply()
+        }
+
     var batteryRationaleShown: Boolean
         get() = preferences.getBoolean("battery_rationale_shown", false)
         set(value) { preferences.edit().putBoolean("battery_rationale_shown", value).apply() }

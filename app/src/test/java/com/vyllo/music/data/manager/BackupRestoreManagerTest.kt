@@ -11,10 +11,12 @@ import com.vyllo.music.domain.model.MusicItemType
 import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.domain.model.PlaylistSongEntity
 import kotlinx.coroutines.test.runTest
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -209,5 +211,65 @@ class BackupRestoreManagerTest {
         val result = manager.restoreBackupJson("{}")
         assertTrue(result.isSuccess)
         verify(preferenceManager, never()).themeMode = org.mockito.kotlin.any()
+    }
+
+    @Test
+    fun `restore maps pinned playlist names back to their ids`() = runTest {
+        val json = """
+            {
+              "version": 1,
+              "preferences": { "pinnedPlaylistNames": ["Chill", "Favorites"] },
+              "playlists": [
+                { "name": "Favorites" },
+                { "name": "Chill" }
+              ]
+            }
+        """.trimIndent()
+        whenever(playlistDao.getPlaylistByName("Favorites")).thenReturn(PlaylistEntity(id = 42, name = "Favorites"))
+        whenever(playlistDao.getPlaylistByName("Chill")).thenReturn(PlaylistEntity(id = 7, name = "Chill"))
+
+        assertTrue(manager.restoreBackupJson(json).isSuccess)
+
+        // Order is preserved and the unknown/name-less entries are dropped.
+        verify(preferenceManager).pinnedPlaylistIds = listOf(7L, 42L)
+    }
+
+    @Test
+    fun `restore ignores pinned names that no playlist matches`() = runTest {
+        val json = """
+            {
+              "version": 1,
+              "preferences": { "pinnedPlaylistNames": ["Ghost"] },
+              "playlists": [ { "name": "Favorites" } ]
+            }
+        """.trimIndent()
+        whenever(playlistDao.getPlaylistByName("Favorites")).thenReturn(PlaylistEntity(id = 42, name = "Favorites"))
+
+        assertTrue(manager.restoreBackupJson(json).isSuccess)
+
+        verify(preferenceManager).pinnedPlaylistIds = emptyList<Long>()
+    }
+
+    @Test
+    fun `export writes pinned playlists as names`() = runTest {
+        whenever(playlistDao.getAllPlaylistsList()).thenReturn(
+            listOf(
+                PlaylistEntity(id = 42, name = "Favorites"),
+                PlaylistEntity(id = 7, name = "Chill")
+            )
+        )
+        whenever(playlistDao.getSongsByPlaylistList(42L)).thenReturn(emptyList())
+        whenever(playlistDao.getSongsByPlaylistList(7L)).thenReturn(emptyList())
+        whenever(alarmDao.getAllAlarmsList()).thenReturn(emptyList())
+        whenever(historyDao.getRecentHistoryList(any())).thenReturn(emptyList())
+        whenever(favoritesDao.getAllList(any())).thenReturn(emptyList())
+        whenever(preferenceManager.pinnedPlaylistIds).thenReturn(listOf(7L, 42L))
+
+        val json = JSONObject(manager.exportBackupJson())
+        val names = json.getJSONObject("preferences").getJSONArray("pinnedPlaylistNames")
+
+        assertEquals(2, names.length())
+        assertEquals("Chill", names.getString(0))
+        assertEquals("Favorites", names.getString(1))
     }
 }
