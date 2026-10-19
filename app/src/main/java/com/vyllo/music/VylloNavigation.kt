@@ -1,5 +1,6 @@
 ﻿package com.vyllo.music
 
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -75,13 +76,17 @@ object VylloRoutes {
     const val PLAYLIST_ARG = "playlistId"
     const val PLAYLIST = "playlist/{$PLAYLIST_ARG}"
     fun playlist(playlistId: Long) = "playlist/$playlistId"
+
+    const val ARTIST_ARG = "artistName"
+    const val ARTIST = "artist/{$ARTIST_ARG}"
+    fun artist(name: String) = "artist/${Uri.encode(name)}"
 }
 
 /** Bottom-bar index (0=Home, 1=Search, 2=Explore, 3=Library) for a route. */
 private fun bottomTabForRoute(route: String?): Int = when (route) {
     VylloRoutes.SEARCH -> 1
     VylloRoutes.EXPLORE -> 2
-    VylloRoutes.LIBRARY, VylloRoutes.PLAYLIST, VylloRoutes.ALARMS -> 3
+    VylloRoutes.LIBRARY, VylloRoutes.PLAYLIST, VylloRoutes.ARTIST, VylloRoutes.ALARMS -> 3
     else -> 0
 }
 
@@ -363,6 +368,9 @@ fun VylloNavigation(
                                 onPlaylistClick = { playlist ->
                                     libraryViewModel.loadPlaylistSongs(playlist.id)
                                     navController.navigate(VylloRoutes.playlist(playlist.id))
+                                },
+                                onArtistClick = { artist ->
+                                    navController.navigate(VylloRoutes.artist(artist.name))
                                 }
                             )
                         }
@@ -425,6 +433,24 @@ fun VylloNavigation(
                                     loadingItemUrl = loadingItemUrl
                                 )
                             }
+                        }
+
+                        composable(
+                            route = VylloRoutes.ARTIST,
+                            arguments = listOf(navArgument(VylloRoutes.ARTIST_ARG) { type = NavType.StringType })
+                        ) { entry ->
+                            val artistName = entry.arguments?.getString(VylloRoutes.ARTIST_ARG).orEmpty()
+                            YTMArtistScreen(
+                                viewModel = libraryViewModel,
+                                artistName = artistName,
+                                onBack = { navController.popBackStack() },
+                                onPlay = { item ->
+                                    homeViewModel.addToRecentlyPlayed(item)
+                                    onPlay(item)
+                                },
+                                currentPlayingItem = currentPlayingItem,
+                                loadingItemUrl = loadingItemUrl
+                            )
                         }
                     }
 

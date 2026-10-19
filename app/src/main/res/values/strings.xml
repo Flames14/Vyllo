@@ -370,6 +370,15 @@
     <string name="library_alarms_title">Alarms</string>
     <string name="library_alarms_subtitle">Wake up to your songs</string>
     <string name="library_playlists_title">Playlists</string>
+    <string name="library_artists_title">Artists</string>
+    <plurals name="artist_song_count">
+        <item quantity="one">%d song</item>
+        <item quantity="other">%d songs</item>
+    </plurals>
+    <string name="artist_empty_title">No songs yet</string>
+    <string name="artist_empty_body">Songs by this artist will appear here as you play, like or download them.</string>
+    <string name="artist_loading_failed">Could not load this artist</string>
+    <string name="cd_artist">Artist</string>
     <string name="library_no_playlists">No playlists yet</string>
     <string name="library_downloads_title">Downloads</string>
     <string name="library_no_downloads">No downloads yet</string>

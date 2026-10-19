@@ -8,6 +8,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.domain.model.ArtistSummary
+import com.vyllo.music.domain.model.LibraryArtists
+import com.vyllo.music.domain.model.normalizeArtistKey
 import com.vyllo.music.domain.model.DownloadEntity
 import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.domain.model.PlaylistSongEntity
@@ -25,6 +28,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -74,6 +78,27 @@ class LibraryViewModel @Inject constructor(
     val historyItems = musicRepository.getRecentHistory(50)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    // ---- Artists (derived locally; no artist catalogue is stored) ----
+    var libraryArtists by mutableStateOf<List<ArtistSummary>>(emptyList())
+        private set
+
+    var selectedArtist by mutableStateOf<ArtistSummary?>(null)
+        private set
+
+    var artistSongs by mutableStateOf<List<MusicItem>>(emptyList())
+        private set
+
+    var isArtistLoading by mutableStateOf(false)
+        private set
+
+    var artistLoadFailed by mutableStateOf(false)
+        private set
+
+    /** Everything the library already knows about, merged and de-duplicated. */
+    private var librarySongs: List<MusicItem> = emptyList()
+    private var artistJob: kotlinx.coroutines.Job? = null
+    private var artistLoadToken = 0
+
     var currentPlayingItem by mutableStateOf<MusicItem?>(null)
 
     init {
@@ -85,6 +110,7 @@ class LibraryViewModel @Inject constructor(
 
         observeDownloads()
         observePlaylists()
+        observeLibraryArtists()
         downloadManager.startObserving(viewModelScope)
     }
 
@@ -110,6 +136,85 @@ class LibraryViewModel @Inject constructor(
                 allPlaylists = playlists
             }
         }
+    }
+
+    private fun observeLibraryArtists() {
+        viewModelScope.launch {
+            combine(
+                musicRepository.getRecentHistory(200),
+                musicRepository.observeLikedSongs(),
+                downloadMusicUseCase.getAllDownloads()
+            ) { history, liked, downloads ->
+                val downloaded = downloads.map {
+                    MusicItem(it.title, it.url, it.uploader, it.thumbnailUrl)
+                }
+                (history + liked + downloaded).distinctBy { it.url }
+            }.collectLatest { songs ->
+                librarySongs = songs
+                libraryArtists = LibraryArtists.fromSongs(songs)
+            }
+        }
+    }
+
+    /**
+     * Opens an artist by display name. The summary is resolved from the derived
+     * list so a cold start on the artist route (after process death) still works.
+     */
+    fun openArtist(name: String) {
+        val key = normalizeArtistKey(name)
+        val summary = libraryArtists.firstOrNull { it.key == key }
+            ?: ArtistSummary(key = key, name = name.trim(), thumbnailUrl = "", songCount = 0)
+        loadArtist(summary)
+    }
+
+    fun loadArtist(artist: ArtistSummary) {
+        val token = ++artistLoadToken
+        selectedArtist = artist
+        artistLoadFailed = false
+        val local = librarySongs
+            .filter { it.normalizedArtistKey == artist.key }
+            .distinctBy { it.url }
+        artistSongs = local
+        isArtistLoading = true
+
+        artistJob?.cancel()
+        artistJob = viewModelScope.launch {
+            val remote = runCatching {
+                musicRepository.getArtistSongs(
+                    artist = artist.name,
+                    excludeUrls = local.mapTo(HashSet(local.size)) { it.url }
+                )
+            }.getOrNull()
+            // A newer selection (or a cleared screen) wins over this result.
+            if (token != artistLoadToken) return@launch
+            val merged = (local + remote.orEmpty()).distinctBy { it.url }
+            artistSongs = merged
+            // A cold-start summary has no artwork; adopt the first available one.
+            if (artist.thumbnailUrl.isBlank()) {
+                merged.firstOrNull { it.thumbnailUrl.isNotBlank() }?.let { first ->
+                    selectedArtist = artist.copy(
+                        thumbnailUrl = first.thumbnailUrl,
+                        songCount = maxOf(artist.songCount, merged.size)
+                    )
+                }
+            }
+            artistLoadFailed = remote == null
+            isArtistLoading = false
+        }
+    }
+
+    fun retrySelectedArtist() {
+        selectedArtist?.let(::loadArtist)
+    }
+
+    fun clearArtist() {
+        artistLoadToken++
+        artistJob?.cancel()
+        artistJob = null
+        selectedArtist = null
+        artistSongs = emptyList()
+        artistLoadFailed = false
+        isArtistLoading = false
     }
 
     fun createPlaylist(name: String) {

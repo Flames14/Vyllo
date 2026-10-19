@@ -4,9 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
@@ -22,9 +24,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.vyllo.music.domain.model.ArtistSummary
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.R
@@ -52,7 +59,8 @@ fun YTMLibraryScreen(
     onRecognizeClick: () -> Unit,
     loadingItemUrl: String? = null,
     onNavigateToAlarms: () -> Unit = {},
-    onPlaylistClick: (PlaylistEntity) -> Unit = {}
+    onPlaylistClick: (PlaylistEntity) -> Unit = {},
+    onArtistClick: (ArtistSummary) -> Unit = {}
 ) {
     val scrollState = rememberLazyListState()
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -238,6 +246,60 @@ fun YTMLibraryScreen(
                     }
                     IconButton(onClick = { viewModel.deletePlaylist(playlist) }) {
                         Icon(Icons.Rounded.Delete, stringResource(R.string.cd_delete), tint = MaterialTheme.colorScheme.onBackground.copy(0.3f), modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+        }
+
+        if (viewModel.libraryArtists.isNotEmpty()) {
+            item(key = "artists_header", contentType = "header") {
+                YTMSectionHeader(title = stringResource(R.string.library_artists_title))
+            }
+            item(key = "artists_row", contentType = "horizontal_section") {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = VylloSpacing.screenHorizontal),
+                    horizontalArrangement = Arrangement.spacedBy(VylloSpacing.lg)
+                ) {
+                    items(
+                        items = viewModel.libraryArtists,
+                        key = { "library_artist_${it.key}" },
+                        contentType = { "artist_card" }
+                    ) { artist ->
+                        Column(
+                            modifier = Modifier
+                                .width(84.dp)
+                                .ytmClickable { onArtistClick(artist) }
+                                .padding(vertical = VylloSpacing.xs),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            AsyncImage(
+                                model = artist.thumbnailUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(76.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            )
+                            Spacer(modifier = Modifier.height(VylloSpacing.xs))
+                            Text(
+                                text = artist.name,
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onBackground,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = pluralStringResource(
+                                    R.plurals.artist_song_count,
+                                    artist.songCount,
+                                    artist.songCount
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
             }

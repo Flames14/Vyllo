@@ -373,6 +373,15 @@
     <string name="library_alarms_title">Alarmas</string>
     <string name="library_alarms_subtitle">Despierta con tus canciones</string>
     <string name="library_playlists_title">Listas</string>
+    <string name="library_artists_title">Artistas</string>
+    <plurals name="artist_song_count">
+        <item quantity="one">%d canción</item>
+        <item quantity="other">%d canciones</item>
+    </plurals>
+    <string name="artist_empty_title">Aún no hay canciones</string>
+    <string name="artist_empty_body">Las canciones de este artista aparecerán aquí cuando las reproduzcas, te gusten o descargues.</string>
+    <string name="artist_loading_failed">No se pudo cargar este artista</string>
+    <string name="cd_artist">Artista</string>
     <string name="library_no_playlists">Aún no hay listas</string>
     <string name="library_downloads_title">Descargas</string>
     <string name="library_no_downloads">Aún no hay descargas</string>
