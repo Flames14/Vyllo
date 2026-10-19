@@ -354,6 +354,15 @@
     <string name="settings_sticky_queue_desc">Keep your queue when you start something new</string>
     <string name="settings_upnext_variants">Include live versions &amp; covers</string>
     <string name="settings_upnext_variants_desc">Allow live, acoustic and cover versions in Up Next</string>
+    <string name="settings_storage_title">Storage</string>
+    <string name="settings_storage_desc">Streamed audio and artwork cached for faster playback.</string>
+    <string name="settings_storage_media">Audio cache</string>
+    <string name="settings_storage_images">Image cache</string>
+    <string name="settings_storage_total">Total</string>
+    <string name="settings_storage_clear">Clear cache</string>
+    <string name="settings_storage_clearing">Clearing...</string>
+    <string name="settings_storage_clear_confirm_title">Clear cache?</string>
+    <string name="settings_storage_clear_confirm_message">Cached artwork and streamed audio will be removed. Downloaded songs are not affected.</string>
     <string name="settings_support">Support Development</string>
     <string name="settings_buy_coffee">Buy me a coffee ☕</string>
     <string name="settings_donate_cd">Donate</string>

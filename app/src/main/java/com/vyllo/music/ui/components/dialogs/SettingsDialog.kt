@@ -16,16 +16,24 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.R
+import com.vyllo.music.core.utils.ByteSizeFormatter
 
 @Composable
 fun SettingsDialog(
@@ -56,10 +64,45 @@ fun SettingsDialog(
     onQueueStickyChange: (Boolean) -> Unit = {},
     upNextIncludeVariants: Boolean = false,
     onUpNextIncludeVariantsChange: (Boolean) -> Unit = {},
+    storageMediaBytes: Long = 0L,
+    storageImageBytes: Long = 0L,
+    storageTotalBytes: Long = 0L,
+    isClearingCache: Boolean = false,
+    onRefreshStorage: () -> Unit = {},
+    onClearCacheClick: () -> Unit = {},
     onExportBackupClick: () -> Unit = {},
     onImportBackupClick: () -> Unit = {},
     onCheckUpdateClick: () -> Unit = {}
 ) {
+    var showClearCacheConfirm by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { onRefreshStorage() }
+
+    if (showClearCacheConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearCacheConfirm = false },
+            title = { Text(stringResource(R.string.settings_storage_clear_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_storage_clear_confirm_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearCacheConfirm = false
+                        onClearCacheClick()
+                    }
+                ) {
+                    Text(stringResource(R.string.settings_storage_clear))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearCacheConfirm = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            textContentColor = MaterialTheme.colorScheme.onSurface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface
+        )
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -224,6 +267,55 @@ fun SettingsDialog(
                     onCheckedChange = onUpNextIncludeVariantsChange
                 )
 
+                // Storage Section -- audio/image caches are the two things that
+                // actually grow on disk, so expose both sizes and a safe clear.
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        stringResource(R.string.settings_storage_title),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.settings_storage_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SettingsValueRow(
+                        title = stringResource(R.string.settings_storage_media),
+                        value = ByteSizeFormatter.format(storageMediaBytes)
+                    )
+                    SettingsValueRow(
+                        title = stringResource(R.string.settings_storage_images),
+                        value = ByteSizeFormatter.format(storageImageBytes)
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    SettingsValueRow(
+                        title = stringResource(R.string.settings_storage_total),
+                        value = ByteSizeFormatter.format(storageTotalBytes),
+                        emphasize = true
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !isClearingCache) { showClearCacheConfirm = true }
+                    ) {
+                        Text(
+                            text = if (isClearingCache) {
+                                stringResource(R.string.settings_storage_clearing)
+                            } else {
+                                stringResource(R.string.settings_storage_clear)
+                            },
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
+
                 // Backup & Restore Section
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
@@ -293,4 +385,31 @@ fun SettingsDialog(
         textContentColor = MaterialTheme.colorScheme.onSurface,
         titleContentColor = MaterialTheme.colorScheme.onSurface
     )
+}
+
+@Composable
+private fun SettingsValueRow(
+    title: String,
+    value: String,
+    emphasize: Boolean = false
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = if (emphasize) FontWeight.SemiBold else FontWeight.Normal
+            )
+        )
+    }
 }

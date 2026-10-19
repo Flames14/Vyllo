@@ -6,6 +6,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vyllo.music.data.manager.BackupRestoreManager
+import com.vyllo.music.data.manager.CacheJanitor
 import com.vyllo.music.data.manager.PreferenceManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
@@ -15,7 +16,8 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val preferenceManager: PreferenceManager,
     private val backupRestoreManager: BackupRestoreManager,
-    private val permissionHandler: com.vyllo.music.domain.manager.PermissionHandler
+    private val permissionHandler: com.vyllo.music.domain.manager.PermissionHandler,
+    private val cacheJanitor: CacheJanitor
 ) : ViewModel() {
 
     var showSettings by mutableStateOf(false)
@@ -32,6 +34,37 @@ class SettingsViewModel @Inject constructor(
     var downloadsRequireBatteryOk by mutableStateOf(preferenceManager.downloadsRequireBatteryOk)
 
     var backupStatusMessage by mutableStateOf<String?>(null)
+
+    var cacheMediaBytes by mutableStateOf(0L)
+        private set
+    var cacheImageBytes by mutableStateOf(0L)
+        private set
+    var cacheTotalBytes by mutableStateOf(0L)
+        private set
+    var isClearingCache by mutableStateOf(false)
+        private set
+
+    fun refreshStorageUsage() {
+        viewModelScope.launch {
+            val usage = cacheJanitor.usage()
+            cacheMediaBytes = usage.mediaBytes
+            cacheImageBytes = usage.imageBytes
+            cacheTotalBytes = usage.totalBytes
+        }
+    }
+
+    fun clearCache() {
+        if (isClearingCache) return
+        isClearingCache = true
+        viewModelScope.launch {
+            runCatching { cacheJanitor.clearAll() }
+            val usage = cacheJanitor.usage()
+            cacheMediaBytes = usage.mediaBytes
+            cacheImageBytes = usage.imageBytes
+            cacheTotalBytes = usage.totalBytes
+            isClearingCache = false
+        }
+    }
 
     fun toggleFloatingPlayer(enabled: Boolean) {
         isFloatingEnabled = enabled

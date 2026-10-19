@@ -357,6 +357,15 @@
     <string name="settings_sticky_queue_desc">Mantén tu cola cuando inicies algo nuevo</string>
     <string name="settings_upnext_variants">Incluir versiones en vivo y covers</string>
     <string name="settings_upnext_variants_desc">Permitir versiones en vivo, acústicas y covers en A continuación</string>
+    <string name="settings_storage_title">Almacenamiento</string>
+    <string name="settings_storage_desc">Audio en streaming e imágenes guardados en caché para una reproducción más rápida.</string>
+    <string name="settings_storage_media">Caché de audio</string>
+    <string name="settings_storage_images">Caché de imágenes</string>
+    <string name="settings_storage_total">Total</string>
+    <string name="settings_storage_clear">Borrar caché</string>
+    <string name="settings_storage_clearing">Borrando...</string>
+    <string name="settings_storage_clear_confirm_title">¿Borrar la caché?</string>
+    <string name="settings_storage_clear_confirm_message">Se eliminarán las imágenes y el audio en streaming guardados en caché. Las canciones descargadas no se verán afectadas.</string>
     <string name="settings_support">Apoyar el desarrollo</string>
     <string name="settings_buy_coffee">Invítame a un café ☕</string>
     <string name="settings_donate_cd">Donar</string>
