@@ -69,6 +69,8 @@ fun SettingsDialog(
     onUpNextIncludeVariantsChange: (Boolean) -> Unit = {},
     crossfadeSeconds: Int = 0,
     onCrossfadeSecondsChange: (Int) -> Unit = {},
+    loudnessPreset: String = "Off",
+    onLoudnessPresetChange: (String) -> Unit = {},
     storageMediaBytes: Long = 0L,
     storageImageBytes: Long = 0L,
     storageTotalBytes: Long = 0L,
@@ -81,6 +83,60 @@ fun SettingsDialog(
 ) {
     var showClearCacheConfirm by remember { mutableStateOf(false) }
     var showCrossfadePicker by remember { mutableStateOf(false) }
+    var showLoudnessPicker by remember { mutableStateOf(false) }
+
+    if (showLoudnessPicker) {
+        val presets = listOf("Off", "Quiet", "Balanced", "Loud", "Aggressive")
+        AlertDialog(
+            onDismissRequest = { showLoudnessPicker = false },
+            title = { Text(stringResource(R.string.loudness_dialog_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.settings_loudness_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    presets.forEach { preset ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onLoudnessPresetChange(preset)
+                                    showLoudnessPicker = false
+                                }
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = loudnessPresetLabel(preset),
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = if (loudnessPreset == preset) FontWeight.Bold else FontWeight.Normal
+                                )
+                            )
+                            if (loudnessPreset == preset) {
+                                Icon(
+                                    Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLoudnessPicker = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            textContentColor = MaterialTheme.colorScheme.onSurface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface
+        )
+    }
 
     if (showCrossfadePicker) {
         val options = listOf(0, 2, 3, 5, 8)
@@ -343,6 +399,26 @@ fun SettingsDialog(
                     onCheckedChange = onUpNextIncludeVariantsChange
                 )
 
+                // Loudness normalization -- real per-block RMS gain in the audio
+                // sink chain, not the volume booster's static multiplier.
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showLoudnessPicker = true }
+                        .padding(vertical = 4.dp)
+                ) {
+                    SettingsValueRow(
+                        title = stringResource(R.string.settings_loudness),
+                        value = loudnessPresetLabel(loudnessPreset),
+                        emphasize = true
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_loudness_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 // Crossfade -- 0s is a real option (and the default): it leaves
                 // ExoPlayer's codec-level gapless transitions untouched.
                 Column(
@@ -485,6 +561,15 @@ fun SettingsDialog(
         textContentColor = MaterialTheme.colorScheme.onSurface,
         titleContentColor = MaterialTheme.colorScheme.onSurface
     )
+}
+
+@Composable
+private fun loudnessPresetLabel(preset: String): String = when (preset) {
+    "Aggressive" -> stringResource(R.string.loudness_aggressive)
+    "Loud" -> stringResource(R.string.loudness_loud)
+    "Balanced" -> stringResource(R.string.loudness_balanced)
+    "Quiet" -> stringResource(R.string.loudness_quiet)
+    else -> stringResource(R.string.loudness_off)
 }
 
 @Composable

@@ -360,6 +360,14 @@
     <string name="settings_upnext_variants_desc">Allow live, acoustic and cover versions in Up Next</string>
     <string name="settings_crossfade">Crossfade</string>
     <string name="settings_crossfade_desc">Fade the end of a track into the next one. Off keeps gapless transitions.</string>
+    <string name="settings_loudness">Loudness normalization</string>
+    <string name="settings_loudness_desc">Evens out level between tracks. Louder presets boost quiet songs more.</string>
+    <string name="loudness_dialog_title">Normalization level</string>
+    <string name="loudness_off">Off</string>
+    <string name="loudness_quiet">Quiet</string>
+    <string name="loudness_balanced">Balanced</string>
+    <string name="loudness_loud">Loud</string>
+    <string name="loudness_aggressive">Aggressive</string>
     <string name="crossfade_dialog_title">Crossfade duration</string>
     <string name="crossfade_off">Off</string>
     <string name="crossfade_seconds">%d s</string>

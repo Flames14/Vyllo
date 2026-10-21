@@ -363,6 +363,14 @@
     <string name="settings_upnext_variants_desc">Permitir versiones en vivo, acústicas y covers en A continuación</string>
     <string name="settings_crossfade">Transición</string>
     <string name="settings_crossfade_desc">Atenúa el final de una canción hacia la siguiente. Desactivado mantiene las transiciones sin cortes.</string>
+    <string name="settings_loudness">Normalización de volumen</string>
+    <string name="settings_loudness_desc">Iguala el nivel entre canciones. Los ajustes más altos suben más las canciones suaves.</string>
+    <string name="loudness_dialog_title">Nivel de normalización</string>
+    <string name="loudness_off">Desactivado</string>
+    <string name="loudness_quiet">Bajo</string>
+    <string name="loudness_balanced">Equilibrado</string>
+    <string name="loudness_loud">Alto</string>
+    <string name="loudness_aggressive">Agresivo</string>
     <string name="crossfade_dialog_title">Duración de la transición</string>
     <string name="crossfade_off">Desactivado</string>
     <string name="crossfade_seconds">%d s</string>

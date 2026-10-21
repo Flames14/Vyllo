@@ -128,6 +128,13 @@ class PreferenceManager @Inject constructor(
         get() = preferences.getFloat(KEY_VOLUME_BOOST, 1.0f)
         set(value) { preferences.edit().putFloat(KEY_VOLUME_BOOST, value.coerceIn(1.0f, 3.0f)).apply() }
 
+    /** Loudness normalization preset: Off/Aggressive/Loud/Balanced/Quiet. */
+    var loudnessPreset: String
+        get() = preferences.getString(KEY_LOUDNESS_PRESET, "Off") ?: "Off"
+        set(value) {
+            preferences.edit().putString(KEY_LOUDNESS_PRESET, value).apply()
+        }
+
     /** Crossfade window in seconds; 0 disables fades and keeps gapless intact. */
     var crossfadeSeconds: Int
         get() = preferences.getInt(KEY_CROSSFADE_SECONDS, 0)
@@ -395,6 +402,7 @@ class PreferenceManager @Inject constructor(
         const val KEY_PLAYBACK_SPEED = "playback_speed"
         const val KEY_PLAYBACK_PITCH = "playback_pitch"
         const val KEY_CROSSFADE_SECONDS = "crossfade_seconds"
+        const val KEY_LOUDNESS_PRESET = "loudness_preset"
         const val SPEED_MIN = 0.5f
         const val SPEED_MAX = 2.0f
         const val PITCH_MIN = 0.5f

@@ -33,6 +33,12 @@ class SettingsViewModel @Inject constructor(
     var wifiOnlyDownloads by mutableStateOf(preferenceManager.wifiOnlyDownloads)
     var downloadsRequireBatteryOk by mutableStateOf(preferenceManager.downloadsRequireBatteryOk)
     var crossfadeSeconds by mutableStateOf(preferenceManager.crossfadeSeconds)
+    var loudnessPreset by mutableStateOf(preferenceManager.loudnessPreset)
+
+    fun updateLoudnessPreset(preset: String) {
+        preferenceManager.loudnessPreset = preset
+        loudnessPreset = preferenceManager.loudnessPreset
+    }
 
     fun updateCrossfadeSeconds(seconds: Int) {
         preferenceManager.crossfadeSeconds = seconds
@@ -162,6 +168,7 @@ class SettingsViewModel @Inject constructor(
                 isHighRefreshRateEnabled = preferenceManager.isHighRefreshRateEnabled
                 isBlockScreenshotsEnabled = preferenceManager.isBlockScreenshotsEnabled
                 crossfadeSeconds = preferenceManager.crossfadeSeconds
+                loudnessPreset = preferenceManager.loudnessPreset
                 onComplete(true)
             } else {
                 onComplete(false)

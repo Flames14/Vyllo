@@ -79,6 +79,7 @@ class MusicService : MediaSessionService() {
     )
 
     private val volumeBoostProcessor = VolumeBoostAudioProcessor()
+    private val loudnessProcessor = LoudnessNormalizationAudioProcessor()
 
     // lazy: the constructor must not read the @Inject lateinit fields, which Hilt
     // only populates during super.onCreate().
@@ -108,8 +109,16 @@ class MusicService : MediaSessionService() {
             volumeBoostProcessor.volumeMultiplier = preferenceManager.volumeBoostMultiplier
         } else if (key == PreferenceManager.KEY_PLAYBACK_SPEED || key == PreferenceManager.KEY_PLAYBACK_PITCH) {
             applyPlaybackParameters()
+        } else if (key == PreferenceManager.KEY_LOUDNESS_PRESET) {
+            applyLoudnessPreset()
         }
         playbackAudioEffectsManager.onPreferenceChanged(key)
+    }
+
+    private fun applyLoudnessPreset() {
+        val target = LoudnessNormalizationAudioProcessor.targetFor(preferenceManager.loudnessPreset)
+        loudnessProcessor.enabled = target != null
+        if (target != null) loudnessProcessor.targetRmsDb = target
     }
 
     /**
@@ -139,8 +148,13 @@ class MusicService : MediaSessionService() {
 
         preferenceManager.registerOnPreferenceChangeListener(preferenceListener)
         volumeBoostProcessor.volumeMultiplier = preferenceManager.volumeBoostMultiplier
+        applyLoudnessPreset()
 
-        val renderersFactory = AudioSinkFactory.createRenderersFactory(this, volumeBoostProcessor)
+        val renderersFactory = AudioSinkFactory.createRenderersFactory(
+            this,
+            volumeBoostProcessor,
+            arrayOf(loudnessProcessor)
+        )
 
         player = PlaybackPlayerFactory.buildPlayer(
             context = this,
