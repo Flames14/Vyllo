@@ -2,6 +2,7 @@ package com.vyllo.music.data.repository.delegates
 
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.core.security.SecurityConfig
+import com.vyllo.music.domain.model.StreamQuality
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -62,10 +63,13 @@ suspend fun firstPlayableStreamUrl(candidates: List<String>): String? {
  * and lets ExoPlayer surface a 403 through `PlayerErrorListener`, which re-enters
  * via `force = true` and uses [firstPlayableStreamUrl].
  */
-fun audioCandidates(streams: List<AudioStream>): List<String> {
+fun audioCandidates(
+    streams: List<AudioStream>,
+    quality: StreamQuality = StreamQuality.AUTO
+): List<String> {
     logStreams(streams) { "${it.format}, bitrate=${it.averageBitrate}" }
-    return streams.asSequence()
-        .filter { it.isUrl && !it.url.isNullOrBlank() }
+    val usable = streams.filter { it.isUrl && !it.url.isNullOrBlank() }
+    return quality.withinBitrate(usable) { it.averageBitrate }
         .sortedByDescending { it.averageBitrate }
         .mapNotNull { it.url }
         .toList()

@@ -8,6 +8,7 @@ import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.LyricsResponse
 import com.vyllo.music.domain.model.DownloadEntity
 import com.vyllo.music.domain.model.PlaylistEntity
+import com.vyllo.music.domain.model.StreamQuality
 import com.vyllo.music.domain.model.PlaylistSongEntity
 import com.vyllo.music.data.download.FavoriteEntity
 import com.vyllo.music.data.download.FavoritesDao
@@ -99,7 +100,10 @@ class MusicRepositoryImpl @Inject constructor(
                 SecureLogger.d("MusicRepositoryImpl") { "Video stream selected: ${videoUrl != null}" }
                 videoUrl
             } else {
-                var audioCandidates = streamSelector.audioCandidates(info.audioStreams)
+                var audioCandidates = streamSelector.audioCandidates(
+                    info.audioStreams,
+                    StreamQuality.from(preferenceManager.streamQuality)
+                )
                 var audioUrl: String? = if (force) {
                     streamSelector.firstPlayableStreamUrl(audioCandidates)
                 } else {

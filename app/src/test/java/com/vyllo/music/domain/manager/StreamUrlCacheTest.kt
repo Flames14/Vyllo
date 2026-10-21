@@ -4,16 +4,30 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import com.vyllo.music.data.manager.PreferenceManager
 
 class StreamUrlCacheTest {
 
     private lateinit var cache: StreamUrlCache
+    private lateinit var preferences: PreferenceManager
 
     @Before
     fun setUp() {
-        cache = StreamUrlCache()
+        preferences = mock()
+        whenever(preferences.streamQuality).thenReturn("Auto")
+        cache = StreamUrlCache(preferences)
+    }
+
+    @Test
+    fun `changing stream quality does not reuse the previous quality's url`() {
+        cache.put("https://song1", false, "https://stream-high")
+        whenever(preferences.streamQuality).thenReturn("Low")
+
+        assertNull(cache.get("https://song1", false))
     }
 
     @Test

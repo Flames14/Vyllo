@@ -1,5 +1,6 @@
 package com.vyllo.music.domain.usecase
 
+import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.domain.manager.PlaybackManager
 import com.vyllo.music.domain.manager.StreamUrlCache
@@ -40,7 +41,9 @@ class PlayMusicUseCaseTest {
         playbackManager = mock()
         playbackQueueManager = PlaybackQueueManager()
         // Fresh cache per test so one test's resolved URL never masks another's.
-        streamUrlCache = StreamUrlCache()
+        streamUrlCache = StreamUrlCache(mock<PreferenceManager>().also {
+            whenever(it.streamQuality).thenReturn("Auto")
+        })
         useCase = PlayMusicUseCase(getStreamUrlUseCase, playbackManager, playbackQueueManager, streamUrlCache)
     }
 
@@ -85,7 +88,7 @@ class PlayMusicUseCaseTest {
         val result = useCase.execute(testItem, keepQueue = false)
 
         assertTrue(result is PlayResult.Success)
-        // The tap path never stops the player — ExoPlayer hands off on its own.
+        // The tap path never stops the player â€” ExoPlayer hands off on its own.
         verify(playbackManager, never()).stop()
         assertEquals(1, playbackQueueManager.size)
         assertEquals(testItem.url, playbackQueueManager.currentItem?.url)
@@ -242,3 +245,4 @@ class PlayMusicUseCaseTest {
         verify(getStreamUrlUseCase, times(2)).invoke(testItem.url, isVideo = false)
     }
 }
+

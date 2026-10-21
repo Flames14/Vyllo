@@ -1,12 +1,15 @@
 package com.vyllo.music.domain.manager
 
+import com.vyllo.music.data.manager.PreferenceManager
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class StreamUrlCache @Inject constructor() {
+class StreamUrlCache @Inject constructor(
+    private val preferenceManager: PreferenceManager
+) {
     private data class Entry(
         val resolvedUrl: String,
         val resolvedAtMs: Long = System.currentTimeMillis()
@@ -56,5 +59,6 @@ class StreamUrlCache @Inject constructor() {
         }
     }
 
-    private fun cacheKey(url: String, isVideo: Boolean): String = "${url}_$isVideo"
+    private fun cacheKey(url: String, isVideo: Boolean): String =
+        "${url}_${isVideo}_${if (isVideo) "" else preferenceManager.streamQuality}"
 }

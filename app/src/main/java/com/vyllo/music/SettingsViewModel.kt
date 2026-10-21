@@ -34,6 +34,12 @@ class SettingsViewModel @Inject constructor(
     var downloadsRequireBatteryOk by mutableStateOf(preferenceManager.downloadsRequireBatteryOk)
     var crossfadeSeconds by mutableStateOf(preferenceManager.crossfadeSeconds)
     var loudnessPreset by mutableStateOf(preferenceManager.loudnessPreset)
+    var streamQuality by mutableStateOf(preferenceManager.streamQuality)
+
+    fun updateStreamQuality(quality: String) {
+        preferenceManager.streamQuality = quality
+        streamQuality = preferenceManager.streamQuality
+    }
 
     fun updateLoudnessPreset(preset: String) {
         preferenceManager.loudnessPreset = preset
@@ -169,6 +175,7 @@ class SettingsViewModel @Inject constructor(
                 isBlockScreenshotsEnabled = preferenceManager.isBlockScreenshotsEnabled
                 crossfadeSeconds = preferenceManager.crossfadeSeconds
                 loudnessPreset = preferenceManager.loudnessPreset
+                streamQuality = preferenceManager.streamQuality
                 onComplete(true)
             } else {
                 onComplete(false)

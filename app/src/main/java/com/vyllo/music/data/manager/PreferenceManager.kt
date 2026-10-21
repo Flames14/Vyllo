@@ -128,6 +128,13 @@ class PreferenceManager @Inject constructor(
         get() = preferences.getFloat(KEY_VOLUME_BOOST, 1.0f)
         set(value) { preferences.edit().putFloat(KEY_VOLUME_BOOST, value.coerceIn(1.0f, 3.0f)).apply() }
 
+    /** Audio stream quality ceiling: Auto/High/Medium/Low. */
+    var streamQuality: String
+        get() = preferences.getString(KEY_STREAM_QUALITY, "Auto") ?: "Auto"
+        set(value) {
+            preferences.edit().putString(KEY_STREAM_QUALITY, value).apply()
+        }
+
     /** Loudness normalization preset: Off/Aggressive/Loud/Balanced/Quiet. */
     var loudnessPreset: String
         get() = preferences.getString(KEY_LOUDNESS_PRESET, "Off") ?: "Off"
@@ -403,6 +410,7 @@ class PreferenceManager @Inject constructor(
         const val KEY_PLAYBACK_PITCH = "playback_pitch"
         const val KEY_CROSSFADE_SECONDS = "crossfade_seconds"
         const val KEY_LOUDNESS_PRESET = "loudness_preset"
+        const val KEY_STREAM_QUALITY = "stream_quality"
         const val SPEED_MIN = 0.5f
         const val SPEED_MAX = 2.0f
         const val PITCH_MIN = 0.5f

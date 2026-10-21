@@ -71,6 +71,8 @@ fun SettingsDialog(
     onCrossfadeSecondsChange: (Int) -> Unit = {},
     loudnessPreset: String = "Off",
     onLoudnessPresetChange: (String) -> Unit = {},
+    streamQuality: String = "Auto",
+    onStreamQualityChange: (String) -> Unit = {},
     storageMediaBytes: Long = 0L,
     storageImageBytes: Long = 0L,
     storageTotalBytes: Long = 0L,
@@ -84,6 +86,60 @@ fun SettingsDialog(
     var showClearCacheConfirm by remember { mutableStateOf(false) }
     var showCrossfadePicker by remember { mutableStateOf(false) }
     var showLoudnessPicker by remember { mutableStateOf(false) }
+    var showQualityPicker by remember { mutableStateOf(false) }
+
+    if (showQualityPicker) {
+        val qualities = listOf("Auto", "High", "Medium", "Low")
+        AlertDialog(
+            onDismissRequest = { showQualityPicker = false },
+            title = { Text(stringResource(R.string.quality_dialog_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.settings_stream_quality_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    qualities.forEach { quality ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onStreamQualityChange(quality)
+                                    showQualityPicker = false
+                                }
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = streamQualityLabel(quality),
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = if (streamQuality == quality) FontWeight.Bold else FontWeight.Normal
+                                )
+                            )
+                            if (streamQuality == quality) {
+                                Icon(
+                                    Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showQualityPicker = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            textContentColor = MaterialTheme.colorScheme.onSurface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface
+        )
+    }
 
     if (showLoudnessPicker) {
         val presets = listOf("Off", "Quiet", "Balanced", "Loud", "Aggressive")
@@ -399,6 +455,26 @@ fun SettingsDialog(
                     onCheckedChange = onUpNextIncludeVariantsChange
                 )
 
+                // Stream quality -- caps the audio bitrate we pick from the
+                // extractor's stream list for every newly resolved track.
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showQualityPicker = true }
+                        .padding(vertical = 4.dp)
+                ) {
+                    SettingsValueRow(
+                        title = stringResource(R.string.settings_stream_quality),
+                        value = streamQualityLabel(streamQuality),
+                        emphasize = true
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_stream_quality_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 // Loudness normalization -- real per-block RMS gain in the audio
                 // sink chain, not the volume booster's static multiplier.
                 Column(
@@ -561,6 +637,14 @@ fun SettingsDialog(
         textContentColor = MaterialTheme.colorScheme.onSurface,
         titleContentColor = MaterialTheme.colorScheme.onSurface
     )
+}
+
+@Composable
+private fun streamQualityLabel(quality: String): String = when (quality) {
+    "High" -> stringResource(R.string.quality_high)
+    "Medium" -> stringResource(R.string.quality_medium)
+    "Low" -> stringResource(R.string.quality_low)
+    else -> stringResource(R.string.quality_auto)
 }
 
 @Composable

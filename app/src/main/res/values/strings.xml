@@ -361,7 +361,13 @@
     <string name="settings_crossfade">Crossfade</string>
     <string name="settings_crossfade_desc">Fade the end of a track into the next one. Off keeps gapless transitions.</string>
     <string name="settings_loudness">Loudness normalization</string>
-    <string name="settings_loudness_desc">Evens out level between tracks. Louder presets boost quiet songs more.</string>
+    <string name="settings_stream_quality">Stream quality</string>
+    <string name="settings_stream_quality_desc">Bitrate ceiling used when picking an audio stream. Auto takes the best available.</string>
+    <string name="quality_dialog_title">Stream quality</string>
+    <string name="quality_auto">Auto</string>
+    <string name="quality_high">High</string>
+    <string name="quality_medium">Medium</string>
+    <string name="quality_low">Low</string>    <string name="settings_loudness_desc">Evens out level between tracks. Louder presets boost quiet songs more.</string>
     <string name="loudness_dialog_title">Normalization level</string>
     <string name="loudness_off">Off</string>
     <string name="loudness_quiet">Quiet</string>
