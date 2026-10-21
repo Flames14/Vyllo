@@ -358,6 +358,11 @@
     <string name="settings_sticky_queue_desc">Keep your queue when you start something new</string>
     <string name="settings_upnext_variants">Include live versions &amp; covers</string>
     <string name="settings_upnext_variants_desc">Allow live, acoustic and cover versions in Up Next</string>
+    <string name="settings_crossfade">Crossfade</string>
+    <string name="settings_crossfade_desc">Fade the end of a track into the next one. Off keeps gapless transitions.</string>
+    <string name="crossfade_dialog_title">Crossfade duration</string>
+    <string name="crossfade_off">Off</string>
+    <string name="crossfade_seconds">%d s</string>
     <string name="settings_storage_title">Storage</string>
     <string name="settings_storage_desc">Streamed audio and artwork cached for faster playback.</string>
     <string name="settings_storage_media">Audio cache</string>

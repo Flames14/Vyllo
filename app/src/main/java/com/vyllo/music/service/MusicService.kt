@@ -22,6 +22,7 @@ import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.service.audio.AudioSinkFactory
 import com.vyllo.music.service.audio.CacheProvider
+import com.vyllo.music.service.audio.CrossfadeController
 import com.vyllo.music.service.audio.MediaSessionCallback
 import com.vyllo.music.service.audio.PlaybackCommandsController
 import com.vyllo.music.service.audio.PlaybackHttpClientFactory
@@ -64,6 +65,7 @@ class MusicService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var player: ExoPlayer? = null
     private lateinit var playheadPersistence: PlayheadPersistence
+    private lateinit var crossfadeController: CrossfadeController
 
     private val serviceJob = SupervisorJob()
     // Safety net: background queue work must never be able to crash the app.
@@ -165,7 +167,20 @@ class MusicService : MediaSessionService() {
             override fun onShuffleModeEnabledChanged(enabled: Boolean) {
                 playbackQueueManager.setShuffleEnabled(enabled)
             }
+
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                if (::crossfadeController.isInitialized) {
+                    crossfadeController.onMediaItemTransition(reason)
+                }
+            }
         })
+
+        crossfadeController = CrossfadeController(
+            playerProvider = { player },
+            crossfadeMillis = { preferenceManager.crossfadeSeconds * 1_000L },
+            scope = serviceScope
+        )
+        crossfadeController.start()
 
         // Restore the user's speed/pitch (1.0x by default) instead of forcing
         // 1.0x, which used to reset a deliberately slowed-down track on every
@@ -294,6 +309,7 @@ class MusicService : MediaSessionService() {
 
     override fun onDestroy() {
         SecureLogger.d("MusicService", "Service onDestroy called")
+        if (::crossfadeController.isInitialized) crossfadeController.stop()
         serviceJob.cancel()
         playbackErrorHandler.release()
         playbackAudioEffectsManager.release()

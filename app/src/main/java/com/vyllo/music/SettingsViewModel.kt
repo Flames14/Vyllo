@@ -32,6 +32,13 @@ class SettingsViewModel @Inject constructor(
     var isBlockScreenshotsEnabled by mutableStateOf(preferenceManager.isBlockScreenshotsEnabled)
     var wifiOnlyDownloads by mutableStateOf(preferenceManager.wifiOnlyDownloads)
     var downloadsRequireBatteryOk by mutableStateOf(preferenceManager.downloadsRequireBatteryOk)
+    var crossfadeSeconds by mutableStateOf(preferenceManager.crossfadeSeconds)
+
+    fun updateCrossfadeSeconds(seconds: Int) {
+        preferenceManager.crossfadeSeconds = seconds
+        // Re-read so the UI shows the clamped value, never the raw request.
+        crossfadeSeconds = preferenceManager.crossfadeSeconds
+    }
 
     var backupStatusMessage by mutableStateOf<String?>(null)
 
@@ -154,6 +161,7 @@ class SettingsViewModel @Inject constructor(
                 isKeepAudioPlayingEnabled = preferenceManager.isKeepAudioPlayingEnabled
                 isHighRefreshRateEnabled = preferenceManager.isHighRefreshRateEnabled
                 isBlockScreenshotsEnabled = preferenceManager.isBlockScreenshotsEnabled
+                crossfadeSeconds = preferenceManager.crossfadeSeconds
                 onComplete(true)
             } else {
                 onComplete(false)

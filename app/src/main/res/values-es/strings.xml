@@ -361,6 +361,11 @@
     <string name="settings_sticky_queue_desc">Mantén tu cola cuando inicies algo nuevo</string>
     <string name="settings_upnext_variants">Incluir versiones en vivo y covers</string>
     <string name="settings_upnext_variants_desc">Permitir versiones en vivo, acústicas y covers en A continuación</string>
+    <string name="settings_crossfade">Transición</string>
+    <string name="settings_crossfade_desc">Atenúa el final de una canción hacia la siguiente. Desactivado mantiene las transiciones sin cortes.</string>
+    <string name="crossfade_dialog_title">Duración de la transición</string>
+    <string name="crossfade_off">Desactivado</string>
+    <string name="crossfade_seconds">%d s</string>
     <string name="settings_storage_title">Almacenamiento</string>
     <string name="settings_storage_desc">Audio en streaming e imágenes guardados en caché para una reproducción más rápida.</string>
     <string name="settings_storage_media">Caché de audio</string>

@@ -128,6 +128,15 @@ class PreferenceManager @Inject constructor(
         get() = preferences.getFloat(KEY_VOLUME_BOOST, 1.0f)
         set(value) { preferences.edit().putFloat(KEY_VOLUME_BOOST, value.coerceIn(1.0f, 3.0f)).apply() }
 
+    /** Crossfade window in seconds; 0 disables fades and keeps gapless intact. */
+    var crossfadeSeconds: Int
+        get() = preferences.getInt(KEY_CROSSFADE_SECONDS, 0)
+        set(value) {
+            preferences.edit()
+                .putInt(KEY_CROSSFADE_SECONDS, value.coerceIn(0, 12))
+                .apply()
+        }
+
     var isEqualizerEnabled: Boolean
         get() = preferences.getBoolean(KEY_EQUALIZER_ENABLED, false)
         set(value) { preferences.edit().putBoolean(KEY_EQUALIZER_ENABLED, value).apply() }
@@ -385,6 +394,7 @@ class PreferenceManager @Inject constructor(
         const val KEY_VOLUME_BOOST = "volume_boost_multiplier"
         const val KEY_PLAYBACK_SPEED = "playback_speed"
         const val KEY_PLAYBACK_PITCH = "playback_pitch"
+        const val KEY_CROSSFADE_SECONDS = "crossfade_seconds"
         const val SPEED_MIN = 0.5f
         const val SPEED_MAX = 2.0f
         const val PITCH_MIN = 0.5f

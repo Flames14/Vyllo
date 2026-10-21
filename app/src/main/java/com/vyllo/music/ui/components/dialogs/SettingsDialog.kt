@@ -14,10 +14,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -65,6 +67,8 @@ fun SettingsDialog(
     onQueueStickyChange: (Boolean) -> Unit = {},
     upNextIncludeVariants: Boolean = false,
     onUpNextIncludeVariantsChange: (Boolean) -> Unit = {},
+    crossfadeSeconds: Int = 0,
+    onCrossfadeSecondsChange: (Int) -> Unit = {},
     storageMediaBytes: Long = 0L,
     storageImageBytes: Long = 0L,
     storageTotalBytes: Long = 0L,
@@ -76,6 +80,64 @@ fun SettingsDialog(
     onCheckUpdateClick: () -> Unit = {}
 ) {
     var showClearCacheConfirm by remember { mutableStateOf(false) }
+    var showCrossfadePicker by remember { mutableStateOf(false) }
+
+    if (showCrossfadePicker) {
+        val options = listOf(0, 2, 3, 5, 8)
+        AlertDialog(
+            onDismissRequest = { showCrossfadePicker = false },
+            title = { Text(stringResource(R.string.crossfade_dialog_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.settings_crossfade_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    options.forEach { seconds ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onCrossfadeSecondsChange(seconds)
+                                    showCrossfadePicker = false
+                                }
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (seconds == 0) {
+                                    stringResource(R.string.crossfade_off)
+                                } else {
+                                    stringResource(R.string.crossfade_seconds, seconds)
+                                },
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = if (crossfadeSeconds == seconds) FontWeight.Bold else FontWeight.Normal
+                                )
+                            )
+                            if (crossfadeSeconds == seconds) {
+                                Icon(
+                                    Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCrossfadePicker = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            textContentColor = MaterialTheme.colorScheme.onSurface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface
+        )
+    }
     LaunchedEffect(Unit) { onRefreshStorage() }
 
     if (showClearCacheConfirm) {
@@ -280,6 +342,30 @@ fun SettingsDialog(
                     checked = upNextIncludeVariants,
                     onCheckedChange = onUpNextIncludeVariantsChange
                 )
+
+                // Crossfade -- 0s is a real option (and the default): it leaves
+                // ExoPlayer's codec-level gapless transitions untouched.
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showCrossfadePicker = true }
+                        .padding(vertical = 4.dp)
+                ) {
+                    SettingsValueRow(
+                        title = stringResource(R.string.settings_crossfade),
+                        value = if (crossfadeSeconds <= 0) {
+                            stringResource(R.string.crossfade_off)
+                        } else {
+                            stringResource(R.string.crossfade_seconds, crossfadeSeconds)
+                        },
+                        emphasize = true
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_crossfade_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
                 // Storage Section -- audio/image caches are the two things that
                 // actually grow on disk, so expose both sizes and a safe clear.
