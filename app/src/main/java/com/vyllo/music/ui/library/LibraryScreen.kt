@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.FileOpen
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.*
@@ -68,6 +69,7 @@ fun YTMLibraryScreen(
     var showCreateDialog by remember { mutableStateOf(false) }
     var showClearHistoryConfirmation by remember { mutableStateOf(false) }
     val historyItems by viewModel.historyItems.collectAsState()
+    val likedSongs by viewModel.likedSongs.collectAsState()
 
     if (showCreateDialog) {
         CreatePlaylistDialog(
@@ -314,12 +316,77 @@ fun YTMLibraryScreen(
             }
         }
 
+        item(key = "liked_header", contentType = "header") {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.library_liked_title),
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                if (likedSongs.isNotEmpty()) {
+                    Text(
+                        text = pluralStringResource(
+                            R.plurals.liked_song_count,
+                            likedSongs.size,
+                            likedSongs.size
+                        ),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        if (likedSongs.isEmpty()) {
+            item(key = "empty_liked", contentType = "empty") {
+                VylloEmptyState(
+                    icon = Icons.Rounded.Favorite,
+                    title = stringResource(R.string.library_liked_empty),
+                    message = stringResource(R.string.library_liked_empty_body)
+                )
+            }
+        } else {
+            items(
+                items = likedSongs,
+                key = { "liked_${it.url}" },
+                contentType = { "song_row" }
+            ) { liked ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        YTMSongRow(
+                            item = liked,
+                            isPlaying = currentPlayingItem?.url == liked.url,
+                            onClick = { onPlay(liked) },
+                            isLoading = loadingItemUrl == liked.url
+                        )
+                    }
+                    IconButton(
+                        onClick = { viewModel.unlikeSong(liked) },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Favorite,
+                            contentDescription = stringResource(R.string.library_liked_remove),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+
         item(key = "downloads_header", contentType = "header") {
               Column(modifier = Modifier.padding(bottom = 8.dp)) {
                   YTMSectionHeader(title = stringResource(R.string.library_downloads_title))
               }
-        }
-        
+        }        
         if (viewModel.downloadedSongs.isEmpty()) {
             item(key = "empty_downloads", contentType = "empty") {
                 VylloEmptyState(

@@ -396,6 +396,14 @@
     <string name="artist_loading_failed">Could not load this artist</string>
     <string name="cd_artist">Artist</string>
     <string name="library_no_playlists">No playlists yet</string>
+    <string name="library_liked_title">Liked songs</string>
+    <string name="library_liked_empty">No liked songs yet</string>
+    <string name="library_liked_empty_body">Tap the heart on a track to keep it here.</string>
+    <string name="library_liked_remove">Remove from liked songs</string>
+    <plurals name="liked_song_count">
+        <item quantity="one">%d song</item>
+        <item quantity="other">%d songs</item>
+    </plurals>
     <string name="library_downloads_title">Downloads</string>
     <string name="library_no_downloads">No downloads yet</string>
     <string name="library_history_title">Recently played</string>

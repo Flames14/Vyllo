@@ -399,6 +399,14 @@
     <string name="artist_loading_failed">No se pudo cargar este artista</string>
     <string name="cd_artist">Artista</string>
     <string name="library_no_playlists">Aún no hay listas</string>
+    <string name="library_liked_title">Canciones que te gustan</string>
+    <string name="library_liked_empty">Aún no hay canciones que te gusten</string>
+    <string name="library_liked_empty_body">Toca el corazón de una canción para guardarla aquí.</string>
+    <string name="library_liked_remove">Quitar de canciones que te gustan</string>
+    <plurals name="liked_song_count">
+        <item quantity="one">%d canción</item>
+        <item quantity="other">%d canciones</item>
+    </plurals>
     <string name="library_downloads_title">Descargas</string>
     <string name="library_no_downloads">Aún no hay descargas</string>
     <string name="library_history_title">Reproducido recientemente</string>

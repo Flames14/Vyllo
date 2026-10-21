@@ -85,6 +85,16 @@ class LibraryViewModel @Inject constructor(
     val historyItems = musicRepository.getRecentHistory(50)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    // ---- Liked songs (the rating store already backs the player heart) ----
+    val likedSongs = musicRepository.observeLikedSongs()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun unlikeSong(item: MusicItem) {
+        viewModelScope.launch {
+            musicRepository.setRating(item, 0)
+        }
+    }
+
     // ---- Artists (derived locally; no artist catalogue is stored) ----
     var libraryArtists by mutableStateOf<List<ArtistSummary>>(emptyList())
         private set
