@@ -57,6 +57,7 @@ import com.vyllo.music.presentation.components.player.PlayerPlaybackControls
 import com.vyllo.music.presentation.components.player.PlayerQueueSheet
 import com.vyllo.music.presentation.components.player.PlayerSeekBar
 import com.vyllo.music.presentation.components.player.PlayerSleepTimerDialog
+import com.vyllo.music.presentation.components.player.PlayerSpeedSheet
 import com.vyllo.music.presentation.components.player.PlayerStoryCommentsSheets
 import com.vyllo.music.presentation.components.player.PlayerTrackInfo
 import kotlinx.coroutines.delay
@@ -84,6 +85,7 @@ fun PremiumFullScreenPlayer(
     var showStoryShareSheet by remember { mutableStateOf(false) }
     var showCommentsSheet by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
+    var showSpeedSheet by remember { mutableStateOf(false) }
     var shuffleModeEnabled by remember { mutableStateOf(controller?.shuffleModeEnabled ?: false) }
     var repeatMode by remember { mutableIntStateOf(controller?.repeatMode ?: androidx.media3.common.Player.REPEAT_MODE_OFF) }
     val coroutineScope = rememberCoroutineScope()
@@ -231,6 +233,7 @@ fun PremiumFullScreenPlayer(
         )
         PlayerEqualizerSheet(show = showEqualizerSheet, playerUiState = playerUiState, viewModel = viewModel, onDismiss = { showEqualizerSheet = false })
         PlayerSleepTimerDialog(show = showSleepTimerDialog, playerUiState = playerUiState, viewModel = viewModel, controller = controller, onDismiss = { showSleepTimerDialog = false })
+        PlayerSpeedSheet(show = showSpeedSheet, playerUiState = playerUiState, viewModel = viewModel, onDismiss = { showSpeedSheet = false })
         Column(
             modifier = Modifier.fillMaxSize()
                 // The "swipe anywhere to open the queue" gesture lives here, on
@@ -265,7 +268,7 @@ fun PremiumFullScreenPlayer(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
         ) {
-            PlayerHeader(item = item, currentPosition = currentPosition, controller = controller, viewModel = viewModel, playerUiState = playerUiState, onCollapse = onCollapse, onShowEqualizer = { showEqualizerSheet = true }, onShowSleepTimer = { showSleepTimerDialog = true }, onShowStoryShare = { showStoryShareSheet = true })
+            PlayerHeader(item = item, currentPosition = currentPosition, controller = controller, viewModel = viewModel, playerUiState = playerUiState, onCollapse = onCollapse, onShowEqualizer = { showEqualizerSheet = true }, onShowSleepTimer = { showSleepTimerDialog = true }, onShowPlaybackSpeed = { showSpeedSheet = true }, onShowStoryShare = { showStoryShareSheet = true })
             PlayerArtwork(item = item, isPlaying = isPlaying, isLoading = isLoading, expandProgress = expandProgress, currentPosition = currentPosition, duration = duration, controller = controller, viewModel = viewModel, playerUiState = playerUiState, seekFeedback = seekFeedback, onSeekFeedback = { seekFeedback = it }, onPositionChange = { currentPosition = it }, onTogglePlay = onTogglePlay, modifier = Modifier.weight(1f).fillMaxWidth())
             Spacer(modifier = Modifier.height(14.dp))
             PlayerTrackInfo(item = item, expandProgress = expandProgress)

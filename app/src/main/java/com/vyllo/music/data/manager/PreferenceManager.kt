@@ -132,6 +132,27 @@ class PreferenceManager @Inject constructor(
         get() = preferences.getBoolean(KEY_EQUALIZER_ENABLED, false)
         set(value) { preferences.edit().putBoolean(KEY_EQUALIZER_ENABLED, value).apply() }
 
+    /**
+     * Playback rate applied by [com.vyllo.music.service.MusicService]. Stored so
+     * the choice survives restarts and applies to whatever starts playing next.
+     */
+    var playbackSpeed: Float
+        get() = preferences.getFloat(KEY_PLAYBACK_SPEED, 1.0f)
+        set(value) {
+            preferences.edit()
+                .putFloat(KEY_PLAYBACK_SPEED, value.coerceIn(SPEED_MIN, SPEED_MAX))
+                .apply()
+        }
+
+    /** Pitch shift, independent of speed (1.0f = untouched). */
+    var playbackPitch: Float
+        get() = preferences.getFloat(KEY_PLAYBACK_PITCH, 1.0f)
+        set(value) {
+            preferences.edit()
+                .putFloat(KEY_PLAYBACK_PITCH, value.coerceIn(PITCH_MIN, PITCH_MAX))
+                .apply()
+        }
+
     var equalizerBassBoostStrength: Int
         get() = preferences.getInt(KEY_EQUALIZER_BASS_BOOST, 0)
         set(value) {
@@ -362,6 +383,12 @@ class PreferenceManager @Inject constructor(
         const val KEY_EQUALIZER_VIRTUALIZER = "equalizer_virtualizer"
         const val KEY_EQUALIZER_BANDS = "equalizer_bands"
         const val KEY_VOLUME_BOOST = "volume_boost_multiplier"
+        const val KEY_PLAYBACK_SPEED = "playback_speed"
+        const val KEY_PLAYBACK_PITCH = "playback_pitch"
+        const val SPEED_MIN = 0.5f
+        const val SPEED_MAX = 2.0f
+        const val PITCH_MIN = 0.5f
+        const val PITCH_MAX = 2.0f
         const val KEY_PLAYBACK_POSITION_URL = "playback_position_url"
         const val KEY_PLAYBACK_POSITION_MS = "playback_position_ms"
     }

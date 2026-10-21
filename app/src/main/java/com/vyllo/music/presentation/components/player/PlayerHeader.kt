@@ -19,6 +19,7 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material.icons.rounded.Snooze
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -58,6 +59,7 @@ fun PlayerHeader(
     onCollapse: () -> Unit,
     onShowEqualizer: () -> Unit,
     onShowSleepTimer: () -> Unit,
+    onShowPlaybackSpeed: () -> Unit,
     onShowStoryShare: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -213,6 +215,16 @@ fun PlayerHeader(
                             context.getString(R.string.header_sleep_timer),
                             tint = if (playerUiState.isSleepTimerActive) MaterialTheme.colorScheme.primary else Color.White
                         )
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.header_playback_speed), color = Color.White) },
+                    onClick = {
+                        showMoreMenu = false
+                        onShowPlaybackSpeed()
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.Speed, stringResource(R.string.header_playback_speed), tint = Color.White)
                     }
                 )
                 DropdownMenuItem(

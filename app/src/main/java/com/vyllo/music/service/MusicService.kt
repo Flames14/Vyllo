@@ -104,8 +104,22 @@ class MusicService : MediaSessionService() {
             )
         } else if (key == PreferenceManager.KEY_VOLUME_BOOST) {
             volumeBoostProcessor.volumeMultiplier = preferenceManager.volumeBoostMultiplier
+        } else if (key == PreferenceManager.KEY_PLAYBACK_SPEED || key == PreferenceManager.KEY_PLAYBACK_PITCH) {
+            applyPlaybackParameters()
         }
         playbackAudioEffectsManager.onPreferenceChanged(key)
+    }
+
+    /**
+     * Push the stored rate onto the player. Also used at startup: Media3 keeps
+     * the previous speed on the player instance across media items, but a fresh
+     * process starts at 1.0x unless we restore it here.
+     */
+    private fun applyPlaybackParameters() {
+        player?.playbackParameters = PlaybackParameters(
+            preferenceManager.playbackSpeed,
+            preferenceManager.playbackPitch
+        )
     }
 
     companion object {
@@ -153,8 +167,10 @@ class MusicService : MediaSessionService() {
             }
         })
 
-        // Force 1.0x playback speed to prevent "super fast" playback bugs on some devices/emulators
-        player?.playbackParameters = PlaybackParameters(1.0f)
+        // Restore the user's speed/pitch (1.0x by default) instead of forcing
+        // 1.0x, which used to reset a deliberately slowed-down track on every
+        // service start.
+        applyPlaybackParameters()
         player?.audioSessionId?.let { playbackAudioEffectsManager.attachToAudioSession(it) }
 
         serviceScope.launch {

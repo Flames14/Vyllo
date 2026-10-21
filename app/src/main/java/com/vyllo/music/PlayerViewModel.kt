@@ -51,6 +51,8 @@ data class PlayerUiState(
     val isLoadingPlayer: Boolean = false,
     val loadingItemUrl: String? = null,
     val isVideoMode: Boolean = false,
+    val playbackSpeed: Float = 1.0f,
+    val playbackPitch: Float = 1.0f,
     val lyricsResponse: LyricsResponse? = null,
     val syncedLyricsLines: List<SyncedLyricLine> = emptyList(),
     val currentLyricIndex: Int = -1,
@@ -104,7 +106,11 @@ class PlayerViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
-        PlayerUiState(autoplayEnabled = preferenceManager.isAutoplayEnabled)
+        PlayerUiState(
+            autoplayEnabled = preferenceManager.isAutoplayEnabled,
+            playbackSpeed = preferenceManager.playbackSpeed,
+            playbackPitch = preferenceManager.playbackPitch
+        )
     )
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
@@ -150,6 +156,30 @@ class PlayerViewModel @Inject constructor(
     var isVideoMode: Boolean
         get() = _uiState.value.isVideoMode
         set(value) { _uiState.update { it.copy(isVideoMode = value) } }
+
+    /**
+     * Speed/pitch live in Preferences because MediaService owns the player and
+     * listens for these keys — the UI never has to hold a controller to apply
+     * a change, and it keeps working with the screen off.
+     */
+    var playbackSpeed: Float
+        get() = _uiState.value.playbackSpeed
+        set(value) {
+            preferenceManager.playbackSpeed = value
+            _uiState.update { it.copy(playbackSpeed = preferenceManager.playbackSpeed) }
+        }
+
+    var playbackPitch: Float
+        get() = _uiState.value.playbackPitch
+        set(value) {
+            preferenceManager.playbackPitch = value
+            _uiState.update { it.copy(playbackPitch = preferenceManager.playbackPitch) }
+        }
+
+    fun resetPlaybackRate() {
+        playbackSpeed = 1.0f
+        playbackPitch = 1.0f
+    }
     val lyricsResponse: LyricsResponse?
         get() = _uiState.value.lyricsResponse
     val syncedLyricsLines: List<SyncedLyricLine>

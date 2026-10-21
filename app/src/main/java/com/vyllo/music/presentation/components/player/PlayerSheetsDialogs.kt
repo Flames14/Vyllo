@@ -77,6 +77,124 @@ fun PlayerEqualizerSheet(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun PlayerSpeedSheet(
+    show: Boolean,
+    playerUiState: PlayerUiState,
+    viewModel: PlayerViewModel,
+    onDismiss: () -> Unit
+) {
+    if (!show) return
+
+    val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.speed_sheet_title),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(16.dp))
+
+            speeds.chunked(4).forEach { rowSpeeds ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    rowSpeeds.forEach { speed ->
+                        SpeedChip(
+                            label = com.vyllo.music.core.utils.PlaybackRateFormat.speedLabel(speed),
+                            selected = kotlin.math.abs(playerUiState.playbackSpeed - speed) < 0.001f,
+                            onClick = { viewModel.playbackSpeed = speed },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    // Keep the last row's chips the same width as the first row.
+                    repeat(4 - rowSpeeds.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            Spacer(Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.speed_pitch_label),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = com.vyllo.music.core.utils.PlaybackRateFormat.pitchLabel(playerUiState.playbackPitch),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            androidx.compose.material3.Slider(
+                value = playerUiState.playbackPitch,
+                onValueChange = {
+                    viewModel.playbackPitch =
+                        com.vyllo.music.core.utils.PlaybackRateFormat.snapPitch(it)
+                },
+                valueRange = 0.5f..2.0f
+            )
+
+            TextButton(
+                onClick = {
+                    viewModel.resetPlaybackRate()
+                    onDismiss()
+                },
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text(stringResource(R.string.speed_reset))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpeedChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier.padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                ),
+                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun PlayerSleepTimerDialog(
     show: Boolean,
     playerUiState: PlayerUiState,
