@@ -36,6 +36,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -122,6 +123,39 @@ class MusicService : MediaSessionService() {
     }
 
     /**
+     * Recurring sleep schedule. The check only makes sense while music can be
+     * playing, which is exactly when this service is alive, so a light poll is
+     * enough — no alarms or wakeups for a schedule that would have nothing to
+     * pause.
+     */
+    private fun startSleepScheduleWatcher() {
+        serviceScope.launch {
+            while (true) {
+                delay(SLEEP_SCHEDULE_POLL_MS)
+                fireSleepScheduleIfDue()
+            }
+        }
+    }
+
+    private fun fireSleepScheduleIfDue() {
+        val schedule = preferenceManager.sleepSchedule
+        if (!schedule.enabled) return
+
+        val now = java.time.LocalDateTime.now()
+        val due = schedule.isDue(
+            dayOfWeek = now.dayOfWeek.value,
+            minuteOfDay = now.hour * 60 + now.minute,
+            todayEpochDay = now.toLocalDate().toEpochDay(),
+            lastFiredEpochDay = preferenceManager.sleepScheduleLastFiredDay
+        )
+        if (!due) return
+
+        preferenceManager.sleepScheduleLastFiredDay = now.toLocalDate().toEpochDay()
+        player?.let { if (it.isPlaying) it.pause() }
+        SecureLogger.d("MusicService", "Sleep schedule paused playback")
+    }
+
+    /**
      * Push the stored rate onto the player. Also used at startup: Media3 keeps
      * the previous speed on the player instance across media items, but a fresh
      * process starts at 1.0x unless we restore it here.
@@ -134,6 +168,8 @@ class MusicService : MediaSessionService() {
     }
 
     companion object {
+        private const val SLEEP_SCHEDULE_POLL_MS = 30_000L
+
         fun getSimpleCache(context: android.content.Context): SimpleCache =
             CacheProvider.getSimpleCache(context)
     }
@@ -211,6 +247,8 @@ class MusicService : MediaSessionService() {
         // Restore the last session's queue (process death / reboot) and persist
         // structural edits back to storage.
         queuePersistence.start(serviceScope)
+
+        startSleepScheduleWatcher()
 
         val openIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(

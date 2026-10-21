@@ -35,6 +35,12 @@ class SettingsViewModel @Inject constructor(
     var crossfadeSeconds by mutableStateOf(preferenceManager.crossfadeSeconds)
     var loudnessPreset by mutableStateOf(preferenceManager.loudnessPreset)
     var streamQuality by mutableStateOf(preferenceManager.streamQuality)
+    var sleepSchedule by mutableStateOf(preferenceManager.sleepSchedule)
+
+    fun updateSleepSchedule(schedule: com.vyllo.music.domain.model.SleepSchedule) {
+        preferenceManager.sleepSchedule = schedule
+        sleepSchedule = preferenceManager.sleepSchedule
+    }
 
     fun updateStreamQuality(quality: String) {
         preferenceManager.streamQuality = quality
@@ -176,6 +182,7 @@ class SettingsViewModel @Inject constructor(
                 crossfadeSeconds = preferenceManager.crossfadeSeconds
                 loudnessPreset = preferenceManager.loudnessPreset
                 streamQuality = preferenceManager.streamQuality
+                sleepSchedule = preferenceManager.sleepSchedule
                 onComplete(true)
             } else {
                 onComplete(false)

@@ -365,6 +365,10 @@
     <string name="settings_crossfade_desc">Atenúa el final de una canción hacia la siguiente. Desactivado mantiene las transiciones sin cortes.</string>
     <string name="settings_loudness">Normalización de volumen</string>
     <string name="settings_stream_quality">Calidad del audio</string>
+    <string name="settings_sleep_schedule">Pausa programada</string>
+    <string name="sleep_schedule_title">Pausa programada</string>
+    <string name="sleep_schedule_desc">Pausa la reproducción automáticamente a esta hora en los días elegidos.</string>
+    <string name="sleep_schedule_enabled">Activar programación</string>
     <string name="settings_stream_quality_desc">Límite de bits al elegir un flujo de audio. Automática usa la mejor disponible.</string>
     <string name="quality_dialog_title">Calidad del audio</string>
     <string name="quality_auto">Automática</string>

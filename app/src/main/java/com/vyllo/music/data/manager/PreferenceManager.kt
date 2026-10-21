@@ -6,6 +6,7 @@ import com.vyllo.music.core.security.SecurePreferenceManager
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.EqualizerBandSetting
 import com.vyllo.music.domain.model.EqualizerSettings
+import com.vyllo.music.domain.model.SleepSchedule
 import com.vyllo.music.domain.repository.PlayerPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -127,6 +128,20 @@ class PreferenceManager @Inject constructor(
     override var volumeBoostMultiplier: Float
         get() = preferences.getFloat(KEY_VOLUME_BOOST, 1.0f)
         set(value) { preferences.edit().putFloat(KEY_VOLUME_BOOST, value.coerceIn(1.0f, 3.0f)).apply() }
+
+    /** Recurring pause schedule; encoded once so the whole value is atomic. */
+    var sleepSchedule: SleepSchedule
+        get() = SleepSchedule.decode(preferences.getString(KEY_SLEEP_SCHEDULE, null))
+        set(value) {
+            preferences.edit().putString(KEY_SLEEP_SCHEDULE, SleepSchedule.encode(value)).apply()
+        }
+
+    /** Epoch day on which the schedule last paused playback (0 = never). */
+    var sleepScheduleLastFiredDay: Long
+        get() = preferences.getLong(KEY_SLEEP_SCHEDULE_FIRED_DAY, 0L)
+        set(value) {
+            preferences.edit().putLong(KEY_SLEEP_SCHEDULE_FIRED_DAY, value).apply()
+        }
 
     /** Audio stream quality ceiling: Auto/High/Medium/Low. */
     var streamQuality: String
@@ -411,6 +426,8 @@ class PreferenceManager @Inject constructor(
         const val KEY_CROSSFADE_SECONDS = "crossfade_seconds"
         const val KEY_LOUDNESS_PRESET = "loudness_preset"
         const val KEY_STREAM_QUALITY = "stream_quality"
+        const val KEY_SLEEP_SCHEDULE = "sleep_schedule"
+        const val KEY_SLEEP_SCHEDULE_FIRED_DAY = "sleep_schedule_fired_day"
         const val SPEED_MIN = 0.5f
         const val SPEED_MAX = 2.0f
         const val PITCH_MIN = 0.5f

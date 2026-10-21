@@ -362,6 +362,10 @@
     <string name="settings_crossfade_desc">Fade the end of a track into the next one. Off keeps gapless transitions.</string>
     <string name="settings_loudness">Loudness normalization</string>
     <string name="settings_stream_quality">Stream quality</string>
+    <string name="settings_sleep_schedule">Scheduled sleep</string>
+    <string name="sleep_schedule_title">Scheduled sleep</string>
+    <string name="sleep_schedule_desc">Pause playback automatically at this time on the selected days.</string>
+    <string name="sleep_schedule_enabled">Enable schedule</string>
     <string name="settings_stream_quality_desc">Bitrate ceiling used when picking an audio stream. Auto takes the best available.</string>
     <string name="quality_dialog_title">Stream quality</string>
     <string name="quality_auto">Auto</string>

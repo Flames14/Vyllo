@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.R
 import com.vyllo.music.core.utils.ByteSizeFormatter
+import com.vyllo.music.domain.model.SleepSchedule
 
 @Composable
 fun SettingsDialog(
@@ -73,6 +74,8 @@ fun SettingsDialog(
     onLoudnessPresetChange: (String) -> Unit = {},
     streamQuality: String = "Auto",
     onStreamQualityChange: (String) -> Unit = {},
+    sleepSchedule: SleepSchedule = SleepSchedule(),
+    onSleepScheduleChange: (SleepSchedule) -> Unit = {},
     storageMediaBytes: Long = 0L,
     storageImageBytes: Long = 0L,
     storageTotalBytes: Long = 0L,
@@ -87,6 +90,18 @@ fun SettingsDialog(
     var showCrossfadePicker by remember { mutableStateOf(false) }
     var showLoudnessPicker by remember { mutableStateOf(false) }
     var showQualityPicker by remember { mutableStateOf(false) }
+    var showSleepScheduleSheet by remember { mutableStateOf(false) }
+
+    if (showSleepScheduleSheet) {
+        com.vyllo.music.presentation.components.dialogs.SleepScheduleSheet(
+            schedule = sleepSchedule,
+            onSave = {
+                onSleepScheduleChange(it)
+                showSleepScheduleSheet = false
+            },
+            onDismiss = { showSleepScheduleSheet = false }
+        )
+    }
 
     if (showQualityPicker) {
         val qualities = listOf("Auto", "High", "Medium", "Low")
@@ -455,6 +470,21 @@ fun SettingsDialog(
                     onCheckedChange = onUpNextIncludeVariantsChange
                 )
 
+                // Scheduled sleep -- pause playback automatically at a fixed
+                // local time on the chosen weekdays.
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showSleepScheduleSheet = true }
+                        .padding(vertical = 4.dp)
+                ) {
+                    SettingsValueRow(
+                        title = stringResource(R.string.settings_sleep_schedule),
+                        value = sleepScheduleSummary(sleepSchedule),
+                        emphasize = true
+                    )
+                }
+
                 // Stream quality -- caps the audio bitrate we pick from the
                 // extractor's stream list for every newly resolved track.
                 Column(
@@ -637,6 +667,22 @@ fun SettingsDialog(
         textContentColor = MaterialTheme.colorScheme.onSurface,
         titleContentColor = MaterialTheme.colorScheme.onSurface
     )
+}
+
+@Composable
+private fun sleepScheduleSummary(schedule: SleepSchedule): String {
+    if (!schedule.enabled || schedule.days.isEmpty()) {
+        return stringResource(R.string.loudness_off)
+    }
+    val locale = java.util.Locale.getDefault()
+    val days = schedule.days.sorted().mapNotNull { day ->
+        runCatching {
+            java.time.DayOfWeek.of(day)
+                .getDisplayName(java.time.format.TextStyle.SHORT, locale)
+        }.getOrNull()
+    }
+    val time = String.format(locale, "%02d:%02d", schedule.hour, schedule.minute)
+    return (days + time).joinToString(" ")
 }
 
 @Composable
