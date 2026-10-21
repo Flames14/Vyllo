@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
  * - Cyberpunk (neon cyan)
  * - Lavender (purple accent)
  * - Crimson (red accent)
+ * - Dynamic (Material You wallpaper colors, Android 12+; falls back to System)
  */
 object ThemeManager {
 
@@ -41,7 +42,7 @@ object ThemeManager {
             "Lavender" -> lavenderScheme()
             "Crimson" -> crimsonScheme()
             "Light" -> lightScheme()
-            "System" -> if (isSystemDark) defaultDarkScheme() else lightScheme()
+            "System", "Dynamic" -> if (isSystemDark) defaultDarkScheme() else lightScheme()
             else -> if (isSystemDark) defaultDarkScheme() else lightScheme()
         }
     }
@@ -53,7 +54,7 @@ object ThemeManager {
     fun isDarkTheme(themeMode: String, isSystemDark: Boolean): Boolean {
         return when (themeMode) {
             "Light" -> false
-            "System" -> isSystemDark
+            "System", "Dynamic" -> isSystemDark
             else -> true
         }
     }

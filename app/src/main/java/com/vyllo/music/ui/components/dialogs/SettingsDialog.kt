@@ -1,6 +1,7 @@
 package com.vyllo.music.ui.components.dialogs
 
 import androidx.compose.foundation.clickable
+import android.os.Build
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -126,7 +127,20 @@ fun SettingsDialog(
                         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val themes = listOf("System", "Light", "Dark", "Ocean", "Forest", "Sunset", "AMOLED", "Midnight Gold", "Cyberpunk", "Lavender", "Crimson")
+                        val themes = buildList {
+                            add("System")
+                            add("Light")
+                            add("Dark")
+                            // Material You needs Android 12+; hide rather than
+                            // offer a chip that silently does nothing.
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) add("Dynamic")
+                            addAll(
+                                listOf(
+                                    "Ocean", "Forest", "Sunset", "AMOLED",
+                                    "Midnight Gold", "Cyberpunk", "Lavender", "Crimson"
+                                )
+                            )
+                        }
                         themes.forEach { theme ->
                             val isSelected = theme == themeMode
                             Surface(

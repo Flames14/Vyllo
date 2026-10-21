@@ -125,8 +125,15 @@ class MainActivity : AppCompatActivity() {
         val self = this
 
         setContent {
-            val isDark = ThemeManager.isDarkTheme(settingsViewModel.themeMode, isSystemInDarkTheme())
-            val colorScheme = ThemeManager.getColorScheme(settingsViewModel.themeMode, isSystemInDarkTheme())
+            val isSystemDark = isSystemInDarkTheme()
+            val isDark = ThemeManager.isDarkTheme(settingsViewModel.themeMode, isSystemDark)
+            val dynamicScheme = if (settingsViewModel.themeMode == "Dynamic") {
+                com.vyllo.music.presentation.theme.dynamicColorSchemeOrNull(isSystemDark)
+            } else {
+                null
+            }
+            val colorScheme = dynamicScheme
+                ?: ThemeManager.getColorScheme(settingsViewModel.themeMode, isSystemDark)
             
             MaterialTheme(
                 colorScheme = colorScheme,

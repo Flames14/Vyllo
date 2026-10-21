@@ -100,6 +100,21 @@ class ThemeManagerTest {
     }
 
     @Test
+    fun testDynamicFollowsSystemDarkness() {
+        assertTrue(ThemeManager.isDarkTheme("Dynamic", true))
+        assertFalse(ThemeManager.isDarkTheme("Dynamic", false))
+    }
+
+    @Test
+    fun testDynamicFallsBackToSystemPalette() {
+        val dark = ThemeManager.getColorScheme("Dynamic", true)
+        val light = ThemeManager.getColorScheme("Dynamic", false)
+
+        assertTrue(dark.background.red < 0.2f)
+        assertEquals(Color.White, light.background)
+    }
+
+    @Test
     fun testIsDarkTheme_Dark() {
         assertTrue(ThemeManager.isDarkTheme("Dark", false))
     }
