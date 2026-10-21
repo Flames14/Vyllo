@@ -363,6 +363,13 @@
     <string name="settings_storage_clearing">Clearing...</string>
     <string name="settings_storage_clear_confirm_title">Clear cache?</string>
     <string name="settings_storage_clear_confirm_message">Cached artwork and streamed audio will be removed. Downloaded songs are not affected.</string>
+    <string name="library_import_playlist">Import playlist</string>
+    <string name="playlist_export_m3u">Export as M3U</string>
+    <string name="playlist_export_csv">Export as CSV</string>
+    <string name="playlist_export_success">Playlist exported</string>
+    <string name="playlist_export_failed">Could not export playlist</string>
+    <string name="playlist_import_success">Playlist imported</string>
+    <string name="playlist_import_failed">Could not import playlist</string>
     <string name="settings_support">Support Development</string>
     <string name="settings_buy_coffee">Buy me a coffee ☕</string>
     <string name="settings_donate_cd">Donate</string>

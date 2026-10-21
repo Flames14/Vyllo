@@ -366,6 +366,13 @@
     <string name="settings_storage_clearing">Borrando...</string>
     <string name="settings_storage_clear_confirm_title">¿Borrar la caché?</string>
     <string name="settings_storage_clear_confirm_message">Se eliminarán las imágenes y el audio en streaming guardados en caché. Las canciones descargadas no se verán afectadas.</string>
+    <string name="library_import_playlist">Importar lista</string>
+    <string name="playlist_export_m3u">Exportar como M3U</string>
+    <string name="playlist_export_csv">Exportar como CSV</string>
+    <string name="playlist_export_success">Lista exportada</string>
+    <string name="playlist_export_failed">No se pudo exportar la lista</string>
+    <string name="playlist_import_success">Lista importada</string>
+    <string name="playlist_import_failed">No se pudo importar la lista</string>
     <string name="settings_support">Apoyar el desarrollo</string>
     <string name="settings_buy_coffee">Invítame a un café ☕</string>
     <string name="settings_donate_cd">Donar</string>

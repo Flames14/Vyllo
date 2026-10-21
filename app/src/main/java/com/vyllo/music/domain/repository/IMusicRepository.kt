@@ -12,7 +12,7 @@ interface IMusicRepository {
     suspend fun searchMusic(query: String, maintainSession: Boolean = true): List<MusicItem>
     suspend fun loadMoreResults(): List<MusicItem>
 
-    /** Full metadata (title/artist/art/duration) for a watch URL — content deep links. */
+    /** Full metadata (title/artist/art/duration) for a watch URL â€” content deep links. */
     suspend fun resolveTrack(url: String): MusicItem?
     suspend fun getTrendingMusic(): List<MusicItem>
     suspend fun getStreamUrl(url: String, force: Boolean = false, isVideo: Boolean = false): String?
@@ -28,7 +28,7 @@ interface IMusicRepository {
     ): List<MusicItem>
 
     /**
-     * Discovery ordering of the already-built related pool — backs the Related tab's
+     * Discovery ordering of the already-built related pool â€” backs the Related tab's
      * "similar to this track" section from the same ranked candidates that seed Up
      * Next, re-weighted toward new artists.
      */
@@ -40,7 +40,7 @@ interface IMusicRepository {
 
     // Playlist Methods
     fun getAllPlaylists(): Flow<List<PlaylistEntity>>
-    suspend fun createPlaylist(name: String)
+    suspend fun createPlaylist(name: String): Long
     suspend fun deletePlaylist(playlist: PlaylistEntity)
     /** Adds once; returns false if the same URL is already in the playlist. */
     suspend fun addSongToPlaylist(playlistId: Long, item: MusicItem): Boolean

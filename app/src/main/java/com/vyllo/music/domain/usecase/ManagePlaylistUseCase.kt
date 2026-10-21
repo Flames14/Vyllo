@@ -12,7 +12,7 @@ class ManagePlaylistUseCase @Inject constructor(
 ) {
     fun getAllPlaylists(): Flow<List<PlaylistEntity>> = repository.getAllPlaylists()
     
-    suspend fun createPlaylist(name: String) = repository.createPlaylist(name)
+    suspend fun createPlaylist(name: String): Long = repository.createPlaylist(name)
     
     suspend fun deletePlaylist(playlist: PlaylistEntity) = repository.deletePlaylist(playlist)
     

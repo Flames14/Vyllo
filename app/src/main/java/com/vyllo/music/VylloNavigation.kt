@@ -36,6 +36,8 @@ import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.ui.components.dialogs.SettingsDialog
 import com.vyllo.music.presentation.components.common.PlaylistAddDialog
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.domain.model.PlaylistEntity
+import com.vyllo.music.domain.model.PlaylistFileCodec
 import com.vyllo.music.domain.manager.PlaybackManager
 import com.vyllo.music.presentation.components.*
 import com.vyllo.music.presentation.components.common.YTMBottomNavBar
@@ -310,6 +312,50 @@ fun VylloNavigation(
                         .fillMaxSize()
                         .padding(paddingValues)
                 ) {
+                    var pendingPlaylistExport by remember {
+                        mutableStateOf<Pair<PlaylistEntity, PlaylistFileCodec.Format>?>(null)
+                    }
+                    val playlistExportLauncher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.CreateDocument("*/*")
+                    ) { uri ->
+                        val pending = pendingPlaylistExport
+                        pendingPlaylistExport = null
+                        if (uri != null && pending != null) {
+                            libraryViewModel.exportPlaylistToFile(
+                                playlistId = pending.first.id,
+                                playlistName = pending.first.name,
+                                uri = uri,
+                                format = pending.second
+                            ) { ok ->
+                                Toast.makeText(
+                                    context,
+                                    context.getString(
+                                        if (ok) R.string.playlist_export_success
+                                        else R.string.playlist_export_failed
+                                    ),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    }
+
+                    val playlistImportLauncher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.OpenDocument()
+                    ) { uri ->
+                        if (uri != null) {
+                            libraryViewModel.importPlaylistFromFile(uri) { ok ->
+                                Toast.makeText(
+                                    context,
+                                    context.getString(
+                                        if (ok) R.string.playlist_import_success
+                                        else R.string.playlist_import_failed
+                                    ),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    }
+
                     NavHost(
                         navController = navController,
                         startDestination = VylloRoutes.HOME,
@@ -371,6 +417,18 @@ fun VylloNavigation(
                                 },
                                 onArtistClick = { artist ->
                                     navController.navigate(VylloRoutes.artist(artist.name))
+                                },
+                                onImportPlaylistClick = {
+                                    playlistImportLauncher.launch(
+                                        arrayOf(
+                                            "audio/x-mpegurl",
+                                            "audio/mpegurl",
+                                            "application/vnd.ms-playlist",
+                                            "text/csv",
+                                            "text/plain",
+                                            "text/*"
+                                        )
+                                    )
                                 }
                             )
                         }
@@ -430,7 +488,15 @@ fun VylloNavigation(
                                         onPlay(item)
                                     },
                                     currentPlayingItem = currentPlayingItem,
-                                    loadingItemUrl = loadingItemUrl
+                                    loadingItemUrl = loadingItemUrl,
+                                    onExportM3u = {
+                                        pendingPlaylistExport = playlist to PlaylistFileCodec.Format.M3U
+                                        playlistExportLauncher.launch("${playlist.name}.m3u")
+                                    },
+                                    onExportCsv = {
+                                        pendingPlaylistExport = playlist to PlaylistFileCodec.Format.CSV
+                                        playlistExportLauncher.launch("${playlist.name}.csv")
+                                    }
                                 )
                             }
                         }

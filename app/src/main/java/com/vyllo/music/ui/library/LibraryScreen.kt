@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.*
@@ -60,7 +61,8 @@ fun YTMLibraryScreen(
     loadingItemUrl: String? = null,
     onNavigateToAlarms: () -> Unit = {},
     onPlaylistClick: (PlaylistEntity) -> Unit = {},
-    onArtistClick: (ArtistSummary) -> Unit = {}
+    onArtistClick: (ArtistSummary) -> Unit = {},
+    onImportPlaylistClick: () -> Unit = {}
 ) {
     val scrollState = rememberLazyListState()
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -184,6 +186,13 @@ fun YTMLibraryScreen(
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onImportPlaylistClick) {
+                        Icon(
+                            Icons.Rounded.FileOpen,
+                            contentDescription = stringResource(R.string.library_import_playlist),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     IconButton(onClick = {
                         viewModel.showYouTubeSyncSheet = true
                         if (viewModel.isGoogleConnected.value) {

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -34,8 +35,12 @@ fun YTMPlaylistScreen(
     currentPlayingItem: MusicItem?,
     loadingItemUrl: String? = null,
     isPinned: Boolean = false,
-    onTogglePinned: () -> Unit = {}
+    onTogglePinned: () -> Unit = {},
+    onExportM3u: () -> Unit = {},
+    onExportCsv: () -> Unit = {}
 ) {
+    var showExportMenu by remember { mutableStateOf(false) }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
@@ -64,6 +69,34 @@ fun YTMPlaylistScreen(
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.padding(start = VylloSpacing.sm).weight(1f)
             )
+            Box {
+                IconButton(onClick = { showExportMenu = true }) {
+                    Icon(
+                        Icons.Rounded.MoreVert,
+                        contentDescription = stringResource(R.string.header_more_options),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                DropdownMenu(
+                    expanded = showExportMenu,
+                    onDismissRequest = { showExportMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.playlist_export_m3u)) },
+                        onClick = {
+                            showExportMenu = false
+                            onExportM3u()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.playlist_export_csv)) },
+                        onClick = {
+                            showExportMenu = false
+                            onExportCsv()
+                        }
+                    )
+                }
+            }
             IconButton(onClick = onTogglePinned) {
                 Icon(
                     imageVector = Icons.Rounded.PushPin,

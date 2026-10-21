@@ -6,16 +6,19 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
+import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.ArtistSummary
 import com.vyllo.music.domain.model.LibraryArtists
+import com.vyllo.music.domain.model.PlaylistFileCodec
 import com.vyllo.music.domain.model.normalizeArtistKey
 import com.vyllo.music.domain.model.DownloadEntity
 import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.domain.model.PlaylistSongEntity
 import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.DownloadManager
+import com.vyllo.music.data.manager.PlaylistFileManager
 import com.vyllo.music.domain.usecase.DownloadMusicUseCase
 import com.vyllo.music.domain.usecase.ManagePlaylistUseCase
 import com.vyllo.music.data.network.YouTubeRemotePlaylist
@@ -25,6 +28,7 @@ import com.vyllo.music.data.repository.YouTubeSyncRepository
 import com.vyllo.music.domain.repository.IMusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -40,7 +44,8 @@ class LibraryViewModel @Inject constructor(
     private val downloadManager: DownloadManager,
     private val youtubeOAuthManager: YouTubeOAuthManager,
     private val youtubeSyncRepository: YouTubeSyncRepository,
-    private val musicRepository: IMusicRepository
+    private val musicRepository: IMusicRepository,
+    private val playlistFileManager: PlaylistFileManager
 ) : ViewModel() {
 
     var allPlaylists by mutableStateOf<List<PlaylistEntity>>(emptyList())
@@ -49,6 +54,8 @@ class LibraryViewModel @Inject constructor(
     var showPlaylistAddDialog by mutableStateOf(false)
     var playlistAddWasDuplicate by mutableStateOf(false)
     var songToAddToPlaylist by mutableStateOf<MusicItem?>(null)
+    var isPlaylistFileBusy by mutableStateOf(false)
+        private set
 
     // YouTube Sync States
     val isGoogleConnected: StateFlow<Boolean> = youtubeOAuthManager.isAuthorized
@@ -220,6 +227,79 @@ class LibraryViewModel @Inject constructor(
     fun createPlaylist(name: String) {
         viewModelScope.launch {
             managePlaylistUseCase.createPlaylist(name)
+        }
+    }
+
+    /**
+     * Writes one playlist to a SAF document. Export always reflects the
+     * database, not the currently visible screen, so it also works from a
+     * deep link where the song list has not been opened yet.
+     */
+    fun exportPlaylistToFile(
+        playlistId: Long,
+        playlistName: String,
+        uri: Uri,
+        format: PlaylistFileCodec.Format,
+        onDone: (Boolean) -> Unit = {}
+    ) {
+        if (isPlaylistFileBusy) return
+        isPlaylistFileBusy = true
+        viewModelScope.launch {
+            val songs = runCatching { musicRepository.getSongsInPlaylist(playlistId).first() }
+                .getOrDefault(emptyList())
+            val tracks = songs.map {
+                PlaylistFileCodec.Track(
+                    title = it.title,
+                    artist = it.uploader,
+                    url = it.url
+                )
+            }
+            val encoded = PlaylistFileCodec.encode(tracks, playlistName, format)
+            val result = playlistFileManager.write(uri, encoded)
+            isPlaylistFileBusy = false
+            onDone(result.isSuccess)
+        }
+    }
+
+    /**
+     * Imports an M3U/CSV file as a new playlist. Track URLs are stored as-is;
+     * playability is verified when the user actually plays them, so importing
+     * a file that references dead videos still preserves the list.
+     */
+    fun importPlaylistFromFile(uri: Uri, onDone: (Boolean) -> Unit = {}) {
+        if (isPlaylistFileBusy) return
+        isPlaylistFileBusy = true
+        viewModelScope.launch {
+            val result = runCatching {
+                val displayName = playlistFileManager.displayName(uri)
+                val text = playlistFileManager.read(uri).getOrThrow()
+                val tracks = PlaylistFileCodec.decode(
+                    text,
+                    PlaylistFileCodec.detectFormat(displayName, text)
+                )
+                require(tracks.isNotEmpty())
+
+                val baseName = displayName
+                    ?.substringBeforeLast('.')
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() }
+                    ?: "Imported playlist"
+                val playlistName = baseName.take(80)
+                val playlistId = managePlaylistUseCase.createPlaylist(playlistName)
+                tracks.forEach { track ->
+                    managePlaylistUseCase.addSongToPlaylist(
+                        playlistId,
+                        MusicItem(
+                            title = track.title.ifBlank { track.url },
+                            url = track.url,
+                            uploader = track.artist,
+                            durationSecs = track.durationSecs
+                        )
+                    )
+                }
+            }
+            isPlaylistFileBusy = false
+            onDone(result.isSuccess)
         }
     }
 

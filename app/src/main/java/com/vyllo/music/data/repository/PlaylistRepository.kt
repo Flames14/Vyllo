@@ -16,9 +16,7 @@ class PlaylistRepository @Inject constructor(
     fun getAllPlaylists(): Flow<List<PlaylistEntity>> =
         playlistDao.getAllPlaylists().distinctUntilChanged()
 
-    suspend fun createPlaylist(name: String) {
-        playlistDao.insertPlaylist(PlaylistEntity(name = name))
-    }
+    suspend fun createPlaylist(name: String): Long = playlistDao.insertPlaylist(PlaylistEntity(name = name))
 
     suspend fun deletePlaylist(playlist: PlaylistEntity) {
         playlistDao.deletePlaylist(playlist)

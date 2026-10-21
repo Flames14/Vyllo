@@ -158,7 +158,7 @@ class MusicRepositoryImpl @Inject constructor(
 
     // Playlist Methods
     override fun getAllPlaylists(): Flow<List<PlaylistEntity>> = playlistRepository.getAllPlaylists()
-    override suspend fun createPlaylist(name: String) = playlistRepository.createPlaylist(name)
+    override suspend fun createPlaylist(name: String): Long = playlistRepository.createPlaylist(name)
     override suspend fun deletePlaylist(playlist: PlaylistEntity) = playlistRepository.deletePlaylist(playlist)
     override suspend fun addSongToPlaylist(playlistId: Long, item: MusicItem): Boolean =
         playlistRepository.addSongToPlaylist(playlistId, item)
@@ -238,7 +238,7 @@ class MusicRepositoryImpl @Inject constructor(
  * Home feed seed.
  *
  * Previously six strictly sequential network round trips, and Home awaited the
- * whole thing before rendering anything — the single largest cause of the slow
+ * whole thing before rendering anything â€” the single largest cause of the slow
  * cold start. The independent branches now run concurrently; only the pagination
  * seed stays serial because it must claim [YouTubeDataSource]'s session slot.
  */
