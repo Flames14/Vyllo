@@ -84,6 +84,10 @@ object VylloRoutes {
     const val ARTIST_ARG = "artistName"
     const val ARTIST = "artist/{$ARTIST_ARG}"
     fun artist(name: String) = "artist/${Uri.encode(name)}"
+
+    const val SMART_ARG = "smartKey"
+    const val SMART = "smart/{$SMART_ARG}"
+    fun smart(key: String) = "smart/$key"
 }
 
 /** Bottom-bar index (0=Home, 1=Search, 2=Explore, 3=Library) for a route. */
@@ -91,7 +95,7 @@ private fun bottomTabForRoute(route: String?): Int = when (route) {
     VylloRoutes.SEARCH -> 1
     VylloRoutes.EXPLORE -> 2
     VylloRoutes.LIBRARY, VylloRoutes.PLAYLIST, VylloRoutes.ARTIST, VylloRoutes.ALARMS,
-    VylloRoutes.STATS -> 3
+    VylloRoutes.STATS, VylloRoutes.SMART -> 3
     else -> 0
 }
 
@@ -415,6 +419,9 @@ fun VylloNavigation(
                                 loadingItemUrl = loadingItemUrl,
                                 onNavigateToAlarms = { navController.navigate(VylloRoutes.ALARMS) },
                                 onNavigateToStats = { navController.navigate(VylloRoutes.STATS) },
+                                onSmartPlaylistClick = { kind ->
+                                    navController.navigate(VylloRoutes.smart(kind.key))
+                                },
                                 onPlaylistClick = { playlist ->
                                     libraryViewModel.loadPlaylistSongs(playlist.id)
                                     navController.navigate(VylloRoutes.playlist(playlist.id))
@@ -475,6 +482,23 @@ fun VylloNavigation(
                             val statsViewModel: StatsViewModel = hiltViewModel()
                             StatsScreen(
                                 viewModel = statsViewModel,
+                                onBack = { navController.popBackStack() },
+                                onPlay = { item ->
+                                    homeViewModel.addToRecentlyPlayed(item)
+                                    onPlay(item)
+                                },
+                                currentPlayingItem = currentPlayingItem,
+                                loadingItemUrl = loadingItemUrl
+                            )
+                        }
+
+                        composable(
+                            route = VylloRoutes.SMART,
+                            arguments = listOf(navArgument(VylloRoutes.SMART_ARG) { type = NavType.StringType })
+                        ) {
+                            val smartViewModel: SmartPlaylistViewModel = hiltViewModel()
+                            SmartPlaylistScreen(
+                                viewModel = smartViewModel,
                                 onBack = { navController.popBackStack() },
                                 onPlay = { item ->
                                     homeViewModel.addToRecentlyPlayed(item)

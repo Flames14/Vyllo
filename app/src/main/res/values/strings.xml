@@ -443,6 +443,9 @@
     </plurals>
     <string name="library_downloads_title">Downloads</string>
     <string name="library_no_downloads">No downloads yet</string>
+    <string name="library_downloads_empty_body">Download a track to listen offline.</string>
+    <string name="action_play_all">Play all</string>
+    <string name="library_smart_playlists">Smart playlists</string>
     <string name="library_history_title">Recently played</string>
     <string name="library_history_empty">No listening history yet</string>
     <string name="library_history_empty_body">Songs you play will appear here.</string>

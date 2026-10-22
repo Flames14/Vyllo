@@ -17,11 +17,13 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -63,6 +65,7 @@ fun YTMLibraryScreen(
     loadingItemUrl: String? = null,
     onNavigateToAlarms: () -> Unit = {},
     onNavigateToStats: () -> Unit = {},
+    onSmartPlaylistClick: (com.vyllo.music.domain.model.SmartPlaylist) -> Unit = {},
     onPlaylistClick: (PlaylistEntity) -> Unit = {},
     onArtistClick: (ArtistSummary) -> Unit = {},
     onImportPlaylistClick: () -> Unit = {}
@@ -231,6 +234,10 @@ fun YTMLibraryScreen(
                     )
                 }
             }
+        }
+
+        item(key = "smart_playlists", contentType = "row") {
+            SmartPlaylistStrip(onClick = onSmartPlaylistClick)
         }
 
         item(key = "playlists_header", contentType = "header") {
@@ -546,6 +553,79 @@ fun YTMLibraryScreen(
                             contentDescription = stringResource(R.string.history_remove_action),
                             tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                             modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The computed collections. Rendered as a horizontal strip so they read as
+ * shortcuts, not as user-owned playlists that can be renamed or deleted.
+ */
+@Composable
+private fun SmartPlaylistStrip(
+    onClick: (com.vyllo.music.domain.model.SmartPlaylist) -> Unit
+) {
+    val entries = listOf(
+        Triple(
+            com.vyllo.music.domain.model.SmartPlaylist.LIKED,
+            Icons.Rounded.Favorite,
+            stringResource(R.string.library_liked_title)
+        ),
+        Triple(
+            com.vyllo.music.domain.model.SmartPlaylist.OFFLINE,
+            Icons.Rounded.Download,
+            stringResource(R.string.library_downloads_title)
+        ),
+        Triple(
+            com.vyllo.music.domain.model.SmartPlaylist.TOP,
+            Icons.Rounded.TrendingUp,
+            stringResource(R.string.stats_top_tracks)
+        )
+    )
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.library_smart_playlists),
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(
+                horizontal = VylloSpacing.screenHorizontal,
+                vertical = VylloSpacing.sm
+            )
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = VylloSpacing.screenHorizontal),
+            horizontalArrangement = Arrangement.spacedBy(VylloSpacing.sm)
+        ) {
+            items(entries.size) { index ->
+                val (kind, icon, title) = entries[index]
+                Card(
+                    modifier = Modifier
+                        .width(132.dp)
+                        .pressScaleClickable { onClick(kind) },
+                    shape = RoundedCornerShape(VylloRadius.lg),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(VylloSpacing.md)) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(VylloSize.iconLarge)
+                        )
+                        Spacer(Modifier.height(VylloSpacing.sm))
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }

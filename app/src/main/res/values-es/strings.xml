@@ -447,6 +447,9 @@
     </plurals>
     <string name="library_downloads_title">Descargas</string>
     <string name="library_no_downloads">Aún no hay descargas</string>
+    <string name="library_downloads_empty_body">Descarga una canción para escucharla sin conexión.</string>
+    <string name="action_play_all">Reproducir todo</string>
+    <string name="library_smart_playlists">Listas inteligentes</string>
     <string name="library_history_title">Reproducido recientemente</string>
     <string name="library_history_empty">Aún no hay historial</string>
     <string name="library_history_empty_body">Las canciones que reproduzcas aparecerán aquí.</string>
