@@ -194,10 +194,22 @@
         <item quantity="one">%1$d track</item>
         <item quantity="other">%1$d tracks</item>
     </plurals>
+    <plurals name="queue_selected_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+    <plurals name="queue_items_removed">
+        <item quantity="one">Removed %1$d track from queue</item>
+        <item quantity="other">Removed %1$d tracks from queue</item>
+    </plurals>
     <string name="queue_swipe_up_hint">Swipe up for Up Next</string>
     <string name="queue_auto_mix">%1$s â€¢ Auto-Mix</string>
 
     <string name="queue_move_up">Move up</string>
+    <string name="queue_select">Select</string>
+    <string name="queue_remove_selected">Remove selected tracks</string>
+    <string name="action_select_all">Select all</string>
+    <string name="action_deselect_all">Deselect all</string>
     <string name="queue_move_down">Move down</string>
     <string name="queue_remove">Remove</string>
     <string name="queue_item_removed">Removed from queue</string>

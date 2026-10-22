@@ -197,10 +197,24 @@
         <item quantity="many">%1$d pistas</item>
         <item quantity="other">%1$d pistas</item>
     </plurals>
+    <plurals name="queue_selected_count">
+        <item quantity="one">%1$d seleccionada</item>
+        <item quantity="many">%1$d seleccionadas</item>
+        <item quantity="other">%1$d seleccionadas</item>
+    </plurals>
+    <plurals name="queue_items_removed">
+        <item quantity="one">Se eliminó %1$d pista de la cola</item>
+        <item quantity="many">Se eliminaron %1$d pistas de la cola</item>
+        <item quantity="other">Se eliminaron %1$d pistas de la cola</item>
+    </plurals>
     <string name="queue_swipe_up_hint">Desliza hacia arriba para ver lo que sigue</string>
     <string name="queue_auto_mix">%1$s • Mezcla automática</string>
 
     <string name="queue_move_up">Subir</string>
+    <string name="queue_select">Seleccionar</string>
+    <string name="queue_remove_selected">Eliminar canciones seleccionadas</string>
+    <string name="action_select_all">Seleccionar todo</string>
+    <string name="action_deselect_all">Deseleccionar todo</string>
     <string name="queue_move_down">Bajar</string>
     <string name="queue_remove">Eliminar</string>
     <string name="queue_item_removed">Eliminado de la cola</string>

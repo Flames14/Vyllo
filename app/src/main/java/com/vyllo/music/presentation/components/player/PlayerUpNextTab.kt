@@ -24,6 +24,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.MoreVert
@@ -87,6 +89,7 @@ fun PlayerUpNextTab(
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var menuForUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedQueueUrls by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showClearConfirmation by rememberSaveable { mutableStateOf(false) }
     var playedExpanded by rememberSaveable { mutableStateOf(false) }
     val playedItems = playerUiState.playedQueueItems
@@ -94,6 +97,11 @@ fun PlayerUpNextTab(
     val undoLabel = stringResource(R.string.action_undo)
     val removedMessage = stringResource(R.string.queue_item_removed)
     val clearedMessage = stringResource(R.string.queue_cleared)
+    val bulkRemovedMessage = pluralStringResource(
+        R.plurals.queue_items_removed,
+        selectedQueueUrls.size,
+        selectedQueueUrls.size
+    )
 
     // Only run the spin animation while refreshing; a permanently-running
     // transition recomposes at 60fps during scrolling.
@@ -186,6 +194,8 @@ fun PlayerUpNextTab(
     // so there is no flicker between the local order and the queue flow.
     LaunchedEffect(queueItems) {
         if (draggingIndex == null) draggingList = null
+        val availableUrls = queueItems.mapTo(mutableSetOf()) { it.url }
+        selectedQueueUrls = selectedQueueUrls.intersect(availableUrls)
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -194,6 +204,75 @@ fun PlayerUpNextTab(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
             contentPadding = PaddingValues(bottom = 80.dp, top = 8.dp)
         ) {
+            if (selectedQueueUrls.isNotEmpty()) {
+                item(key = "queue_selection_toolbar") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = pluralStringResource(
+                                R.plurals.queue_selected_count,
+                                selectedQueueUrls.size,
+                                selectedQueueUrls.size
+                            ),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = {
+                                selectedQueueUrls = if (selectedQueueUrls.size == queueItems.size) {
+                                    emptySet()
+                                } else {
+                                    queueItems.mapTo(mutableSetOf()) { it.url }
+                                }
+                            }) {
+                                Text(
+                                    stringResource(
+                                        if (selectedQueueUrls.size == queueItems.size) R.string.action_deselect_all
+                                        else R.string.action_select_all
+                                    )
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    val targets = queueItems.mapIndexedNotNull { index, queued ->
+                                        if (queued.url in selectedQueueUrls) queued to index else null
+                                    }.sortedByDescending { it.second }
+                                    val removed = targets.mapNotNull { (queued, index) ->
+                                        viewModel.removeFromQueue(queued.url)?.let { it to index }
+                                    }
+                                    selectedQueueUrls = emptySet()
+                                    if (removed.isNotEmpty()) {
+                                        coroutineScope.launch {
+                                            if (snackbarHostState.showSnackbar(
+                                                    message = bulkRemovedMessage,
+                                                    actionLabel = undoLabel
+                                                ) == SnackbarResult.ActionPerformed
+                                            ) {
+                                                removed.sortedBy { it.second }.forEach { (song, index) ->
+                                                    viewModel.undoQueueRemoval(song, index)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Delete,
+                                    contentDescription = stringResource(R.string.queue_remove_selected),
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            IconButton(onClick = { selectedQueueUrls = emptySet() }) {
+                                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.action_cancel))
+                            }
+                        }
+                    }
+                }
+            }
+
             item(key = "played_section_header") {
                 Row(
                     modifier = Modifier
@@ -333,7 +412,7 @@ fun PlayerUpNextTab(
                             shadowElevation = 12f
                         }
                     }
-                    .pointerInput(song.url) {
+                    .then(if (selectedQueueUrls.isEmpty()) Modifier.pointerInput(song.url) {
                         detectDragGesturesAfterLongPress(
                             onDragStart = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -365,13 +444,32 @@ fun PlayerUpNextTab(
                                 resetDrag()
                             }
                         )
-                    }
+                    } else Modifier)
                 QueueSongRowItem(
                     item = song,
                     isActive = false,
-                    onClick = { onPlayRelated(song) },
+                    onClick = {
+                        if (selectedQueueUrls.isNotEmpty()) {
+                            selectedQueueUrls = if (song.url in selectedQueueUrls) {
+                                selectedQueueUrls - song.url
+                            } else {
+                                selectedQueueUrls + song.url
+                            }
+                        } else {
+                            onPlayRelated(song)
+                        }
+                    },
                     modifier = rowModifier,
                     trailingContent = {
+                        if (selectedQueueUrls.isNotEmpty()) {
+                            androidx.compose.material3.Checkbox(
+                                checked = song.url in selectedQueueUrls,
+                                onCheckedChange = { checked ->
+                                    selectedQueueUrls = if (checked) selectedQueueUrls + song.url
+                                    else selectedQueueUrls - song.url
+                                }
+                            )
+                        }
                         Box {
                             IconButton(onClick = { menuForUrl = song.url }) {
                                 Icon(
@@ -384,6 +482,13 @@ fun PlayerUpNextTab(
                                 expanded = menuForUrl == song.url,
                                 onDismissRequest = { menuForUrl = null }
                             ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.queue_select)) },
+                                    onClick = {
+                                        selectedQueueUrls = selectedQueueUrls + song.url
+                                        menuForUrl = null
+                                    }
+                                )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.queue_move_up)) },
                                     onClick = {
