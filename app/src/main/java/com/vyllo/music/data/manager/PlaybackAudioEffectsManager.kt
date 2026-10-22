@@ -2,6 +2,7 @@ package com.vyllo.music.data.manager
 
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
+import android.media.audiofx.PresetReverb
 import android.media.audiofx.Virtualizer
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.EqualizerSettings
@@ -17,6 +18,7 @@ class PlaybackAudioEffectsManager @Inject constructor(
     private var equalizer: Equalizer? = null
     private var bassBoost: BassBoost? = null
     private var virtualizer: Virtualizer? = null
+    private var reverb: PresetReverb? = null
 
     fun attachToAudioSession(audioSessionId: Int) {
         if (audioSessionId <= 0) {
@@ -36,12 +38,15 @@ class PlaybackAudioEffectsManager @Inject constructor(
             equalizer = Equalizer(0, audioSessionId)
             bassBoost = BassBoost(0, audioSessionId)
             virtualizer = Virtualizer(0, audioSessionId)
-            applyCurrentSettings()
-            SecureLogger.d(TAG) { "Audio effects attached to session=$audioSessionId" }
         } catch (error: Exception) {
             SecureLogger.w(TAG, "Unable to create audio effects for session=$audioSessionId", error)
             releaseEffects()
+            return
         }
+        runCatching { reverb = PresetReverb(0, audioSessionId) }
+            .onFailure { error -> SecureLogger.w(TAG, "Unable to create reverb for session=$audioSessionId", error) }
+        applyCurrentSettings()
+        SecureLogger.d(TAG) { "Audio effects attached to session=$audioSessionId" }
     }
 
     fun onPreferenceChanged(key: String?) {
@@ -99,15 +104,27 @@ class PlaybackAudioEffectsManager @Inject constructor(
                 SecureLogger.w(TAG, "Failed to apply virtualizer", error)
             }
         }
+
+        reverb?.let { effect ->
+            runCatching {
+                val presetId = preferenceManager.reverbPresetId
+                effect.preset = presetId.toShort()
+                effect.enabled = presetId != PresetReverb.PRESET_NONE.toInt()
+            }.onFailure { error ->
+                SecureLogger.w(TAG, "Failed to apply reverb preset", error)
+            }
+        }
     }
 
     private fun releaseEffects() {
         equalizer?.releaseSafely("equalizer")
         bassBoost?.releaseSafely("bassBoost")
         virtualizer?.releaseSafely("virtualizer")
+        reverb?.releaseSafely("reverb")
         equalizer = null
         bassBoost = null
         virtualizer = null
+        reverb = null
         currentAudioSessionId = null
     }
 
@@ -117,6 +134,7 @@ class PlaybackAudioEffectsManager @Inject constructor(
                 is Equalizer -> release()
                 is BassBoost -> release()
                 is Virtualizer -> release()
+                is PresetReverb -> release()
             }
         }.onFailure { error ->
             SecureLogger.w(TAG, "Failed to release $name", error)
@@ -130,7 +148,8 @@ class PlaybackAudioEffectsManager @Inject constructor(
             PreferenceManager.KEY_EQUALIZER_ENABLED,
             PreferenceManager.KEY_EQUALIZER_BASS_BOOST,
             PreferenceManager.KEY_EQUALIZER_VIRTUALIZER,
-            PreferenceManager.KEY_EQUALIZER_BANDS
+            PreferenceManager.KEY_EQUALIZER_BANDS,
+            PreferenceManager.KEY_REVERB_PRESET
         )
     }
 }

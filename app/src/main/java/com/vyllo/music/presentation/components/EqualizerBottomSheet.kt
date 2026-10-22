@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import com.vyllo.music.R
 import com.vyllo.music.domain.model.EqualizerPreset
 import com.vyllo.music.domain.model.EqualizerSettings
+import com.vyllo.music.domain.model.ReverbPreset
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +66,10 @@ fun EqualizerBottomSheet(
     onSavePreset: (String) -> Unit = {},
     onDeletePreset: (EqualizerPreset) -> Unit = {},
     onOpenAutoEq: () -> Unit = {},
+    karaokeEnabled: Boolean = false,
+    reverbPresetId: Int = 0,
+    onKaraokeEnabledChange: (Boolean) -> Unit = {},
+    onReverbPresetChange: (Int) -> Unit = {},
     onReset: () -> Unit
 ) {
     var showSaveDialog by rememberSaveable { mutableStateOf(false) }
@@ -241,6 +247,49 @@ fun EqualizerBottomSheet(
                     enabled = settings.enabled,
                     onValueChange = { onBandLevelChange(index, it) }
                 )
+            }
+
+            HorizontalDivider()
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.eq_effects_title),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.eq_karaoke_title), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            stringResource(R.string.eq_karaoke_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = karaokeEnabled, onCheckedChange = onKaraokeEnabledChange)
+                }
+                Text(
+                    text = stringResource(R.string.eq_reverb_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ReverbPreset.entries.forEach { preset ->
+                        FilterChip(
+                            selected = reverbPresetId == preset.id,
+                            onClick = { onReverbPresetChange(preset.id) },
+                            label = { Text(stringResource(preset.labelRes)) }
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(4.dp))

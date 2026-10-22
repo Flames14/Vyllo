@@ -70,6 +70,8 @@ data class PlayerUiState(
     val detectedLyricsLangCode: String? = null,
     val equalizerSettings: EqualizerSettings = EqualizerSettings(),
     val customEqualizerPresets: List<EqualizerPreset> = emptyList(),
+    val karaokeEnabled: Boolean = false,
+    val reverbPresetId: Int = 0,
     val volumeBoostMultiplier: Float = 1.0f,
     val isVolumeBoosterUIVisible: Boolean = false,
     val isInPipMode: Boolean = false,
@@ -112,7 +114,9 @@ class PlayerViewModel @Inject constructor(
         PlayerUiState(
             autoplayEnabled = preferenceManager.isAutoplayEnabled,
             playbackSpeed = preferenceManager.playbackSpeed,
-            playbackPitch = preferenceManager.playbackPitch
+            playbackPitch = preferenceManager.playbackPitch,
+            karaokeEnabled = preferenceManager.karaokeEnabled,
+            reverbPresetId = preferenceManager.reverbPresetId
         )
     )
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
@@ -284,6 +288,8 @@ class PlayerViewModel @Inject constructor(
         _uiState.update { it.copy(
             equalizerSettings = preferenceManager.loadEqualizerSettings(),
             customEqualizerPresets = EqualizerPresetCodec.decode(preferenceManager.customEqualizerPresets),
+            karaokeEnabled = preferenceManager.karaokeEnabled,
+            reverbPresetId = preferenceManager.reverbPresetId,
             volumeBoostMultiplier = preferenceManager.volumeBoostMultiplier,
             isQueueSticky = preferenceManager.isQueueSticky,
             upNextIncludeVariants = preferenceManager.upNextIncludeVariants
@@ -500,6 +506,16 @@ class PlayerViewModel @Inject constructor(
             .filterNot { it.name.equals(preset.name, ignoreCase = true) }
         preferenceManager.customEqualizerPresets = EqualizerPresetCodec.encode(updated)
         _uiState.update { it.copy(customEqualizerPresets = updated) }
+    }
+
+    fun setKaraokeEnabled(enabled: Boolean) {
+        preferenceManager.karaokeEnabled = enabled
+        _uiState.update { it.copy(karaokeEnabled = enabled) }
+    }
+
+    fun setReverbPreset(presetId: Int) {
+        preferenceManager.reverbPresetId = presetId
+        _uiState.update { it.copy(reverbPresetId = preferenceManager.reverbPresetId) }
     }
 
     // ---- AutoEQ import wizard ----

@@ -95,6 +95,10 @@ fun PlayerEqualizerSheet(
             onSavePreset = viewModel::saveEqualizerPreset,
             onDeletePreset = viewModel::deleteEqualizerPreset,
             onOpenAutoEq = { showAutoEq = true },
+            karaokeEnabled = playerUiState.karaokeEnabled,
+            reverbPresetId = playerUiState.reverbPresetId,
+            onKaraokeEnabledChange = viewModel::setKaraokeEnabled,
+            onReverbPresetChange = viewModel::setReverbPreset,
             onReset = viewModel::resetEqualizer
         )
     }

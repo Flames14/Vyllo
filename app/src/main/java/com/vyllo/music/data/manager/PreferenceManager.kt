@@ -284,8 +284,17 @@ class PreferenceManager @Inject constructor(
                 .apply()
         }
 
-    private val memorySearchHistory = java.util.Collections.synchronizedList(mutableListOf<String>())
+    /** Removes centred vocals through mid/side cancellation. */
+    var karaokeEnabled: Boolean
+        get() = preferences.getBoolean(KEY_KARAOKE, false)
+        set(value) { preferences.edit().putBoolean(KEY_KARAOKE, value).apply() }
 
+    /** Reverb program id, 0 meaning off. */
+    var reverbPresetId: Int
+        get() = preferences.getInt(KEY_REVERB_PRESET, 0).coerceIn(0, 6)
+        set(value) { preferences.edit().putInt(KEY_REVERB_PRESET, value.coerceIn(0, 6)).apply() }
+
+    private val memorySearchHistory = java.util.Collections.synchronizedList(mutableListOf<String>())
     init {
         // Pre-populate in-memory search history from encrypted DataStore
         scope.launch {
@@ -515,6 +524,8 @@ class PreferenceManager @Inject constructor(
         const val KEY_LYRICS_GLOW = "lyrics_glow"
         const val KEY_LYRICS_ANIMATE = "lyrics_animate"
         const val KEY_CUSTOM_EQ_PRESETS = "custom_eq_presets"
+        const val KEY_KARAOKE = "karaoke_enabled"
+        const val KEY_REVERB_PRESET = "reverb_preset"
         const val KEY_SLEEP_SCHEDULE = "sleep_schedule"
         const val KEY_SLEEP_SCHEDULE_FIRED_DAY = "sleep_schedule_fired_day"
         const val KEY_SKIP_SILENCE = "skip_silence"

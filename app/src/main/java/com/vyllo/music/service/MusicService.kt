@@ -87,6 +87,7 @@ class MusicService : MediaSessionService() {
     )
 
     private val volumeBoostProcessor = VolumeBoostAudioProcessor()
+    private val centerCancelAudioProcessor = CenterCancelAudioProcessor()
     private val loudnessProcessor = LoudnessNormalizationAudioProcessor()
 
     // lazy: the constructor must not read the @Inject lateinit fields, which Hilt
@@ -126,6 +127,8 @@ class MusicService : MediaSessionService() {
             applySkipSilence()
         } else if (key == PreferenceManager.KEY_PAUSE_WHEN_MUTED) {
             restartMuteWatcher()
+        } else if (key == PreferenceManager.KEY_KARAOKE) {
+            centerCancelAudioProcessor.enabled = preferenceManager.karaokeEnabled
         }
         playbackAudioEffectsManager.onPreferenceChanged(key)
     }
@@ -248,12 +251,13 @@ class MusicService : MediaSessionService() {
 
         preferenceManager.registerOnPreferenceChangeListener(preferenceListener)
         volumeBoostProcessor.volumeMultiplier = preferenceManager.volumeBoostMultiplier
+        centerCancelAudioProcessor.enabled = preferenceManager.karaokeEnabled
         applyLoudnessPreset()
 
         val renderersFactory = AudioSinkFactory.createRenderersFactory(
             this,
             volumeBoostProcessor,
-            arrayOf(loudnessProcessor),
+            arrayOf(centerCancelAudioProcessor, loudnessProcessor),
             audioOffload = preferenceManager.audioOffloadEnabled
         )
 

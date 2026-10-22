@@ -340,6 +340,17 @@
     <string name="eq_autoeq_error_source">Enter a link or paste a profile first.</string>
     <string name="eq_autoeq_error_fetch">Could not download that profile. Check the link and try again.</string>
     <string name="eq_autoeq_error_parse">No usable filters or response curve found in that text.</string>
+    <string name="eq_effects_title">Audio effects</string>
+    <string name="eq_karaoke_title">Karaoke vocal removal</string>
+    <string name="eq_karaoke_desc">Reduces centered vocals in stereo tracks; mono tracks are unchanged.</string>
+    <string name="eq_reverb_title">Reverb</string>
+    <string name="reverb_off">Off</string>
+    <string name="reverb_small_room">Small room</string>
+    <string name="reverb_medium_room">Medium room</string>
+    <string name="reverb_large_room">Large room</string>
+    <string name="reverb_medium_hall">Medium hall</string>
+    <string name="reverb_large_hall">Large hall</string>
+    <string name="reverb_plate">Plate</string>
     <string-array name="eq_band_labels">
         <item>Bass</item>
         <item>Low mid</item>

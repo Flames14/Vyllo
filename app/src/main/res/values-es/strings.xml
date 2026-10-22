@@ -342,6 +342,17 @@
     <string name="eq_autoeq_error_source">Introduce un enlace o pega un perfil primero.</string>
     <string name="eq_autoeq_error_fetch">No se pudo descargar ese perfil. Revisa el enlace e inténtalo de nuevo.</string>
     <string name="eq_autoeq_error_parse">No se encontraron filtros ni curva de respuesta utilizables en ese texto.</string>
+    <string name="eq_effects_title">Efectos de audio</string>
+    <string name="eq_karaoke_title">Eliminar voces para karaoke</string>
+    <string name="eq_karaoke_desc">Reduce las voces centradas en pistas estéreo; las pistas mono no cambian.</string>
+    <string name="eq_reverb_title">Reverberación</string>
+    <string name="reverb_off">Desactivada</string>
+    <string name="reverb_small_room">Sala pequeña</string>
+    <string name="reverb_medium_room">Sala mediana</string>
+    <string name="reverb_large_room">Sala grande</string>
+    <string name="reverb_medium_hall">Auditorio mediano</string>
+    <string name="reverb_large_hall">Auditorio grande</string>
+    <string name="reverb_plate">Placa</string>
     <string-array name="eq_band_labels">
         <item>Graves</item>
         <item>Medios graves</item>
