@@ -331,6 +331,24 @@
     <string name="eq_preset_name">Nombre del preajuste</string>
     <string name="eq_preset_delete_cd">Eliminar preajuste %1$s</string>
     <string name="eq_curve_cd">Curva de respuesta del ecualizador</string>
+    <string name="eq_autoeq_import_short">AutoEQ</string>
+    <string name="eq_autoeq_title">Importar perfil AutoEQ</string>
+    <string name="eq_autoeq_help">Pega un enlace a una exportación de AutoEQ (CSV o texto sin procesar de GitHub) o pega la exportación directamente. Se derivan cinco bandas de la curva publicada.</string>
+    <string name="eq_autoeq_source">Enlace o texto del perfil</string>
+    <string name="eq_autoeq_name">Nombre del perfil</string>
+    <string name="eq_autoeq_import">Importar</string>
+    <string name="eq_autoeq_apply">Aplicar</string>
+    <string name="eq_autoeq_approx">Aproximación: el ecualizador de tu dispositivo tiene cinco bandas, así que la curva publicada se muestrea en 60 Hz, 230 Hz, 910 Hz, 3,6 kHz y 14 kHz.</string>
+    <string name="eq_autoeq_error_source">Introduce un enlace o pega un perfil primero.</string>
+    <string name="eq_autoeq_error_fetch">No se pudo descargar ese perfil. Revisa el enlace e inténtalo de nuevo.</string>
+    <string name="eq_autoeq_error_parse">No se encontraron filtros ni curva de respuesta utilizables en ese texto.</string>
+    <string-array name="eq_band_labels">
+        <item>Graves</item>
+        <item>Medios graves</item>
+        <item>Medios</item>
+        <item>Medios agudos</item>
+        <item>Agudos</item>
+    </string-array>
     <string name="eq_band_bass">Graves</string>
     <string name="eq_band_low_mid">Medio-graves</string>
     <string name="eq_band_mid">Medios</string>

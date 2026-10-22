@@ -104,7 +104,8 @@ class PlayerViewModel @Inject constructor(
     private val preferenceManager: PreferenceManager,
     private val streamUrlCache: StreamUrlCache,
     private val lyricsCoordinator: PlayerLyricsCoordinator,
-    private val thumbnailResolver: com.vyllo.music.data.network.YouTubeThumbnailResolver
+    private val thumbnailResolver: com.vyllo.music.data.network.YouTubeThumbnailResolver,
+    private val autoEqRepository: com.vyllo.music.data.AutoEqRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -499,6 +500,74 @@ class PlayerViewModel @Inject constructor(
             .filterNot { it.name.equals(preset.name, ignoreCase = true) }
         preferenceManager.customEqualizerPresets = EqualizerPresetCodec.encode(updated)
         _uiState.update { it.copy(customEqualizerPresets = updated) }
+    }
+
+    // ---- AutoEQ import wizard ----
+
+    private val _autoEqImport = MutableStateFlow(com.vyllo.music.domain.model.AutoEqImportState())
+    val autoEqImport: StateFlow<com.vyllo.music.domain.model.AutoEqImportState> =
+        _autoEqImport.asStateFlow()
+
+    private var pendingAutoEqProfile: com.vyllo.music.domain.model.AutoEqProfile? = null
+
+    /**
+     * Reads [source] as either a direct link to an AutoEQ export or the exported
+     * text itself, then prepares a five-band preview. Nothing is applied until
+     * the user confirms.
+     */
+    fun importAutoEq(source: String, name: String) {
+        val trimmed = source.trim()
+        val fallbackName = name.trim().ifBlank { "AutoEQ" }
+        if (trimmed.isEmpty()) {
+            _autoEqImport.value = com.vyllo.music.domain.model.AutoEqImportState(
+                error = com.vyllo.music.domain.model.AutoEqImportError.INVALID_SOURCE
+            )
+            return
+        }
+        viewModelScope.launch {
+            _autoEqImport.value = com.vyllo.music.domain.model.AutoEqImportState(isLoading = true)
+            val text = if (trimmed.startsWith("http", ignoreCase = true)) {
+                runCatching { autoEqRepository.fetch(trimmed) }.getOrElse {
+                    _autoEqImport.value = com.vyllo.music.domain.model.AutoEqImportState(
+                        error = com.vyllo.music.domain.model.AutoEqImportError.FETCH_FAILED
+                    )
+                    return@launch
+                }
+            } else {
+                trimmed
+            }
+
+            val profile = com.vyllo.music.domain.model.AutoEqParser.parse(text, fallbackName)
+            if (profile == null) {
+                _autoEqImport.value = com.vyllo.music.domain.model.AutoEqImportState(
+                    error = com.vyllo.music.domain.model.AutoEqImportError.UNPARSABLE
+                )
+                return@launch
+            }
+            pendingAutoEqProfile = profile
+            _autoEqImport.value = com.vyllo.music.domain.model.AutoEqImportState(
+                profileName = profile.name,
+                bandLevels = profile.toBandLevels()
+            )
+        }
+    }
+
+    /** Applies the previewed profile as an enabled preset. */
+    fun applyAutoEqImport() {
+        val profile = pendingAutoEqProfile ?: return
+        val preset = com.vyllo.music.domain.model.EqualizerPreset(
+            name = profile.name,
+            bassBoostStrength = 0,
+            virtualizerStrength = 0,
+            bandLevels = profile.toBandLevels()
+        )
+        equalizerController.applyEqualizerPreset(preset)
+        clearAutoEqImport()
+    }
+
+    fun clearAutoEqImport() {
+        pendingAutoEqProfile = null
+        _autoEqImport.value = com.vyllo.music.domain.model.AutoEqImportState()
     }
 
     fun updateVolumeBoost(multiplier: Float) =

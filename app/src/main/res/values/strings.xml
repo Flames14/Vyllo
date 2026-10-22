@@ -329,6 +329,24 @@
     <string name="eq_preset_name">Preset name</string>
     <string name="eq_preset_delete_cd">Delete preset %1$s</string>
     <string name="eq_curve_cd">Equalizer response curve</string>
+    <string name="eq_autoeq_import_short">AutoEQ</string>
+    <string name="eq_autoeq_title">Import AutoEQ profile</string>
+    <string name="eq_autoeq_help">Paste a link to an AutoEQ export (raw GitHub CSV or text) or paste the export itself. Five bands are derived from the published curve.</string>
+    <string name="eq_autoeq_source">Link or profile text</string>
+    <string name="eq_autoeq_name">Profile name</string>
+    <string name="eq_autoeq_import">Import</string>
+    <string name="eq_autoeq_apply">Apply</string>
+    <string name="eq_autoeq_approx">Approximation: your device equalizer exposes five bands, so the published curve is sampled at 60 Hz, 230 Hz, 910 Hz, 3.6 kHz and 14 kHz.</string>
+    <string name="eq_autoeq_error_source">Enter a link or paste a profile first.</string>
+    <string name="eq_autoeq_error_fetch">Could not download that profile. Check the link and try again.</string>
+    <string name="eq_autoeq_error_parse">No usable filters or response curve found in that text.</string>
+    <string-array name="eq_band_labels">
+        <item>Bass</item>
+        <item>Low mid</item>
+        <item>Mid</item>
+        <item>Upper mid</item>
+        <item>Treble</item>
+    </string-array>
     <string name="eq_band_bass">Bass</string>
     <string name="eq_band_low_mid">Low Mid</string>
     <string name="eq_band_mid">Mid</string>

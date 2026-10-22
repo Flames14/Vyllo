@@ -28,6 +28,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,6 +65,22 @@ fun PlayerEqualizerSheet(
     onDismiss: () -> Unit
 ) {
     if (show) {
+        var showAutoEq by rememberSaveable { mutableStateOf(false) }
+        val autoEqState by viewModel.autoEqImport.collectAsState()
+        if (showAutoEq) {
+            com.vyllo.music.presentation.components.player.AutoEqImportDialog(
+                state = autoEqState,
+                onImport = viewModel::importAutoEq,
+                onApply = {
+                    viewModel.applyAutoEqImport()
+                    showAutoEq = false
+                },
+                onDismiss = {
+                    viewModel.clearAutoEqImport()
+                    showAutoEq = false
+                }
+            )
+        }
         EqualizerBottomSheet(
             settings = playerUiState.equalizerSettings,
             volumeBoostMultiplier = playerUiState.volumeBoostMultiplier,
@@ -73,6 +94,7 @@ fun PlayerEqualizerSheet(
             customPresets = playerUiState.customEqualizerPresets,
             onSavePreset = viewModel::saveEqualizerPreset,
             onDeletePreset = viewModel::deleteEqualizerPreset,
+            onOpenAutoEq = { showAutoEq = true },
             onReset = viewModel::resetEqualizer
         )
     }

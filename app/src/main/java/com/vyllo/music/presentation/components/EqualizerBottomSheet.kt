@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -62,6 +63,7 @@ fun EqualizerBottomSheet(
     customPresets: List<EqualizerPreset> = emptyList(),
     onSavePreset: (String) -> Unit = {},
     onDeletePreset: (EqualizerPreset) -> Unit = {},
+    onOpenAutoEq: () -> Unit = {},
     onReset: () -> Unit
 ) {
     var showSaveDialog by rememberSaveable { mutableStateOf(false) }
@@ -160,6 +162,18 @@ fun EqualizerBottomSheet(
                         )
                         Text(
                             text = stringResource(R.string.eq_preset_save),
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
+                    TextButton(onClick = onOpenAutoEq) {
+                        Icon(
+                            imageVector = Icons.Rounded.Headphones,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.eq_autoeq_import_short),
                             style = MaterialTheme.typography.labelMedium,
                             modifier = Modifier.padding(start = 4.dp)
                         )

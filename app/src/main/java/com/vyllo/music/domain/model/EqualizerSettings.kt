@@ -62,6 +62,12 @@ data class EqualizerSettings(
             EqualizerBandSetting(label = "Treble", level = 0)
         )
 
+        /**
+         * Nominal center frequency of each band in [DEFAULT_BANDS], in Hz.
+         * Used when reducing a third-party correction curve to our five bands.
+         */
+        val BAND_FREQUENCIES_HZ = listOf(60f, 230f, 910f, 3_600f, 14_000f)
+
         val PRESETS = listOf(
             EqualizerPreset("Flat", bassBoostStrength = 0, virtualizerStrength = 0, bandLevels = listOf(0, 0, 0, 0, 0)),
             EqualizerPreset("Bass Boost", bassBoostStrength = 600, virtualizerStrength = 100, bandLevels = listOf(600, 400, 100, 0, 0)),
