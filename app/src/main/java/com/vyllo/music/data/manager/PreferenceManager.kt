@@ -143,6 +143,31 @@ class PreferenceManager @Inject constructor(
             preferences.edit().putLong(KEY_SLEEP_SCHEDULE_FIRED_DAY, value).apply()
         }
 
+    /** Skip silent passages (ExoPlayer skip-silence) inside a track. */
+    var skipSilence: Boolean
+        get() = preferences.getBoolean(KEY_SKIP_SILENCE, false)
+        set(value) { preferences.edit().putBoolean(KEY_SKIP_SILENCE, value).apply() }
+
+    /** Pause when the active output device disconnects (headphones, BT). */
+    var pauseOnDeviceDisconnect: Boolean
+        get() = preferences.getBoolean(KEY_PAUSE_ON_DISCONNECT, true)
+        set(value) { preferences.edit().putBoolean(KEY_PAUSE_ON_DISCONNECT, value).apply() }
+
+    /** Resume after a disconnect once an output device comes back. */
+    var resumeOnDeviceReconnect: Boolean
+        get() = preferences.getBoolean(KEY_RESUME_ON_RECONNECT, false)
+        set(value) { preferences.edit().putBoolean(KEY_RESUME_ON_RECONNECT, value).apply() }
+
+    /** Pause instead of playing silently when the media stream is muted. */
+    var pauseWhenMuted: Boolean
+        get() = preferences.getBoolean(KEY_PAUSE_WHEN_MUTED, false)
+        set(value) { preferences.edit().putBoolean(KEY_PAUSE_WHEN_MUTED, value).apply() }
+
+    /** Let the hardware decoder render into the offload path when available. */
+    var audioOffloadEnabled: Boolean
+        get() = preferences.getBoolean(KEY_AUDIO_OFFLOAD, false)
+        set(value) { preferences.edit().putBoolean(KEY_AUDIO_OFFLOAD, value).apply() }
+
     /** Audio stream quality ceiling: Auto/High/Medium/Low. */
     var streamQuality: String
         get() = preferences.getString(KEY_STREAM_QUALITY, "Auto") ?: "Auto"
@@ -428,6 +453,11 @@ class PreferenceManager @Inject constructor(
         const val KEY_STREAM_QUALITY = "stream_quality"
         const val KEY_SLEEP_SCHEDULE = "sleep_schedule"
         const val KEY_SLEEP_SCHEDULE_FIRED_DAY = "sleep_schedule_fired_day"
+        const val KEY_SKIP_SILENCE = "skip_silence"
+        const val KEY_PAUSE_ON_DISCONNECT = "pause_on_device_disconnect"
+        const val KEY_RESUME_ON_RECONNECT = "resume_on_device_reconnect"
+        const val KEY_PAUSE_WHEN_MUTED = "pause_when_muted"
+        const val KEY_AUDIO_OFFLOAD = "audio_offload"
         const val SPEED_MIN = 0.5f
         const val SPEED_MAX = 2.0f
         const val PITCH_MIN = 0.5f

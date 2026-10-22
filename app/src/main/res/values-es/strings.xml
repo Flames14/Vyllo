@@ -366,6 +366,16 @@
     <string name="settings_loudness">Normalización de volumen</string>
     <string name="settings_stream_quality">Calidad del audio</string>
     <string name="settings_sleep_schedule">Pausa programada</string>
+    <string name="settings_skip_silence">Omitir silencios</string>
+    <string name="settings_skip_silence_desc">Avanza los tramos silenciosos de cada pista</string>
+    <string name="settings_pause_on_disconnect">Pausar al desconectar auriculares</string>
+    <string name="settings_pause_on_disconnect_desc">Detiene la reproducción al retirar el dispositivo de salida</string>
+    <string name="settings_resume_on_reconnect">Reanudar al reconectar</string>
+    <string name="settings_resume_on_reconnect_desc">Continúa al volver los auriculares o el Bluetooth</string>
+    <string name="settings_pause_when_muted">Pausar al silenciar</string>
+    <string name="settings_pause_when_muted_desc">Pausa en lugar de reproducir sin sonido</string>
+    <string name="settings_audio_offload">Descarga de audio por hardware</string>
+    <string name="settings_audio_offload_desc">El dispositivo decodifica directamente; el ecualizador y los efectos se omiten. Se aplica al reiniciar.</string>
     <string name="sleep_schedule_title">Pausa programada</string>
     <string name="sleep_schedule_desc">Pausa la reproducción automáticamente a esta hora en los días elegidos.</string>
     <string name="sleep_schedule_enabled">Activar programación</string>

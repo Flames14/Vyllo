@@ -36,6 +36,36 @@ class SettingsViewModel @Inject constructor(
     var loudnessPreset by mutableStateOf(preferenceManager.loudnessPreset)
     var streamQuality by mutableStateOf(preferenceManager.streamQuality)
     var sleepSchedule by mutableStateOf(preferenceManager.sleepSchedule)
+    var skipSilence by mutableStateOf(preferenceManager.skipSilence)
+    var pauseOnDeviceDisconnect by mutableStateOf(preferenceManager.pauseOnDeviceDisconnect)
+    var resumeOnDeviceReconnect by mutableStateOf(preferenceManager.resumeOnDeviceReconnect)
+    var pauseWhenMuted by mutableStateOf(preferenceManager.pauseWhenMuted)
+    var audioOffloadEnabled by mutableStateOf(preferenceManager.audioOffloadEnabled)
+
+    fun toggleSkipSilence(enabled: Boolean) {
+        skipSilence = enabled
+        preferenceManager.skipSilence = enabled
+    }
+
+    fun togglePauseOnDeviceDisconnect(enabled: Boolean) {
+        pauseOnDeviceDisconnect = enabled
+        preferenceManager.pauseOnDeviceDisconnect = enabled
+    }
+
+    fun toggleResumeOnDeviceReconnect(enabled: Boolean) {
+        resumeOnDeviceReconnect = enabled
+        preferenceManager.resumeOnDeviceReconnect = enabled
+    }
+
+    fun togglePauseWhenMuted(enabled: Boolean) {
+        pauseWhenMuted = enabled
+        preferenceManager.pauseWhenMuted = enabled
+    }
+
+    fun toggleAudioOffload(enabled: Boolean) {
+        audioOffloadEnabled = enabled
+        preferenceManager.audioOffloadEnabled = enabled
+    }
 
     fun updateSleepSchedule(schedule: com.vyllo.music.domain.model.SleepSchedule) {
         preferenceManager.sleepSchedule = schedule
@@ -183,6 +213,11 @@ class SettingsViewModel @Inject constructor(
                 loudnessPreset = preferenceManager.loudnessPreset
                 streamQuality = preferenceManager.streamQuality
                 sleepSchedule = preferenceManager.sleepSchedule
+                skipSilence = preferenceManager.skipSilence
+                pauseOnDeviceDisconnect = preferenceManager.pauseOnDeviceDisconnect
+                resumeOnDeviceReconnect = preferenceManager.resumeOnDeviceReconnect
+                pauseWhenMuted = preferenceManager.pauseWhenMuted
+                audioOffloadEnabled = preferenceManager.audioOffloadEnabled
                 onComplete(true)
             } else {
                 onComplete(false)

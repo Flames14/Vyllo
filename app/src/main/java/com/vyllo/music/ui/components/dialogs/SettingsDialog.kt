@@ -76,6 +76,16 @@ fun SettingsDialog(
     onStreamQualityChange: (String) -> Unit = {},
     sleepSchedule: SleepSchedule = SleepSchedule(),
     onSleepScheduleChange: (SleepSchedule) -> Unit = {},
+    skipSilence: Boolean = false,
+    onSkipSilenceChange: (Boolean) -> Unit = {},
+    pauseOnDeviceDisconnect: Boolean = true,
+    onPauseOnDeviceDisconnectChange: (Boolean) -> Unit = {},
+    resumeOnDeviceReconnect: Boolean = false,
+    onResumeOnDeviceReconnectChange: (Boolean) -> Unit = {},
+    pauseWhenMuted: Boolean = false,
+    onPauseWhenMutedChange: (Boolean) -> Unit = {},
+    audioOffloadEnabled: Boolean = false,
+    onAudioOffloadChange: (Boolean) -> Unit = {},
     storageMediaBytes: Long = 0L,
     storageImageBytes: Long = 0L,
     storageTotalBytes: Long = 0L,
@@ -482,6 +492,45 @@ fun SettingsDialog(
                         title = stringResource(R.string.settings_sleep_schedule),
                         value = sleepScheduleSummary(sleepSchedule),
                         emphasize = true
+                    )
+                }
+
+                // Skip silent passages, and how playback reacts to device and
+                // output-state changes.
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_skip_silence),
+                    subtitle = stringResource(R.string.settings_skip_silence_desc),
+                    checked = skipSilence,
+                    onCheckedChange = onSkipSilenceChange
+                )
+
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_pause_on_disconnect),
+                    subtitle = stringResource(R.string.settings_pause_on_disconnect_desc),
+                    checked = pauseOnDeviceDisconnect,
+                    onCheckedChange = onPauseOnDeviceDisconnectChange
+                )
+
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_resume_on_reconnect),
+                    subtitle = stringResource(R.string.settings_resume_on_reconnect_desc),
+                    checked = resumeOnDeviceReconnect,
+                    onCheckedChange = onResumeOnDeviceReconnectChange
+                )
+
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_pause_when_muted),
+                    subtitle = stringResource(R.string.settings_pause_when_muted_desc),
+                    checked = pauseWhenMuted,
+                    onCheckedChange = onPauseWhenMutedChange
+                )
+
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    SettingsToggleRow(
+                        title = stringResource(R.string.settings_audio_offload),
+                        subtitle = stringResource(R.string.settings_audio_offload_desc),
+                        checked = audioOffloadEnabled,
+                        onCheckedChange = onAudioOffloadChange
                     )
                 }
 

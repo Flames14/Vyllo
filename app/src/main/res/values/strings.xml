@@ -363,6 +363,16 @@
     <string name="settings_loudness">Loudness normalization</string>
     <string name="settings_stream_quality">Stream quality</string>
     <string name="settings_sleep_schedule">Scheduled sleep</string>
+    <string name="settings_skip_silence">Skip silence</string>
+    <string name="settings_skip_silence_desc">Fast-forward quiet passages inside a track</string>
+    <string name="settings_pause_on_disconnect">Pause when headphones disconnect</string>
+    <string name="settings_pause_on_disconnect_desc">Stop playback when the output device is removed</string>
+    <string name="settings_resume_on_reconnect">Resume on reconnect</string>
+    <string name="settings_resume_on_reconnect_desc">Continue playing when headphones or Bluetooth come back</string>
+    <string name="settings_pause_when_muted">Pause when muted</string>
+    <string name="settings_pause_when_muted_desc">Pause instead of playing silently at zero volume</string>
+    <string name="settings_audio_offload">Hardware audio offload</string>
+    <string name="settings_audio_offload_desc">Let the device decode directly; equalizer and effects are bypassed. Takes effect on next launch.</string>
     <string name="sleep_schedule_title">Scheduled sleep</string>
     <string name="sleep_schedule_desc">Pause playback automatically at this time on the selected days.</string>
     <string name="sleep_schedule_enabled">Enable schedule</string>

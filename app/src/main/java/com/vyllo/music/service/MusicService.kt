@@ -24,6 +24,8 @@ import com.vyllo.music.service.audio.AudioSinkFactory
 import com.vyllo.music.service.audio.CacheProvider
 import com.vyllo.music.service.audio.CrossfadeController
 import com.vyllo.music.service.audio.MediaSessionCallback
+import com.vyllo.music.service.audio.MuteWatcher
+import com.vyllo.music.service.audio.OutputDeviceWatcher
 import com.vyllo.music.service.audio.PlaybackCommandsController
 import com.vyllo.music.service.audio.PlaybackHttpClientFactory
 import com.vyllo.music.service.audio.PlaybackPlayerFactory
@@ -67,6 +69,9 @@ class MusicService : MediaSessionService() {
     private var player: ExoPlayer? = null
     private lateinit var playheadPersistence: PlayheadPersistence
     private lateinit var crossfadeController: CrossfadeController
+    private var outputDeviceWatcher: OutputDeviceWatcher? = null
+    private var muteWatcher: MuteWatcher? = null
+    private var pausedByDeviceDisconnect = false
 
     private val serviceJob = SupervisorJob()
     // Safety net: background queue work must never be able to crash the app.
@@ -109,9 +114,16 @@ class MusicService : MediaSessionService() {
         } else if (key == PreferenceManager.KEY_VOLUME_BOOST) {
             volumeBoostProcessor.volumeMultiplier = preferenceManager.volumeBoostMultiplier
         } else if (key == PreferenceManager.KEY_PLAYBACK_SPEED || key == PreferenceManager.KEY_PLAYBACK_PITCH) {
-            applyPlaybackParameters()
+        applyPlaybackParameters()
+        applySkipSilence()
+        startOutputDeviceWatcher()
+        startMuteWatcherIfEnabled()
         } else if (key == PreferenceManager.KEY_LOUDNESS_PRESET) {
             applyLoudnessPreset()
+        } else if (key == PreferenceManager.KEY_SKIP_SILENCE) {
+            applySkipSilence()
+        } else if (key == PreferenceManager.KEY_PAUSE_WHEN_MUTED) {
+            restartMuteWatcher()
         }
         playbackAudioEffectsManager.onPreferenceChanged(key)
     }
@@ -120,6 +132,48 @@ class MusicService : MediaSessionService() {
         val target = LoudnessNormalizationAudioProcessor.targetFor(preferenceManager.loudnessPreset)
         loudnessProcessor.enabled = target != null
         if (target != null) loudnessProcessor.targetRmsDb = target
+    }
+
+    private fun applySkipSilence() {
+        player?.skipSilenceEnabled = preferenceManager.skipSilence
+    }
+
+    private fun startOutputDeviceWatcher() {
+        if (outputDeviceWatcher != null) return
+        outputDeviceWatcher = OutputDeviceWatcher(
+            context = this,
+            onDisconnected = ::handleDeviceDisconnect,
+            onReconnected = ::handleDeviceReconnect
+        ).also { it.start() }
+    }
+
+    private fun handleDeviceDisconnect() {
+        if (!preferenceManager.pauseOnDeviceDisconnect) return
+        val activePlayer = player ?: return
+        if (activePlayer.isPlaying) {
+            activePlayer.pause()
+            pausedByDeviceDisconnect = true
+        }
+    }
+
+    private fun handleDeviceReconnect() {
+        if (!preferenceManager.resumeOnDeviceReconnect || !pausedByDeviceDisconnect) return
+        pausedByDeviceDisconnect = false
+        player?.play()
+    }
+
+    private fun startMuteWatcherIfEnabled() {
+        if (!preferenceManager.pauseWhenMuted) return
+        if (muteWatcher != null) return
+        muteWatcher = MuteWatcher(this) {
+            player?.let { if (it.isPlaying) it.pause() }
+        }.also { it.start() }
+    }
+
+    private fun restartMuteWatcher() {
+        muteWatcher?.stop()
+        muteWatcher = null
+        startMuteWatcherIfEnabled()
     }
 
     /**
@@ -189,7 +243,8 @@ class MusicService : MediaSessionService() {
         val renderersFactory = AudioSinkFactory.createRenderersFactory(
             this,
             volumeBoostProcessor,
-            arrayOf(loudnessProcessor)
+            arrayOf(loudnessProcessor),
+            audioOffload = preferenceManager.audioOffloadEnabled
         )
 
         player = PlaybackPlayerFactory.buildPlayer(
@@ -362,6 +417,10 @@ class MusicService : MediaSessionService() {
     override fun onDestroy() {
         SecureLogger.d("MusicService", "Service onDestroy called")
         if (::crossfadeController.isInitialized) crossfadeController.stop()
+        outputDeviceWatcher?.stop()
+        outputDeviceWatcher = null
+        muteWatcher?.stop()
+        muteWatcher = null
         serviceJob.cancel()
         playbackErrorHandler.release()
         playbackAudioEffectsManager.release()
