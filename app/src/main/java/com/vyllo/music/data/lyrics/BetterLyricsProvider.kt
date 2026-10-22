@@ -9,7 +9,19 @@ import java.net.URLEncoder
 object BetterLyricsProvider {
     private const val TAG = "BetterLyricsProvider"
 
-    fun getLyrics(client: OkHttpClient, title: String, artist: String, durationSecs: Long, album: String?): String? {
+    /**
+     * TTML payload flattened for the player: the LRC form for storage and the
+     * line model that carries word timings for karaoke highlighting.
+     */
+    data class WordLyrics(
+        val lrc: String,
+        val lines: List<com.vyllo.music.domain.model.SyncedLyricLine>
+    )
+
+    fun getLyrics(client: OkHttpClient, title: String, artist: String, durationSecs: Long, album: String?): String? =
+        getWordLyrics(client, title, artist, durationSecs, album)?.lrc
+
+    fun getWordLyrics(client: OkHttpClient, title: String, artist: String, durationSecs: Long, album: String?): WordLyrics? {
         SecureLogger.d(TAG, "getLyrics called for title='$title', artist='$artist', duration=$durationSecs, album='$album'")
         try {
             val eTitle = URLEncoder.encode(title, "UTF-8")
@@ -37,7 +49,10 @@ object BetterLyricsProvider {
                     val parsed = TTMLParser.parseTTML(ttml)
                     if (parsed.isNotEmpty()) {
                         SecureLogger.i(TAG, "Successfully fetched and parsed lyrics from BetterLyrics (Boidu API)")
-                        return TTMLParser.toLRC(parsed)
+                        return WordLyrics(
+                            lrc = TTMLParser.toLRC(parsed),
+                            lines = TTMLParser.toSyncedLines(parsed)
+                        )
                     }
                 }
             } else {

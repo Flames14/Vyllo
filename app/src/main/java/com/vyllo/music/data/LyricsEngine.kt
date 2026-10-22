@@ -119,10 +119,19 @@ class LyricsEngine @Inject constructor(
                 PaxsenixProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum),
                 "PAXSENIX"
             )
-            LyricsSource.BETTER_LYRICS -> lrc(
-                BetterLyricsProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum),
-                "BETTERLYRICS"
-            )
+            LyricsSource.BETTER_LYRICS -> {
+                val wordLyrics = BetterLyricsProvider.getWordLyrics(
+                    client, cleanTitle, cleanArtist, durationSecs, extractedAlbum
+                )
+                if (wordLyrics == null) {
+                    null
+                } else {
+                    val result = LyricsResponseFactory.buildResultFromLrc(
+                        cleanTitle, cleanArtist, extractedAlbum, durationSecs, wordLyrics.lrc
+                    )
+                    LyricsResponseFactory.buildResponse("BETTERLYRICS", result, wordLyrics.lines)
+                }
+            }
             LyricsSource.LRCLIB_EXACT -> structured(
                 LrclibClient.tryLrclibExact(client, cleanTitle, cleanArtist, durationSecs),
                 "LRCLIB_EXACT"

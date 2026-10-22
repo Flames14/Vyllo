@@ -283,8 +283,29 @@ object TTMLParser {
         return words.map { it.copy(text = it.text.trim()) }.filter { it.text.isNotEmpty() }
     }
 
-    fun toLRC(lines: List<ParsedLine>): String {
-        val agentMap = mutableMapOf<String, String>()
+    /**
+     * Converts parsed TTML into the player's line model, keeping word timings.
+     *
+     * Line text is rebuilt from the words so the rendered string and the word
+     * offsets always agree, which is what karaoke highlighting relies on.
+     */
+    fun toSyncedLines(lines: List<ParsedLine>): List<com.vyllo.music.domain.model.SyncedLyricLine> =
+        lines.map { line ->
+            val words = line.words.map {
+                com.vyllo.music.domain.model.LyricWord(
+                    startTimeMs = (it.startTime * 1000).toLong(),
+                    endTimeMs = (it.endTime * 1000).toLong(),
+                    text = it.text
+                )
+            }
+            com.vyllo.music.domain.model.SyncedLyricLine(
+                startTimeMs = (line.startTime * 1000).toLong(),
+                content = if (words.isEmpty()) line.text else buildLineText(line.words),
+                words = words
+            )
+        }
+
+    fun toLRC(lines: List<ParsedLine>): String {        val agentMap = mutableMapOf<String, String>()
         lines.forEach { line ->
             line.agent?.lowercase()?.let { raw ->
                 if (raw == "v1" || raw == "v2" || raw == "v1000") {

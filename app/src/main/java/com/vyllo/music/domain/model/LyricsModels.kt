@@ -2,10 +2,22 @@ package com.vyllo.music.domain.model
 
 /**
  * Represents a synced lyric line with timestamp.
+ *
+ * [words] is only populated by providers that publish word timings (currently
+ * the TTML-backed ones). An empty list means line-level lyrics: the UI must not
+ * fake word progress by interpolating.
  */
 data class SyncedLyricLine(
     val startTimeMs: Long,
-    val content: String
+    val content: String,
+    val words: List<LyricWord> = emptyList()
+)
+
+/** A single sung word inside a [SyncedLyricLine]. */
+data class LyricWord(
+    val startTimeMs: Long,
+    val endTimeMs: Long,
+    val text: String
 )
 
 /**

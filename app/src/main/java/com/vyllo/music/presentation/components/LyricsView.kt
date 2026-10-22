@@ -30,6 +30,9 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -45,6 +48,8 @@ import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.data.LyricsEngine
 import com.vyllo.music.domain.model.LyricsResult
 import com.vyllo.music.domain.model.SyncedLyricLine
+import com.vyllo.music.domain.model.WordTiming
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // ============================================================
@@ -401,6 +406,19 @@ private fun SyncedLyricsDisplay(
         }
     }
 
+    // Only poll the transport when the visible line really has word timings;
+    // otherwise line-level syncing is enough and we spare the main thread.
+    val activeWords = playerUiState.syncedLyricsLines.getOrNull(activeLyricIndex)?.words
+    val needsWordClock = activeWords != null && WordTiming.isWordTimed(activeWords)
+    val wordPositionMs by produceState(initialValue = 0L, needsWordClock, controller) {
+        if (!needsWordClock) return@produceState
+        val player = controller ?: return@produceState
+        while (true) {
+            value = player.currentPosition
+            delay(80)
+        }
+    }
+
     LazyColumn(
         state = listState,
         modifier = Modifier
@@ -459,8 +477,18 @@ private fun SyncedLyricsDisplay(
                     ),
                 horizontalAlignment = if (style.alignStart) Alignment.Start else Alignment.CenterHorizontally
             ) {
+                val wordHighlighted = isActive && WordTiming.isWordTimed(line.words)
                 Text(
-                    line.content,
+                    if (wordHighlighted) {
+                        wordHighlightText(
+                            line = line,
+                            positionMs = wordPositionMs,
+                            sung = LyricsColors.accent,
+                            unsung = LyricsColors.textPrimary.copy(alpha = 0.55f)
+                        )
+                    } else {
+                        androidx.compose.ui.text.AnnotatedString(line.content)
+                    },
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
                         lineHeight = (28f * style.scale * style.lineSpacing).sp,
@@ -476,7 +504,7 @@ private fun SyncedLyricsDisplay(
                             null
                         }
                     ),
-                    color = if (isActive) LyricsColors.accent else LyricsColors.textPrimary,
+                    color = if (wordHighlighted) Color.Unspecified else if (isActive) LyricsColors.accent else LyricsColors.textPrimary,
                     textAlign = lineAlign,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -563,5 +591,32 @@ private fun LyricsFailedState(playerUiState: PlayerUiState, viewModel: PlayerVie
         if (error != null && error.isNotBlank()) {
             Text(error, style = MaterialTheme.typography.labelSmall, color = LyricsColors.textInactive, modifier = Modifier.padding(horizontal = 16.dp), textAlign = TextAlign.Center)
         }
+    }
+}
+
+/**
+ * Karaoke fill: words whose end time was reached are painted with [sung], the
+ * rest with [unsung]. Separators come from the line text itself so spacing and
+ * punctuation stay exactly as the provider sent them.
+ */
+private fun wordHighlightText(
+    line: SyncedLyricLine,
+    positionMs: Long,
+    sung: Color,
+    unsung: Color
+): androidx.compose.ui.text.AnnotatedString {
+    val sungCount = WordTiming.sungWordCount(line.words, positionMs)
+    return buildAnnotatedString {
+        var cursor = 0
+        line.words.forEachIndexed { index, word ->
+            val found = line.content.indexOf(word.text, cursor)
+            val start = if (found >= 0) found else cursor
+            if (start > cursor) append(line.content.substring(cursor, start))
+            withStyle(SpanStyle(color = if (index < sungCount) sung else unsung)) {
+                append(word.text)
+            }
+            cursor = start + word.text.length
+        }
+        if (cursor < line.content.length) append(line.content.substring(cursor))
     }
 }

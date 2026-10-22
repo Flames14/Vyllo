@@ -56,3 +56,50 @@ class TTMLParserTest {
         assertTrue(lrc.contains("[00:06.50]{agent:v2}How are you?"))
     }
 }
+
+class TTMLWordTimingTest {
+
+    private val ttml = """
+        <tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:ttp="http://www.w3.org/ns/ttml#parameter">
+          <body>
+            <div>
+              <p begin="00:01.00" end="00:05.00">
+                <span begin="00:01.00" end="00:02.00">Hello</span>
+                <span begin="00:02.00" end="00:03.00">World</span>
+              </p>
+            </div>
+          </body>
+        </tt>
+    """.trimIndent()
+
+    @Test
+    fun `word timings survive conversion to the player model`() {
+        val lines = TTMLParser.toSyncedLines(TTMLParser.parseTTML(ttml))
+
+        assertEquals(1, lines.size)
+        val line = lines.first()
+        assertEquals(1000L, line.startTimeMs)
+        assertEquals("Hello World", line.content)
+        assertEquals(2, line.words.size)
+        assertEquals("Hello", line.words[0].text)
+        assertEquals(1000L, line.words[0].startTimeMs)
+        assertEquals(2000L, line.words[0].endTimeMs)
+        assertEquals("World", line.words[1].text)
+        assertEquals(3000L, line.words[1].endTimeMs)
+    }
+
+    @Test
+    fun `plain paragraphs produce lines without word timings`() {
+        val plain = """
+            <tt xmlns="http://www.w3.org/ns/ttml">
+              <body><div><p begin="00:02.00">No spans here</p></div></body>
+            </tt>
+        """.trimIndent()
+
+        val lines = TTMLParser.toSyncedLines(TTMLParser.parseTTML(plain))
+
+        assertEquals(1, lines.size)
+        assertEquals("No spans here", lines.first().content)
+        assertTrue(lines.first().words.isEmpty())
+    }
+}

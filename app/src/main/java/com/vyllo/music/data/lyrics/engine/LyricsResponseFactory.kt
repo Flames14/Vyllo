@@ -49,25 +49,39 @@ object LyricsResponseFactory {
     fun buildResponse(strategy: String, result: LyricsResult): LyricsResponse {
         val syncedSource = result.syncedLyrics ?: result.plainLyrics?.takeIf { looksLikeTimedLyrics(it) }
         val parsedLines = LrcParser.parseSyncedLyrics(syncedSource)
-        val plainLyrics = result.plainLyrics?.let { lyrics ->
-            if (parsedLines.isNotEmpty()) {
-                parsedLines.joinToString("\n") { it.content }
+        return buildResponse(strategy, result, parsedLines)
+    }
+
+    /**
+     * Builds a response from lines that already carry timing metadata (word
+     * offsets). Plain text falls back to the line contents so copy/paste and
+     * translation still work.
+     */
+    fun buildResponse(
+        strategy: String,
+        result: LyricsResult,
+        syncedLines: List<com.vyllo.music.domain.model.SyncedLyricLine>,
+        plainLyricsOverride: String? = null
+    ): LyricsResponse {
+        val plainLyrics = plainLyricsOverride ?: result.plainLyrics?.let { lyrics ->
+            if (syncedLines.isNotEmpty()) {
+                syncedLines.joinToString("\n") { it.content }
             } else {
                 lyrics
             }
-        }
-        val detectText = syncedSource ?: plainLyrics ?: ""
+        } ?: syncedLines.takeIf { it.isNotEmpty() }?.joinToString("\n") { it.content }
+        val detectText = plainLyrics ?: ""
         val langs = LrcParser.detectLanguage(detectText)
 
         return LyricsResponse(
             success = true, strategy = strategy, result = result,
             results = listOf(result),
             plainLyrics = plainLyrics,
-            syncedLines = parsedLines.takeIf { it.isNotEmpty() },
+            syncedLines = syncedLines.takeIf { it.isNotEmpty() },
             languages = langs,
             lyricsStatus = LyricsStatus(
                 hasPlain = !plainLyrics.isNullOrBlank(),
-                hasSynced = parsedLines.isNotEmpty(),
+                hasSynced = syncedLines.isNotEmpty(),
                 isInstrumental = result.instrumental
             )
         )
