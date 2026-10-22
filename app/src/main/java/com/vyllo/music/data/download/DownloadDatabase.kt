@@ -11,6 +11,7 @@ import com.vyllo.music.domain.model.DownloadEntity
 import com.vyllo.music.domain.model.DownloadStatus
 import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.domain.model.PlaylistSongEntity
+import com.vyllo.music.domain.model.LocalLibrarySong
 
 /**
  * Room database for storing download metadata.
@@ -22,9 +23,10 @@ import com.vyllo.music.domain.model.PlaylistSongEntity
         PlaylistSongEntity::class, 
         HistoryEntity::class,
         AlarmEntity::class,
-        FavoriteEntity::class
+        FavoriteEntity::class,
+        LocalLibrarySong::class
     ], 
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -35,6 +37,7 @@ abstract class DownloadDatabase : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
     abstract fun alarmDao(): AlarmDao
     abstract fun favoritesDao(): FavoritesDao
+    abstract fun localLibraryDao(): LocalLibraryDao
 
     companion object {
         @Volatile
@@ -47,7 +50,7 @@ abstract class DownloadDatabase : RoomDatabase() {
                     DownloadDatabase::class.java,
                     "downloads_db"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .build().also { INSTANCE = it }
             }
         }

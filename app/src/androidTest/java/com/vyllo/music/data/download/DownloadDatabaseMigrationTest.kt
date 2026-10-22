@@ -135,4 +135,16 @@ class DownloadDatabaseMigrationTest {
         }
         db.close()
     }
+
+    @Test
+    fun migrate7To8_createsIndependentLocalLibraryTable() {
+        helper.createDatabase(TEST_DB, 7).close()
+        val db = helper.runMigrationsAndValidate(TEST_DB, 8, true, MIGRATION_7_8)
+        db.query("PRAGMA table_info(local_library_songs)").use { c ->
+            val columns = mutableSetOf<String>()
+            while (c.moveToNext()) columns += c.getString(1)
+            assertTrue(columns.containsAll(listOf("url", "title", "artist", "album", "thumbnailUrl", "durationSecs", "addedAt")))
+        }
+        db.close()
+    }
 }

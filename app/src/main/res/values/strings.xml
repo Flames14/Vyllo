@@ -516,6 +516,19 @@
     <string name="library_alarms_subtitle">Wake up to your songs</string>
     <string name="library_playlists_title">Playlists</string>
     <string name="library_artists_title">Artists</string>
+    <string name="local_library_title">My library</string>
+    <string name="local_library_albums">Albums</string>
+    <string name="local_library_songs">Songs</string>
+    <string name="local_library_empty">Save songs to your library to keep them here independently of likes.</string>
+    <string name="local_library_edit_metadata">Edit track details</string>
+    <string name="context_save_to_library">Save to my library</string>
+    <string name="song_title">Title</string>
+    <string name="song_artist">Artist</string>
+    <string name="album_title">Album</string>
+    <plurals name="local_library_song_count">
+        <item quantity="one">%1$d song</item>
+        <item quantity="other">%1$d songs</item>
+    </plurals>
     <plurals name="artist_song_count">
         <item quantity="one">%d song</item>
         <item quantity="other">%d songs</item>

@@ -185,6 +185,7 @@ fun YTMSongRow(
             onAddToPlaylist = { libraryViewModel.showPlaylistAddDialog(item) },
             onDownload = { libraryViewModel.downloadSong(item) },
             onShare = { com.vyllo.music.core.utils.ShareIntentManager.shareSongLink(context, item) },
+            onSaveToLibrary = { libraryViewModel.saveToLocalLibrary(item) },
             onRemoveFromPlaylist = onRemoveClick
         )
     }
@@ -289,7 +290,8 @@ fun YTMCompactRow(
             onAddToQueue = { libraryViewModel.addToQueue(item) },
             onAddToPlaylist = { libraryViewModel.showPlaylistAddDialog(item) },
             onDownload = { libraryViewModel.downloadSong(item) },
-            onShare = { com.vyllo.music.core.utils.ShareIntentManager.shareSongLink(context, item) }
+            onShare = { com.vyllo.music.core.utils.ShareIntentManager.shareSongLink(context, item) },
+            onSaveToLibrary = { libraryViewModel.saveToLocalLibrary(item) }
         )
     }
 }

@@ -5,6 +5,7 @@ import com.vyllo.music.data.download.DownloadDao
 import com.vyllo.music.data.download.DownloadDatabase
 import com.vyllo.music.data.download.FavoritesDao
 import com.vyllo.music.data.download.HistoryDao
+import com.vyllo.music.data.download.LocalLibraryDao
 import com.vyllo.music.data.download.PlaylistDao
 import dagger.Module
 import dagger.Provides
@@ -46,4 +47,8 @@ object DatabaseModule {
     fun provideFavoritesDao(database: DownloadDatabase): FavoritesDao {
         return database.favoritesDao()
     }
+
+    @Provides
+    @Singleton
+    fun provideLocalLibraryDao(database: DownloadDatabase): LocalLibraryDao = database.localLibraryDao()
 }

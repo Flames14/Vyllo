@@ -522,6 +522,20 @@
     <string name="library_alarms_subtitle">Despierta con tus canciones</string>
     <string name="library_playlists_title">Listas</string>
     <string name="library_artists_title">Artistas</string>
+    <string name="local_library_title">Mi biblioteca</string>
+    <string name="local_library_albums">Álbumes</string>
+    <string name="local_library_songs">Canciones</string>
+    <string name="local_library_empty">Guarda canciones en tu biblioteca para tenerlas aquí independientemente de tus favoritos.</string>
+    <string name="local_library_edit_metadata">Editar datos de la canción</string>
+    <string name="context_save_to_library">Guardar en mi biblioteca</string>
+    <string name="song_title">Título</string>
+    <string name="song_artist">Artista</string>
+    <string name="album_title">Álbum</string>
+    <plurals name="local_library_song_count">
+        <item quantity="one">%1$d canción</item>
+        <item quantity="many">%1$d canciones</item>
+        <item quantity="other">%1$d canciones</item>
+    </plurals>
     <plurals name="artist_song_count">
         <item quantity="one">%d canción</item>
         <item quantity="other">%d canciones</item>

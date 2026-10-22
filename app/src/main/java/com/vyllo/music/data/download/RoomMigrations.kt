@@ -136,3 +136,28 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
         db.execSQL("ALTER TABLE `playlists` ADD COLUMN `coverCropY` REAL NOT NULL DEFAULT 0.5")
     }
 }
+
+/** Independent local library with editable album metadata. */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `local_library_songs` (" +
+                "`url` TEXT NOT NULL, " +
+                "`title` TEXT NOT NULL, " +
+                "`artist` TEXT NOT NULL, " +
+                "`album` TEXT NOT NULL, " +
+                "`thumbnailUrl` TEXT NOT NULL, " +
+                "`durationSecs` INTEGER NOT NULL, " +
+                "`addedAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`url`))"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_local_library_songs_album` " +
+                "ON `local_library_songs` (`album`)"
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_local_library_songs_artist` " +
+                "ON `local_library_songs` (`artist`)"
+        )
+    }
+}

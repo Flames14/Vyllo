@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Delete
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,9 +74,24 @@ fun YTMLibraryScreen(
 ) {
     val scrollState = rememberLazyListState()
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showLocalLibrary by rememberSaveable { mutableStateOf(false) }
     var showClearHistoryConfirmation by remember { mutableStateOf(false) }
     val historyItems by viewModel.historyItems.collectAsState()
     val likedSongs by viewModel.likedSongs.collectAsState()
+    val localLibrarySongs by viewModel.localLibrarySongs.collectAsState()
+    val localLibraryAlbums by viewModel.localLibraryAlbums.collectAsState()
+
+    if (showLocalLibrary) {
+        LocalLibraryScreen(
+            songs = localLibrarySongs,
+            albums = localLibraryAlbums,
+            onBack = { showLocalLibrary = false },
+            onPlay = { onPlay(it.toMusicItem()) },
+            onEdit = viewModel::updateLocalLibraryMetadata,
+            onRemove = viewModel::removeFromLocalLibrary
+        )
+        return
+    }
 
     if (showCreateDialog) {
         CreatePlaylistDialog(
@@ -493,6 +510,33 @@ fun YTMLibraryScreen(
                       }
                   }
               }
+        }
+
+        item(key = "local_library_card", contentType = "card") {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .clickable { showLocalLibrary = true },
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Rounded.Album, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                        Text(stringResource(R.string.local_library_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            pluralStringResource(R.plurals.local_library_song_count, localLibrarySongs.size, localLibrarySongs.size),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
 
         item(key = "history_header", contentType = "header") {

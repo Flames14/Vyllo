@@ -2,11 +2,13 @@ package com.vyllo.music.di
 
 import com.vyllo.music.domain.repository.HighResThumbnailResolver
 import com.vyllo.music.domain.repository.IMusicRepository
+import com.vyllo.music.domain.repository.ILocalLibraryRepository
 import com.vyllo.music.domain.repository.LyricsSearchService
 import com.vyllo.music.domain.repository.LyricsTranslator
 import com.vyllo.music.domain.repository.PlayerPreferences
 import com.vyllo.music.data.LyricsSearchAdapter
 import com.vyllo.music.data.MusicRepositoryImpl
+import com.vyllo.music.data.repository.LocalLibraryRepository
 import com.vyllo.music.data.TranslationEngineAdapter
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.data.network.YouTubeThumbnailResolver
@@ -19,6 +21,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindLocalLibraryRepository(repository: LocalLibraryRepository): ILocalLibraryRepository
 
     @Binds
     @Singleton

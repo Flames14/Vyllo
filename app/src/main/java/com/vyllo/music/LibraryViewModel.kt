@@ -16,11 +16,14 @@ import com.vyllo.music.domain.model.normalizeArtistKey
 import com.vyllo.music.domain.model.DownloadEntity
 import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.domain.model.PlaylistSongEntity
+import com.vyllo.music.domain.model.LocalLibrarySong
+import com.vyllo.music.domain.model.LocalLibraryAlbums
 import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.data.manager.DownloadManager
 import com.vyllo.music.data.manager.PlaylistFileManager
 import com.vyllo.music.domain.usecase.DownloadMusicUseCase
 import com.vyllo.music.domain.usecase.ManagePlaylistUseCase
+import com.vyllo.music.domain.usecase.ManageLocalLibraryUseCase
 import com.vyllo.music.data.network.YouTubeRemotePlaylist
 import com.vyllo.music.data.oauth.YouTubeOAuthManager
 import com.vyllo.music.data.repository.SyncProgress
@@ -33,6 +36,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -45,7 +49,8 @@ class LibraryViewModel @Inject constructor(
     private val youtubeOAuthManager: YouTubeOAuthManager,
     private val youtubeSyncRepository: YouTubeSyncRepository,
     private val musicRepository: IMusicRepository,
-    private val playlistFileManager: PlaylistFileManager
+    private val playlistFileManager: PlaylistFileManager,
+    private val manageLocalLibraryUseCase: ManageLocalLibraryUseCase
 ) : ViewModel() {
 
     var allPlaylists by mutableStateOf<List<PlaylistEntity>>(emptyList())
@@ -88,6 +93,26 @@ class LibraryViewModel @Inject constructor(
     // ---- Liked songs (the rating store already backs the player heart) ----
     val likedSongs = musicRepository.observeLikedSongs()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val localLibrarySongs = manageLocalLibraryUseCase.observeSongs()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val localLibraryAlbums = localLibrarySongs
+        .map(LocalLibraryAlbums::fromSongs)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun saveToLocalLibrary(item: MusicItem) {
+        viewModelScope.launch { manageLocalLibraryUseCase.save(item) }
+    }
+
+    fun updateLocalLibraryMetadata(song: LocalLibrarySong, title: String, artist: String, album: String) {
+        viewModelScope.launch {
+            manageLocalLibraryUseCase.updateMetadata(song.url, title, artist, album)
+        }
+    }
+
+    fun removeFromLocalLibrary(song: LocalLibrarySong) {
+        viewModelScope.launch { manageLocalLibraryUseCase.remove(song.url) }
+    }
 
     fun unlikeSong(item: MusicItem) {
         viewModelScope.launch {

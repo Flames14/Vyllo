@@ -44,6 +44,7 @@ fun SongContextMenuSheet(
     onAddToPlaylist: () -> Unit,
     onDownload: () -> Unit,
     onShare: () -> Unit,
+    onSaveToLibrary: () -> Unit = {},
     onRemoveFromPlaylist: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
@@ -125,6 +126,16 @@ fun SongContextMenuSheet(
                     .clip(RoundedCornerShape(14.dp))
                     .background(Color.White.copy(alpha = 0.05f))
             ) {
+                IOSActionRow(
+                    icon = Icons.Rounded.LibraryAdd,
+                    title = stringResource(R.string.context_save_to_library),
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSaveToLibrary()
+                        onDismiss()
+                    }
+                )
+                HorizontalDivider(color = Color.White.copy(alpha = 0.06f), thickness = 0.5.dp)
                 IOSActionRow(
                     icon = Icons.AutoMirrored.Rounded.QueueMusic,
                     title = stringResource(R.string.context_play_next),
