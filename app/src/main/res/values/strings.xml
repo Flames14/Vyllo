@@ -259,6 +259,7 @@
     <string name="header_sleep_timer">Sleep Timer</string>
     <string name="header_sleep_timer_remaining">Sleep Timer (%1$02d:%2$02d)</string>
     <string name="header_playback_speed">Playback speed</string>
+    <string name="header_start_radio">Start radio</string>
     <string name="speed_sheet_title">Playback speed</string>
     <string name="speed_pitch_label">Pitch</string>
     <string name="speed_reset">Reset to 1x</string>

@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -37,7 +38,8 @@ fun YTMPlaylistScreen(
     isPinned: Boolean = false,
     onTogglePinned: () -> Unit = {},
     onExportM3u: () -> Unit = {},
-    onExportCsv: () -> Unit = {}
+    onExportCsv: () -> Unit = {},
+    onStartRadio: (MusicItem) -> Unit = {}
 ) {
     var showExportMenu by remember { mutableStateOf(false) }
 
@@ -95,6 +97,25 @@ fun YTMPlaylistScreen(
                             onExportCsv()
                         }
                     )
+                    val radioSeed = viewModel.currentPlaylistSongs.firstOrNull()?.let { first ->
+                        MusicItem(first.title, first.url, first.uploader, first.thumbnailUrl)
+                    }
+                    if (radioSeed != null) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.header_start_radio)) },
+                            onClick = {
+                                showExportMenu = false
+                                onStartRadio(radioSeed)
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Rounded.Radio,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        )
+                    }
                 }
             }
             IconButton(onClick = onTogglePinned) {

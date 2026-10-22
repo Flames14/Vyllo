@@ -261,6 +261,7 @@
     <string name="header_sleep_timer">Temporizador para dormir</string>
     <string name="header_sleep_timer_remaining">Temporizador para dormir (%1$02d:%2$02d)</string>
     <string name="header_playback_speed">Velocidad de reproducción</string>
+    <string name="header_start_radio">Iniciar radio</string>
     <string name="speed_sheet_title">Velocidad de reproducción</string>
     <string name="speed_pitch_label">Tono</string>
     <string name="speed_reset">Volver a 1x</string>

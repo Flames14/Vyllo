@@ -485,6 +485,7 @@ class PlayerViewModel @Inject constructor(
     private var playRequestSeq: Long = 0L
     private var lastPlayRequestAt: Long = 0L
 
+
     /**
      * Resolves + starts playback. Returns PlayResult for UI feedback (toast/snackbar).
      * Safe to call from Activity/Compose; handles loading flags + related preload.
@@ -518,8 +519,47 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun playNextFromQueue(onResult: ((com.vyllo.music.domain.model.PlayResult) -> Unit)? = null) {
-        val queueSnapshot = playbackQueueManager.getQueueSnapshot()
+    /**
+     * Starts an endless station seeded by [item].
+     *
+     * Ordinary playback queues a single track and lets the service's lookahead
+     * decide what comes next, which leaves the Up Next list looking empty right
+     * after the tap. A radio start instead resolves the related pool up front and
+     * seeds the queue with it, so the station is visible and shuffling inside it
+     * behaves like a normal queue. Autoplay still refills once the seed list runs
+     * out.
+     */
+    fun startRadio(
+        item: MusicItem,
+        onResult: ((com.vyllo.music.domain.model.PlayResult) -> Unit)? = null
+    ) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastPlayRequestAt < 250L) return
+        lastPlayRequestAt = now
+        val mySeq = ++playRequestSeq
+        setPlaybackLoading(true, item.url)
+        viewModelScope.launch {
+            try {
+                val related = runCatching { repository.getRelatedSongs(item.url, force = true) }
+                    .getOrDefault(emptyList())
+                if (mySeq != playRequestSeq) return@launch
+                val station = com.vyllo.music.domain.model.RadioStation.build(item, related)
+                playbackQueueManager.replaceQueue(station, 0)
+                val result = playMusicUseCase.execute(item, isVideo = _uiState.value.isVideoMode, keepQueue = true)
+                if (mySeq != playRequestSeq) return@launch
+                if (result is com.vyllo.music.domain.model.PlayResult.Success) {
+                    loadRelatedSongs(item)
+                }
+                onResult?.invoke(result)
+            } finally {
+                if (mySeq == playRequestSeq) {
+                    setPlaybackLoading(false)
+                }
+            }
+        }
+    }
+
+    fun playNextFromQueue(onResult: ((com.vyllo.music.domain.model.PlayResult) -> Unit)? = null) {        val queueSnapshot = playbackQueueManager.getQueueSnapshot()
         val currentIdx = playbackQueueManager.currentIndex
         if (currentIdx >= 0 && currentIdx < queueSnapshot.size - 1) {
             playTrack(queueSnapshot[currentIdx + 1], fromQueue = true, onResult = onResult)

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SmartDisplay
+import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
@@ -61,6 +62,7 @@ fun PlayerHeader(
     onShowSleepTimer: () -> Unit,
     onShowPlaybackSpeed: () -> Unit,
     onShowStoryShare: () -> Unit,
+    onStartRadio: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -225,6 +227,16 @@ fun PlayerHeader(
                     },
                     leadingIcon = {
                         Icon(Icons.Rounded.Speed, stringResource(R.string.header_playback_speed), tint = Color.White)
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.header_start_radio), color = Color.White) },
+                    onClick = {
+                        showMoreMenu = false
+                        onStartRadio()
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Rounded.Radio, stringResource(R.string.header_start_radio), tint = Color.White)
                     }
                 )
                 DropdownMenuItem(

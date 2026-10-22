@@ -13,12 +13,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Radio
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +47,8 @@ import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.normalizeArtistKey
 import com.vyllo.music.presentation.components.VylloEmptyState
 import com.vyllo.music.presentation.components.VylloErrorState
+import com.vyllo.music.presentation.theme.VylloRadius
+import com.vyllo.music.presentation.theme.VylloSize
 import com.vyllo.music.presentation.components.VylloLoadingIndicator
 import com.vyllo.music.presentation.components.YTMSongRow
 import com.vyllo.music.presentation.theme.VylloSpacing
@@ -58,7 +64,8 @@ fun YTMArtistScreen(
     onBack: () -> Unit,
     onPlay: (MusicItem) -> Unit,
     currentPlayingItem: MusicItem?,
-    loadingItemUrl: String? = null
+    loadingItemUrl: String? = null,
+    onStartRadio: (MusicItem) -> Unit = {}
 ) {
     LaunchedEffect(artistName) { viewModel.openArtist(artistName) }
     DisposableEffect(Unit) {
@@ -148,6 +155,21 @@ fun YTMArtistScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                    if (songs.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(VylloSpacing.md))
+                        Button(
+                            onClick = { onStartRadio(songs.first()) },
+                            shape = RoundedCornerShape(VylloRadius.pill)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Radio,
+                                contentDescription = null,
+                                modifier = Modifier.size(VylloSize.iconSmall)
+                            )
+                            Spacer(Modifier.width(VylloSpacing.xs))
+                            Text(stringResource(R.string.header_start_radio))
+                        }
                     }
                 }
             }

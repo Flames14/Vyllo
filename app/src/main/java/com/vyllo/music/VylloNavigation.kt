@@ -538,6 +538,10 @@ fun VylloNavigation(
                                     onExportCsv = {
                                         pendingPlaylistExport = playlist to PlaylistFileCodec.Format.CSV
                                         playlistExportLauncher.launch("${playlist.name}.csv")
+                                    },
+                                    onStartRadio = { seed ->
+                                        homeViewModel.addToRecentlyPlayed(seed)
+                                        playerViewModel.startRadio(seed)
                                     }
                                 )
                             }
@@ -555,6 +559,10 @@ fun VylloNavigation(
                                 onPlay = { item ->
                                     homeViewModel.addToRecentlyPlayed(item)
                                     onPlay(item)
+                                },
+                                onStartRadio = { item ->
+                                    homeViewModel.addToRecentlyPlayed(item)
+                                    playerViewModel.startRadio(item)
                                 },
                                 currentPlayingItem = currentPlayingItem,
                                 loadingItemUrl = loadingItemUrl
