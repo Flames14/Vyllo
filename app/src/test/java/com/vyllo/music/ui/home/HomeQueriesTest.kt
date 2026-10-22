@@ -13,13 +13,16 @@ class HomeQueriesTest {
 
     @Test
     fun `known explore categories map to their curated query`() {
-        assertEquals("top music charts global official", HomeQueries.exploreQuery("Charts"))
+        assertEquals("official global music charts top songs", HomeQueries.exploreQuery("Charts"))
+        assertEquals("top official music videos this week", HomeQueries.exploreQuery("Top music videos"))
+        assertEquals("official k-pop music videos", HomeQueries.exploreQuery("K-pop"))
+        assertEquals("jazz music official live sessions", HomeQueries.exploreQuery("Jazz"))
         assertEquals("sleep relaxing music", HomeQueries.exploreQuery("Sleep"))
     }
 
     @Test
     fun `unknown explore category falls back to a playlist search`() {
-        assertEquals("Jazz playlist", HomeQueries.exploreQuery("Jazz"))
+        assertEquals("Something new playlist", HomeQueries.exploreQuery("Something new"))
     }
 
     @Test

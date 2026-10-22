@@ -28,7 +28,11 @@ import javax.inject.Inject
 
 data class HomeUiState(
     val recentlyPlayed: List<MusicItem> = emptyList(),
-    val exploreCategories: List<String> = listOf("New releases", "Charts", "Moods & genres", "Party", "Romance", "Sleep", "Workout"),
+    val exploreCategories: List<String> = listOf(
+        "New releases", "Charts", "Top music videos", "Moods & genres", "Pop", "Hip-hop",
+        "Rock", "R&B", "Latin", "K-pop", "Afrobeats", "Jazz", "Classical", "Lofi",
+        "Party", "Romance", "Sleep", "Workout"
+    ),
     val selectedExploreCategory: String? = null,
     val listenAgainItems: List<MusicItem> = emptyList(),
     val quickPicksItems: List<MusicItem> = emptyList(),
