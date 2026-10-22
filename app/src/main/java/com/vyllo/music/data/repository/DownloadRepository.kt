@@ -78,7 +78,8 @@ class DownloadRepository @Inject constructor(
                     "url" to item.url,
                     "title" to item.title,
                     "uploader" to item.uploader,
-                    "thumbnailUrl" to item.thumbnailUrl
+                    "thumbnailUrl" to item.thumbnailUrl,
+                    "quality" to preferenceManager.downloadQuality
                 ))
                 .addTag("download_song")
                 .addTag("download_${item.url}")

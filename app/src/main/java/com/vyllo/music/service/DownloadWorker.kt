@@ -34,6 +34,7 @@ class DownloadWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val repository: IMusicRepository,
     private val downloadDao: DownloadDao,
+    private val preferenceManager: com.vyllo.music.data.manager.PreferenceManager,
     private val client: OkHttpClient
 ) : CoroutineWorker(appContext, params) {
 
@@ -77,6 +78,10 @@ class DownloadWorker @AssistedInject constructor(
         val title = inputData.getString("title") ?: "Unknown Song"
         val uploader = inputData.getString("uploader") ?: "Unknown Artist"
         val thumbnailUrl = inputData.getString("thumbnailUrl") ?: ""
+        // Absent for work enqueued by older builds; falls back to the live pref.
+        val quality = inputData.getString("quality")
+            ?.let { com.vyllo.music.domain.model.StreamQuality.from(it) }
+            ?: com.vyllo.music.domain.model.StreamQuality.from(preferenceManager.downloadQuality)
 
         // Create notification channel
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -105,10 +110,10 @@ class DownloadWorker @AssistedInject constructor(
             downloadDao.updateStatus(url, DownloadStatus.DOWNLOADING)
 
             // Resolve stream URL with retry
-            var streamUrl = repository.getStreamUrl(url, force = false)
+            var streamUrl = repository.getStreamUrl(url, force = false, quality = quality)
             if (streamUrl == null) {
                 kotlinx.coroutines.delay(500)
-                streamUrl = repository.getStreamUrl(url, force = true)
+                streamUrl = repository.getStreamUrl(url, force = true, quality = quality)
             }
             streamUrl ?: run {
                 downloadDao.updateStatus(url, DownloadStatus.FAILED)

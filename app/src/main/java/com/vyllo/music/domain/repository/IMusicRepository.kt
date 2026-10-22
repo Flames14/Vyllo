@@ -15,7 +15,12 @@ interface IMusicRepository {
     /** Full metadata (title/artist/art/duration) for a watch URL â€” content deep links. */
     suspend fun resolveTrack(url: String): MusicItem?
     suspend fun getTrendingMusic(): List<MusicItem>
-    suspend fun getStreamUrl(url: String, force: Boolean = false, isVideo: Boolean = false): String?
+    suspend fun getStreamUrl(
+        url: String,
+        force: Boolean = false,
+        isVideo: Boolean = false,
+        quality: com.vyllo.music.domain.model.StreamQuality? = null
+    ): String?
     suspend fun getLocalStreamUrl(url: String): String?
     suspend fun getRelatedSongs(url: String, force: Boolean = false): List<MusicItem>
     suspend fun getMoreRelatedSongs(url: String): List<MusicItem>

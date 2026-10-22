@@ -35,6 +35,7 @@ class SettingsViewModel @Inject constructor(
     var crossfadeSeconds by mutableStateOf(preferenceManager.crossfadeSeconds)
     var loudnessPreset by mutableStateOf(preferenceManager.loudnessPreset)
     var streamQuality by mutableStateOf(preferenceManager.streamQuality)
+    var downloadQuality by mutableStateOf(preferenceManager.downloadQuality)
     var sleepSchedule by mutableStateOf(preferenceManager.sleepSchedule)
     var skipSilence by mutableStateOf(preferenceManager.skipSilence)
     var pauseOnDeviceDisconnect by mutableStateOf(preferenceManager.pauseOnDeviceDisconnect)
@@ -75,6 +76,11 @@ class SettingsViewModel @Inject constructor(
     fun updateStreamQuality(quality: String) {
         preferenceManager.streamQuality = quality
         streamQuality = preferenceManager.streamQuality
+    }
+
+    fun updateDownloadQuality(quality: String) {
+        preferenceManager.downloadQuality = quality
+        downloadQuality = preferenceManager.downloadQuality
     }
 
     fun updateLoudnessPreset(preset: String) {
@@ -212,6 +218,7 @@ class SettingsViewModel @Inject constructor(
                 crossfadeSeconds = preferenceManager.crossfadeSeconds
                 loudnessPreset = preferenceManager.loudnessPreset
                 streamQuality = preferenceManager.streamQuality
+                downloadQuality = preferenceManager.downloadQuality
                 sleepSchedule = preferenceManager.sleepSchedule
                 skipSilence = preferenceManager.skipSilence
                 pauseOnDeviceDisconnect = preferenceManager.pauseOnDeviceDisconnect

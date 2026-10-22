@@ -1,4 +1,4 @@
-package com.vyllo.music.ui.components.dialogs
+﻿package com.vyllo.music.ui.components.dialogs
 
 import androidx.compose.foundation.clickable
 import android.os.Build
@@ -74,6 +74,8 @@ fun SettingsDialog(
     onLoudnessPresetChange: (String) -> Unit = {},
     streamQuality: String = "Auto",
     onStreamQualityChange: (String) -> Unit = {},
+    downloadQuality: String = "High",
+    onDownloadQualityChange: (String) -> Unit = {},
     sleepSchedule: SleepSchedule = SleepSchedule(),
     onSleepScheduleChange: (SleepSchedule) -> Unit = {},
     skipSilence: Boolean = false,
@@ -100,6 +102,7 @@ fun SettingsDialog(
     var showCrossfadePicker by remember { mutableStateOf(false) }
     var showLoudnessPicker by remember { mutableStateOf(false) }
     var showQualityPicker by remember { mutableStateOf(false) }
+    var showDownloadQualityPicker by remember { mutableStateOf(false) }
     var showSleepScheduleSheet by remember { mutableStateOf(false) }
 
     if (showSleepScheduleSheet) {
@@ -139,7 +142,7 @@ fun SettingsDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = streamQualityLabel(quality),
+                                text = qualityLabel(quality),
                                 style = MaterialTheme.typography.bodyLarge.copy(
                                     fontWeight = if (streamQuality == quality) FontWeight.Bold else FontWeight.Normal
                                 )
@@ -157,6 +160,59 @@ fun SettingsDialog(
             },
             confirmButton = {
                 TextButton(onClick = { showQualityPicker = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            textContentColor = MaterialTheme.colorScheme.onSurface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface
+        )
+    }
+
+    if (showDownloadQualityPicker) {
+        val qualities = listOf("Auto", "High", "Medium", "Low")
+        AlertDialog(
+            onDismissRequest = { showDownloadQualityPicker = false },
+            title = { Text(stringResource(R.string.download_quality_dialog_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.settings_download_quality_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    qualities.forEach { quality ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onDownloadQualityChange(quality)
+                                    showDownloadQualityPicker = false
+                                }
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = qualityLabel(quality),
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = if (downloadQuality == quality) FontWeight.Bold else FontWeight.Normal
+                                )
+                            )
+                            if (downloadQuality == quality) {
+                                Icon(
+                                    Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDownloadQualityPicker = false }) {
                     Text(stringResource(R.string.common_cancel))
                 }
             },
@@ -544,11 +600,32 @@ fun SettingsDialog(
                 ) {
                     SettingsValueRow(
                         title = stringResource(R.string.settings_stream_quality),
-                        value = streamQualityLabel(streamQuality),
+                        value = qualityLabel(streamQuality),
                         emphasize = true
                     )
                     Text(
                         text = stringResource(R.string.settings_stream_quality_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Download quality -- the ceiling used when fetching the file
+                // itself, kept separate from the streaming preference because a
+                // download outlives the connection it was made on.
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showDownloadQualityPicker = true }
+                        .padding(vertical = 4.dp)
+                ) {
+                    SettingsValueRow(
+                        title = stringResource(R.string.settings_download_quality),
+                        value = qualityLabel(downloadQuality),
+                        emphasize = true
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_download_quality_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -735,7 +812,7 @@ private fun sleepScheduleSummary(schedule: SleepSchedule): String {
 }
 
 @Composable
-private fun streamQualityLabel(quality: String): String = when (quality) {
+private fun qualityLabel(quality: String): String = when (quality) {
     "High" -> stringResource(R.string.quality_high)
     "Medium" -> stringResource(R.string.quality_medium)
     "Low" -> stringResource(R.string.quality_low)

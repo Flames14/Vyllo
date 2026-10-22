@@ -381,6 +381,11 @@
     <string name="sleep_schedule_desc">Pausa la reproducción automáticamente a esta hora en los días elegidos.</string>
     <string name="sleep_schedule_enabled">Activar programación</string>
     <string name="settings_stream_quality_desc">Límite de bits al elegir un flujo de audio. Automática usa la mejor disponible.</string>
+    <string name="settings_download_quality">Calidad de descarga</string>
+    <string name="settings_download_quality_desc">Límite de bits para los archivos descargados. Alta conserva el mejor audio disponible.</string>
+    <string name="download_quality_dialog_title">Calidad de descarga</string>
+    <string name="playlist_download_all">Descargar todo</string>
+    <string name="playlist_download_all_queued">Descargando %1$d canciones</string>
     <string name="quality_dialog_title">Calidad del audio</string>
     <string name="quality_auto">Automática</string>
     <string name="quality_high">Alta</string>

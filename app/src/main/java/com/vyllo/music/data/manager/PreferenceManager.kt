@@ -175,8 +175,16 @@ class PreferenceManager @Inject constructor(
             preferences.edit().putString(KEY_STREAM_QUALITY, value).apply()
         }
 
-    /** Loudness normalization preset: Off/Aggressive/Loud/Balanced/Quiet. */
-    var loudnessPreset: String
+    /**
+     * Quality ceiling for downloaded files. Separate from [streamQuality]: a
+     * download is permanent, so it is worth keeping it independent from a
+     * bandwidth-saving playback choice.
+     */
+    var downloadQuality: String
+        get() = preferences.getString(KEY_DOWNLOAD_QUALITY, "High") ?: "High"
+        set(value) { preferences.edit().putString(KEY_DOWNLOAD_QUALITY, value).apply() }
+
+    /** Loudness normalization preset: Off/Aggressive/Loud/Balanced/Quiet. */    var loudnessPreset: String
         get() = preferences.getString(KEY_LOUDNESS_PRESET, "Off") ?: "Off"
         set(value) {
             preferences.edit().putString(KEY_LOUDNESS_PRESET, value).apply()
@@ -451,6 +459,7 @@ class PreferenceManager @Inject constructor(
         const val KEY_CROSSFADE_SECONDS = "crossfade_seconds"
         const val KEY_LOUDNESS_PRESET = "loudness_preset"
         const val KEY_STREAM_QUALITY = "stream_quality"
+        const val KEY_DOWNLOAD_QUALITY = "download_quality"
         const val KEY_SLEEP_SCHEDULE = "sleep_schedule"
         const val KEY_SLEEP_SCHEDULE_FIRED_DAY = "sleep_schedule_fired_day"
         const val KEY_SKIP_SILENCE = "skip_silence"

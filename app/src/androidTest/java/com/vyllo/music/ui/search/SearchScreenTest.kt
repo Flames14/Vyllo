@@ -98,7 +98,12 @@ private class FakeMusicRepository(
     override suspend fun loadMoreResults(): List<MusicItem> = emptyList()
     override suspend fun resolveTrack(url: String): MusicItem? = null
     override suspend fun getTrendingMusic(): List<MusicItem> = emptyList()
-    override suspend fun getStreamUrl(url: String, force: Boolean, isVideo: Boolean): String? = null
+    override suspend fun getStreamUrl(
+        url: String,
+        force: Boolean,
+        isVideo: Boolean,
+        quality: com.vyllo.music.domain.model.StreamQuality?
+    ): String? = null
     override suspend fun getLocalStreamUrl(url: String): String? = null
     override suspend fun getRelatedSongs(url: String, force: Boolean): List<MusicItem> = emptyList()
     override suspend fun getMoreRelatedSongs(url: String): List<MusicItem> = emptyList()

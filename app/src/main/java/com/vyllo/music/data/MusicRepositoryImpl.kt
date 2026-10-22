@@ -80,7 +80,12 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun getTrendingMusic(): List<MusicItem> =
         youtubeDataSource.getTrendingMusic()
 
-    override suspend fun getStreamUrl(url: String, force: Boolean, isVideo: Boolean): String? {
+    override suspend fun getStreamUrl(
+        url: String,
+        force: Boolean,
+        isVideo: Boolean,
+        quality: StreamQuality?
+    ): String? {
         if (!isVideo) {
             val localUrl = downloadRepository.getLocalStreamUrl(url)
             if (localUrl != null) {
@@ -108,7 +113,7 @@ class MusicRepositoryImpl @Inject constructor(
             } else {
                 var audioCandidates = streamSelector.audioCandidates(
                     info.audioStreams,
-                    StreamQuality.from(preferenceManager.streamQuality)
+                    quality ?: StreamQuality.from(preferenceManager.streamQuality)
                 )
                 var audioUrl: String? = if (force) {
                     streamSelector.firstPlayableStreamUrl(audioCandidates)

@@ -373,6 +373,15 @@ class LibraryViewModel @Inject constructor(
         downloadMusicUseCase.downloadSong(item)
     }
 
+    /**
+     * Queues a whole collection. Downloads are deduplicated by url inside
+     * [DownloadRepository], so re-running this on an already-downloaded
+     * playlist only fills the gaps.
+     */
+    fun downloadAll(items: List<MusicItem>) {
+        items.distinctBy { it.url }.forEach { downloadMusicUseCase.downloadSong(it) }
+    }
+
     fun cancelDownload(url: String) {
         downloadMusicUseCase.cancelDownload(url)
     }

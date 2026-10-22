@@ -378,6 +378,11 @@
     <string name="sleep_schedule_desc">Pause playback automatically at this time on the selected days.</string>
     <string name="sleep_schedule_enabled">Enable schedule</string>
     <string name="settings_stream_quality_desc">Bitrate ceiling used when picking an audio stream. Auto takes the best available.</string>
+    <string name="settings_download_quality">Download quality</string>
+    <string name="settings_download_quality_desc">Bitrate ceiling for downloaded files. High keeps the best available audio.</string>
+    <string name="download_quality_dialog_title">Download quality</string>
+    <string name="playlist_download_all">Download all</string>
+    <string name="playlist_download_all_queued">Downloading %1$d tracks</string>
     <string name="quality_dialog_title">Stream quality</string>
     <string name="quality_auto">Auto</string>
     <string name="quality_high">High</string>

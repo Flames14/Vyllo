@@ -542,6 +542,13 @@ fun VylloNavigation(
                                     onStartRadio = { seed ->
                                         homeViewModel.addToRecentlyPlayed(seed)
                                         playerViewModel.startRadio(seed)
+                                    },
+                                    onDownloadAll = {
+                                        libraryViewModel.downloadAll(
+                                            libraryViewModel.currentPlaylistSongs.map {
+                                                MusicItem(it.title, it.url, it.uploader, it.thumbnailUrl)
+                                            }
+                                        )
                                     }
                                 )
                             }
@@ -644,6 +651,8 @@ downloadsRequireBatteryOk = settingsViewModel.downloadsRequireBatteryOk,
                            onLoudnessPresetChange = { settingsViewModel.updateLoudnessPreset(it) },
                            streamQuality = settingsViewModel.streamQuality,
                            onStreamQualityChange = { settingsViewModel.updateStreamQuality(it) },
+                           downloadQuality = settingsViewModel.downloadQuality,
+                           onDownloadQualityChange = { settingsViewModel.updateDownloadQuality(it) },
                            sleepSchedule = settingsViewModel.sleepSchedule,
                            onSleepScheduleChange = { settingsViewModel.updateSleepSchedule(it) },
                            skipSilence = settingsViewModel.skipSilence,
