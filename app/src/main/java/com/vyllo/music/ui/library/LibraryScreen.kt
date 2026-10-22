@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.FileOpen
@@ -61,6 +62,7 @@ fun YTMLibraryScreen(
     onRecognizeClick: () -> Unit,
     loadingItemUrl: String? = null,
     onNavigateToAlarms: () -> Unit = {},
+    onNavigateToStats: () -> Unit = {},
     onPlaylistClick: (PlaylistEntity) -> Unit = {},
     onArtistClick: (ArtistSummary) -> Unit = {},
     onImportPlaylistClick: () -> Unit = {}
@@ -170,6 +172,61 @@ fun YTMLibraryScreen(
                         Icons.AutoMirrored.Rounded.ArrowForward,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(VylloSize.iconMedium)
+                    )
+                }
+            }
+        }
+
+        item(key = "stats_card", contentType = "card") {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = VylloSpacing.screenHorizontal,
+                        vertical = VylloSpacing.xs
+                    )
+                    .pressScaleClickable(onClick = onNavigateToStats),
+                shape = RoundedCornerShape(VylloRadius.lg),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(VylloSpacing.lg),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            Icons.Rounded.BarChart,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(VylloSize.iconXLarge)
+                        )
+                        Spacer(modifier = Modifier.width(VylloSpacing.lg))
+                        Column {
+                            Text(
+                                text = stringResource(R.string.stats_open),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                text = stringResource(R.string.stats_open_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.size(VylloSize.iconMedium)
                     )
                 }

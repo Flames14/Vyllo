@@ -46,6 +46,7 @@ import com.vyllo.music.ui.explore.*
 import com.vyllo.music.ui.library.*
 import com.vyllo.music.ui.search.*
 import com.vyllo.music.ui.alarm.AlarmScreen
+import com.vyllo.music.ui.stats.StatsScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.vyllo.music.recognition.ui.RecognitionScreen
 import com.vyllo.music.recognition.presentation.RecognitionViewModel
@@ -74,6 +75,7 @@ object VylloRoutes {
     const val LIBRARY = "library"
     const val RECOGNITION = "recognition"
     const val ALARMS = "alarms"
+    const val STATS = "stats"
 
     const val PLAYLIST_ARG = "playlistId"
     const val PLAYLIST = "playlist/{$PLAYLIST_ARG}"
@@ -88,7 +90,8 @@ object VylloRoutes {
 private fun bottomTabForRoute(route: String?): Int = when (route) {
     VylloRoutes.SEARCH -> 1
     VylloRoutes.EXPLORE -> 2
-    VylloRoutes.LIBRARY, VylloRoutes.PLAYLIST, VylloRoutes.ARTIST, VylloRoutes.ALARMS -> 3
+    VylloRoutes.LIBRARY, VylloRoutes.PLAYLIST, VylloRoutes.ARTIST, VylloRoutes.ALARMS,
+    VylloRoutes.STATS -> 3
     else -> 0
 }
 
@@ -411,6 +414,7 @@ fun VylloNavigation(
                                 currentPlayingItem = currentPlayingItem,
                                 loadingItemUrl = loadingItemUrl,
                                 onNavigateToAlarms = { navController.navigate(VylloRoutes.ALARMS) },
+                                onNavigateToStats = { navController.navigate(VylloRoutes.STATS) },
                                 onPlaylistClick = { playlist ->
                                     libraryViewModel.loadPlaylistSongs(playlist.id)
                                     navController.navigate(VylloRoutes.playlist(playlist.id))
@@ -465,6 +469,20 @@ fun VylloNavigation(
 
                         composable(VylloRoutes.ALARMS) {
                             AlarmScreen(onBackClick = { navController.popBackStack() })
+                        }
+
+                        composable(VylloRoutes.STATS) {
+                            val statsViewModel: StatsViewModel = hiltViewModel()
+                            StatsScreen(
+                                viewModel = statsViewModel,
+                                onBack = { navController.popBackStack() },
+                                onPlay = { item ->
+                                    homeViewModel.addToRecentlyPlayed(item)
+                                    onPlay(item)
+                                },
+                                currentPlayingItem = currentPlayingItem,
+                                loadingItemUrl = loadingItemUrl
+                            )
                         }
 
                         composable(

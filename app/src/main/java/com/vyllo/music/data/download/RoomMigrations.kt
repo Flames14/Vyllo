@@ -112,3 +112,18 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
         )
     }
 }
+
+/**
+ * Statistics counters on the history table. Existing rows keep 0 plays and 0
+ * listened time because those numbers were never recorded before this version.
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE `playback_history` ADD COLUMN `playCount` INTEGER NOT NULL DEFAULT 0"
+        )
+        db.execSQL(
+            "ALTER TABLE `playback_history` ADD COLUMN `listenedMs` INTEGER NOT NULL DEFAULT 0"
+        )
+    }
+}

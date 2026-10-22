@@ -116,6 +116,10 @@ private class FakeMusicRepository(
     override suspend fun isDownloaded(url: String): Boolean = false
     override fun getRecentHistory(limit: Int): Flow<List<MusicItem>> = emptyFlow()
     override suspend fun recordListen(item: MusicItem) = Unit
+    override suspend fun recordPlayStart(item: MusicItem) = Unit
+    override suspend fun recordListenedTime(url: String, listenedMs: Long) = Unit
+    override fun observeListeningStats(): Flow<com.vyllo.music.domain.model.ListeningStats> =
+        emptyFlow()
     override suspend fun clearHistory() = Unit
     override suspend fun getPatternSuggestions(): List<MusicItem> = emptyList()
     override suspend fun loadMoreRecommendations(): List<MusicItem> = emptyList()

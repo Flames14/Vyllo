@@ -24,7 +24,7 @@ import com.vyllo.music.domain.model.PlaylistSongEntity
         AlarmEntity::class,
         FavoriteEntity::class
     ], 
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -47,7 +47,7 @@ abstract class DownloadDatabase : RoomDatabase() {
                     DownloadDatabase::class.java,
                     "downloads_db"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build().also { INSTANCE = it }
             }
         }

@@ -456,6 +456,25 @@
     <string name="history_remove_action">Quitar del historial de reproducción</string>
     <string name="library_playlist_empty">Esta lista está vacía</string>
 
+    <!-- Listening stats -->
+    <string name="stats_title">Estadísticas</string>
+    <string name="stats_open">Estadísticas de escucha</string>
+    <string name="stats_open_desc">Tus canciones y artistas más escuchados</string>
+    <string name="stats_empty_title">Aún no hay datos</string>
+    <string name="stats_empty_body">Reproduce algunas canciones y tus favoritas aparecerán aquí.</string>
+    <string name="stats_total_time">Escuchado</string>
+    <string name="stats_tracks_label">Canciones</string>
+    <string name="stats_average_listen">Unos %1$s por reproducción</string>
+    <string name="stats_top_tracks">Más escuchadas</string>
+    <string name="stats_top_tracks_desc">Ordenadas por reproducciones</string>
+    <string name="stats_top_artists">Artistas principales</string>
+    <string name="stats_top_artists_desc">Los artistas detrás de tu música</string>
+    <string name="stats_unknown_artist">Artista desconocido</string>
+    <plurals name="stats_play_count">
+        <item quantity="one">%d reproducción</item>
+        <item quantity="other">%d reproducciones</item>
+    </plurals>
+
     <!-- Google account sync (OAuth) -->
     <string name="oauth_title">Sincronización de la cuenta de Google (OAuth 2.0)</string>
     <string name="oauth_description">Google OAuth se conecta directamente a tu cuenta de Google para sincronizar todas tus listas de YouTube privadas y no listadas.</string>

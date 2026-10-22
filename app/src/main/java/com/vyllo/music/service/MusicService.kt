@@ -33,6 +33,7 @@ import com.vyllo.music.service.audio.PlaybackResumption
 import com.vyllo.music.service.audio.PlayheadPersistence
 import com.vyllo.music.service.audio.PlayerErrorListener
 import com.vyllo.music.service.audio.QueuePersistenceCoordinator
+import com.vyllo.music.service.stats.PlaybackStatsRecorder
 import com.vyllo.music.widget.VylloPlayerWidget
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -72,6 +73,7 @@ class MusicService : MediaSessionService() {
     private var outputDeviceWatcher: OutputDeviceWatcher? = null
     private var muteWatcher: MuteWatcher? = null
     private var pausedByDeviceDisconnect = false
+    private lateinit var statsRecorder: PlaybackStatsRecorder
 
     private val serviceJob = SupervisorJob()
     // Safety net: background queue work must never be able to crash the app.
@@ -137,6 +139,14 @@ class MusicService : MediaSessionService() {
     private fun applySkipSilence() {
         player?.skipSilenceEnabled = preferenceManager.skipSilence
     }
+
+    /** Rebuild the stats item from the MediaItem Media3 is holding. */
+    private fun MediaItem.toStatsItem() = com.vyllo.music.domain.model.MusicItem(
+        title = mediaMetadata.title?.toString().orEmpty(),
+        url = mediaId,
+        uploader = mediaMetadata.artist?.toString().orEmpty(),
+        thumbnailUrl = mediaMetadata.artworkUri?.toString().orEmpty()
+    )
 
     private fun startOutputDeviceWatcher() {
         if (outputDeviceWatcher != null) return
@@ -277,6 +287,28 @@ class MusicService : MediaSessionService() {
                 if (::crossfadeController.isInitialized) {
                     crossfadeController.onMediaItemTransition(reason)
                 }
+                if (::statsRecorder.isInitialized) {
+                    statsRecorder.onTrackStarted(mediaItem?.toStatsItem())
+                }
+            }
+
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int
+            ) {
+                if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION && ::statsRecorder.isInitialized) {
+                    statsRecorder.onTrackEnded(
+                        oldPosition.mediaItem?.toStatsItem(),
+                        oldPosition.positionMs
+                    )
+                }
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_READY && ::statsRecorder.isInitialized) {
+                    statsRecorder.onTrackStarted(player?.currentMediaItem?.toStatsItem())
+                }
             }
         })
 
@@ -286,6 +318,7 @@ class MusicService : MediaSessionService() {
             scope = serviceScope
         )
         crossfadeController.start()
+        statsRecorder = PlaybackStatsRecorder(repository, serviceScope)
 
         // Restore the user's speed/pitch (1.0x by default) instead of forcing
         // 1.0x, which used to reset a deliberately slowed-down track on every
@@ -417,6 +450,12 @@ class MusicService : MediaSessionService() {
     override fun onDestroy() {
         SecureLogger.d("MusicService", "Service onDestroy called")
         if (::crossfadeController.isInitialized) crossfadeController.stop()
+        if (::statsRecorder.isInitialized) {
+            statsRecorder.onTrackEnded(
+                player?.currentMediaItem?.toStatsItem(),
+                player?.currentPosition ?: 0L
+            )
+        }
         outputDeviceWatcher?.stop()
         outputDeviceWatcher = null
         muteWatcher?.stop()

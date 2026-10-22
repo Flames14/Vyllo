@@ -449,6 +449,25 @@
     <string name="history_clear_title">Clear listening history?</string>
     <string name="history_clear_message">This removes all songs from your listening history.</string>
     <string name="history_clear_action">Clear listening history</string>
+
+    <!-- Listening stats -->
+    <string name="stats_title">Listening stats</string>
+    <string name="stats_open">Listening stats</string>
+    <string name="stats_open_desc">Your most played tracks and artists</string>
+    <string name="stats_empty_title">Nothing counted yet</string>
+    <string name="stats_empty_body">Play a few songs and your top tracks will show up here.</string>
+    <string name="stats_total_time">Listened</string>
+    <string name="stats_tracks_label">Tracks</string>
+    <string name="stats_average_listen">About %1$s per play</string>
+    <string name="stats_top_tracks">Most played</string>
+    <string name="stats_top_tracks_desc">Ranked by play count</string>
+    <string name="stats_top_artists">Top artists</string>
+    <string name="stats_top_artists_desc">Artists behind your listening</string>
+    <string name="stats_unknown_artist">Unknown artist</string>
+    <plurals name="stats_play_count">
+        <item quantity="one">%d play</item>
+        <item quantity="other">%d plays</item>
+    </plurals>
     <string name="history_remove_action">Remove from listening history</string>
     <string name="library_playlist_empty">This playlist is empty</string>
 

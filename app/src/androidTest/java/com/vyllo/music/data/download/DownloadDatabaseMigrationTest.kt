@@ -95,4 +95,26 @@ class DownloadDatabaseMigrationTest {
             MIGRATION_3_4.migrate(it)
         }
     }
+
+    @Test
+    fun migrate5To6_addsStatsCountersAndKeepsHistory() {
+        helper.createDatabase(TEST_DB, 5).apply {
+            execSQL(
+                "INSERT INTO playback_history (url, title, uploader, thumbnailUrl, type, lastPlayedAt) " +
+                    "VALUES ('u9', 'Old', 'Artist', '', 'SONG', 1234)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 6, true, MIGRATION_5_6)
+
+        db.query("SELECT url, playCount, listenedMs FROM playback_history").use { c ->
+            assertTrue("history row lost", c.moveToFirst())
+            assertTrue(c.getString(0) == "u9")
+            assertTrue("legacy play count must start at 0", c.getInt(1) == 0)
+            assertTrue("legacy listened time must start at 0", c.getLong(2) == 0L)
+        }
+
+        db.close()
+    }
 }

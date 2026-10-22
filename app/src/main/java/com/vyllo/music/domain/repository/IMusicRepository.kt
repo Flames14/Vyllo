@@ -58,6 +58,12 @@ interface IMusicRepository {
     // History Methods
     fun getRecentHistory(limit: Int = 50): Flow<List<MusicItem>>
     suspend fun recordListen(item: MusicItem)
+    /** Counts a play for [item] (service-side, once per track start). */
+    suspend fun recordPlayStart(item: MusicItem)
+    /** Adds actual playback time to a track that is already in history. */
+    suspend fun recordListenedTime(url: String, listenedMs: Long)
+    /** Aggregate listening statistics, updated live as history changes. */
+    fun observeListeningStats(): Flow<com.vyllo.music.domain.model.ListeningStats>
     suspend fun clearHistory()
     suspend fun removeFromHistory(url: String)
     suspend fun getPatternSuggestions(): List<MusicItem>

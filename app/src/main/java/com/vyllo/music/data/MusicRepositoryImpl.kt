@@ -8,6 +8,9 @@ import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.LyricsResponse
 import com.vyllo.music.domain.model.DownloadEntity
 import com.vyllo.music.domain.model.PlaylistEntity
+import com.vyllo.music.domain.model.ListeningStats
+import com.vyllo.music.domain.model.TopArtist
+import com.vyllo.music.domain.model.TopTrack
 import com.vyllo.music.domain.model.StreamQuality
 import com.vyllo.music.domain.model.PlaylistSongEntity
 import com.vyllo.music.data.download.FavoriteEntity
@@ -28,6 +31,7 @@ import com.vyllo.music.data.repository.delegates.SubtitleLyricsDelegate
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +61,8 @@ class MusicRepositoryImpl @Inject constructor(
         const val SECONDARY_BATCH = 10
         const val TRENDING_BATCH = 12
         const val MAX_PER_ARTIST_HOME = 3
+        const val STATS_TOP_TRACKS = 20
+        const val STATS_TOP_ARTISTS = 10
     }
 
     override suspend fun getSuggestions(query: String): List<String> = suggestionDataSource.getSuggestions(query)
@@ -190,6 +196,37 @@ class MusicRepositoryImpl @Inject constructor(
         // Typed accessor - no raw key strings outside PreferenceManager.
         preferenceManager.recordArtistListen(item.uploader)
     }
+
+    override suspend fun recordPlayStart(item: MusicItem) {
+        historyDao.recordPlayStart(item.toHistoryEntity())
+        preferenceManager.recordArtistListen(item.uploader)
+    }
+
+    override suspend fun recordListenedTime(url: String, listenedMs: Long) {
+        historyDao.recordListenedTime(url, listenedMs, System.currentTimeMillis())
+    }
+
+    override fun observeListeningStats(): Flow<ListeningStats> = combine(
+        historyDao.observeTotals(),
+        historyDao.observeTopTracks(STATS_TOP_TRACKS),
+        historyDao.observeTopArtists(STATS_TOP_ARTISTS)
+    ) { totals, tracks, artists ->
+        ListeningStats(
+            totalPlays = totals.totalPlays,
+            totalListenedMs = totals.totalListenedMs,
+            totalTracks = totals.totalTracks,
+            topTracks = tracks.map {
+                TopTrack(
+                    item = it.toMusicItem(),
+                    playCount = it.playCount,
+                    listenedMs = it.listenedMs
+                )
+            },
+            topArtists = artists.map {
+                TopArtist(name = it.uploader, plays = it.plays, listenedMs = it.listenedMs)
+            }
+        )
+    }.distinctUntilChanged()
 
     override suspend fun clearHistory() = historyDao.clearHistory()
 
