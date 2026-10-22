@@ -74,6 +74,14 @@ fun LyricsViewContent(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val lyricsStyle by viewModel.lyricsStyle.collectAsState()
+    var showStyleSheet by remember { mutableStateOf(false) }
+    com.vyllo.music.presentation.components.player.LyricsStyleSheet(
+        show = showStyleSheet,
+        style = lyricsStyle,
+        onChange = { viewModel.updateLyricsStyle(it) },
+        onDismiss = { showStyleSheet = false }
+    )
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
@@ -141,6 +149,17 @@ fun LyricsViewContent(
                         )
                     }
                 }
+                IconButton(
+                    onClick = { showStyleSheet = true },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.TextFields,
+                        contentDescription = stringResource(R.string.lyrics_style_title),
+                        tint = LyricsColors.textSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
 
@@ -173,12 +192,12 @@ fun LyricsViewContent(
 
                 hasSyncedLines -> {
                     // Has synced lyrics
-                    SyncedLyricsDisplay(playerUiState, viewModel, controller, onSeek)
+                    SyncedLyricsDisplay(playerUiState, viewModel, controller, onSeek, lyricsStyle)
                 }
 
                 hasLyricsResponse && playerUiState.lyricsResponse?.plainLyrics != null -> {
                     // Has plain text lyrics
-                    PlainLyricsDisplay(playerUiState)
+                    PlainLyricsDisplay(playerUiState, lyricsStyle)
                 }
 
                 hasLyricsResponse && playerUiState.lyricsResponse?.success != true -> {
@@ -367,7 +386,8 @@ private fun SyncedLyricsDisplay(
     playerUiState: PlayerUiState,
     viewModel: PlayerViewModel,
     controller: MediaController?,
-    onSeek: (Long) -> Unit
+    onSeek: (Long) -> Unit,
+    style: com.vyllo.music.domain.model.LyricsStyle
 ) {
     val listState = rememberLazyListState()
     val activeLyricIndex by viewModel.lyricIndex.collectAsState()
@@ -386,7 +406,7 @@ private fun SyncedLyricsDisplay(
         modifier = Modifier
             .fillMaxSize()
             .padding(vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = if (style.alignStart) Alignment.Start else Alignment.CenterHorizontally,
         contentPadding = PaddingValues(vertical = 40.dp)
     ) {
         itemsIndexed(
@@ -394,22 +414,33 @@ private fun SyncedLyricsDisplay(
             key = { index, line -> "${line.startTimeMs}_$index" }
         ) { index, line ->
             val isActive = activeLyricIndex == index
-            val alpha by animateFloatAsState(
-                targetValue = if (isActive) 1f else 0.38f,
-                animationSpec = spring(
+            val animationSpec: androidx.compose.animation.core.AnimationSpec<Float> = if (style.animate) {
+                spring(
                     dampingRatio = Spring.DampingRatioNoBouncy,
                     stiffness = Spring.StiffnessMediumLow
-                ),
+                )
+            } else {
+                tween(durationMillis = 0)
+            }
+            val scaleSpec: androidx.compose.animation.core.AnimationSpec<Float> = if (style.animate) {
+                spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            } else {
+                tween(durationMillis = 0)
+            }
+            val alpha by animateFloatAsState(
+                targetValue = if (isActive) 1f else 0.38f,
+                animationSpec = animationSpec,
                 label = "lyric_alpha"
             )
             val lineScale by animateFloatAsState(
                 targetValue = if (isActive) 1.04f else 0.97f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                ),
+                animationSpec = scaleSpec,
                 label = "lyric_scale"
             )
+            val lineAlign = if (style.alignStart) TextAlign.Start else TextAlign.Center
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -422,19 +453,31 @@ private fun SyncedLyricsDisplay(
                         controller?.seekTo(line.startTimeMs)
                         onSeek(line.startTimeMs)
                     }
-                    .padding(vertical = 8.dp, horizontal = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(
+                        vertical = (8 * style.lineSpacing).dp,
+                        horizontal = 24.dp
+                    ),
+                horizontalAlignment = if (style.alignStart) Alignment.Start else Alignment.CenterHorizontally
             ) {
                 Text(
                     line.content,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
-                        lineHeight = 28.sp,
-                        fontSize = if (isActive) 20.sp else 16.sp,
-                        letterSpacing = (-0.3).sp
+                        lineHeight = (28f * style.scale * style.lineSpacing).sp,
+                        fontSize = ((if (isActive) 20f else 16f) * style.scale).sp,
+                        letterSpacing = (-0.3).sp,
+                        textAlign = lineAlign,
+                        shadow = if (style.glow && isActive) {
+                            androidx.compose.ui.graphics.Shadow(
+                                color = LyricsColors.accent.copy(alpha = 0.45f),
+                                blurRadius = 18f
+                            )
+                        } else {
+                            null
+                        }
                     ),
                     color = if (isActive) LyricsColors.accent else LyricsColors.textPrimary,
-                    textAlign = TextAlign.Center,
+                    textAlign = lineAlign,
                     modifier = Modifier
                         .fillMaxWidth()
                         .alpha(alpha)
@@ -446,11 +489,13 @@ private fun SyncedLyricsDisplay(
                         Text(
                             translated,
                             style = MaterialTheme.typography.bodySmall.copy(
-                                lineHeight = 20.sp,
-                                fontWeight = FontWeight.Normal
+                                lineHeight = (20f * style.scale * style.lineSpacing).sp,
+                                fontSize = (12f * style.scale).sp,
+                                fontWeight = FontWeight.Normal,
+                                textAlign = lineAlign
                             ),
                             color = LyricsColors.textSecondary,
-                            textAlign = TextAlign.Center,
+                            textAlign = lineAlign,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .alpha(alpha)
@@ -466,7 +511,10 @@ private fun SyncedLyricsDisplay(
 // PLAIN LYRICS DISPLAY
 // ============================================================
 @Composable
-private fun PlainLyricsDisplay(playerUiState: PlayerUiState) {
+private fun PlainLyricsDisplay(
+    playerUiState: PlayerUiState,
+    style: com.vyllo.music.domain.model.LyricsStyle
+) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         val text = if (playerUiState.isTranslationEnabled && !playerUiState.translatedPlainLyrics.isNullOrBlank()) {
             playerUiState.translatedPlainLyrics
@@ -475,7 +523,11 @@ private fun PlainLyricsDisplay(playerUiState: PlayerUiState) {
         } ?: ""
         Text(
             text,
-            style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
+            style = MaterialTheme.typography.bodyMedium.copy(
+                lineHeight = (22f * style.scale * style.lineSpacing).sp,
+                fontSize = (14f * style.scale).sp,
+                textAlign = if (style.alignStart) TextAlign.Start else TextAlign.Center
+            ),
             color = LyricsColors.textPrimary
         )
     }

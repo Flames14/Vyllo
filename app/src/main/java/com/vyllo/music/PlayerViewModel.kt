@@ -119,6 +119,16 @@ class PlayerViewModel @Inject constructor(
     private val _lyricIndex = MutableStateFlow(-1)
     val lyricIndex: StateFlow<Int> = _lyricIndex.asStateFlow()
 
+    // Kept outside PlayerUiState: only the lyrics list reads it, and dragging a
+    // size slider must not recompose the player chrome.
+    private val _lyricsStyle = MutableStateFlow(preferenceManager.readLyricsStyle())
+    val lyricsStyle: StateFlow<com.vyllo.music.domain.model.LyricsStyle> = _lyricsStyle.asStateFlow()
+
+    fun updateLyricsStyle(style: com.vyllo.music.domain.model.LyricsStyle) {
+        preferenceManager.writeLyricsStyle(style)
+        _lyricsStyle.value = style
+    }
+
     // Controllers are initialized in init after viewModelScope is available.
     private val equalizerController: EqualizerController
     private val sleepTimerController: SleepTimerController

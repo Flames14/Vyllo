@@ -76,6 +76,9 @@ fun SettingsDialog(
     onStreamQualityChange: (String) -> Unit = {},
     downloadQuality: String = "High",
     onDownloadQualityChange: (String) -> Unit = {},
+    lyricsSourceOrder: List<com.vyllo.music.domain.model.LyricsSource> =
+        com.vyllo.music.domain.model.LyricsSource.DEFAULT_ORDER,
+    onMoveLyricsSource: (com.vyllo.music.domain.model.LyricsSource, Int) -> Unit = { _, _ -> },
     sleepSchedule: SleepSchedule = SleepSchedule(),
     onSleepScheduleChange: (SleepSchedule) -> Unit = {},
     skipSilence: Boolean = false,
@@ -103,10 +106,18 @@ fun SettingsDialog(
     var showLoudnessPicker by remember { mutableStateOf(false) }
     var showQualityPicker by remember { mutableStateOf(false) }
     var showDownloadQualityPicker by remember { mutableStateOf(false) }
+    var showLyricsSourcesDialog by remember { mutableStateOf(false) }
     var showSleepScheduleSheet by remember { mutableStateOf(false) }
 
-    if (showSleepScheduleSheet) {
-        com.vyllo.music.presentation.components.dialogs.SleepScheduleSheet(
+    if (showLyricsSourcesDialog) {
+        com.vyllo.music.presentation.components.dialogs.LyricsSourceDialog(
+            order = lyricsSourceOrder,
+            onMove = onMoveLyricsSource,
+            onDismiss = { showLyricsSourcesDialog = false }
+        )
+    }
+
+    if (showSleepScheduleSheet) {        com.vyllo.music.presentation.components.dialogs.SleepScheduleSheet(
             schedule = sleepSchedule,
             onSave = {
                 onSleepScheduleChange(it)
@@ -610,8 +621,7 @@ fun SettingsDialog(
                     )
                 }
 
-                // Download quality -- the ceiling used when fetching the file
-                // itself, kept separate from the streaming preference because a
+                // Download quality -- the ceiling used when fetching the file                // itself, kept separate from the streaming preference because a
                 // download outlives the connection it was made on.
                 Column(
                     modifier = Modifier
@@ -626,6 +636,30 @@ fun SettingsDialog(
                     )
                     Text(
                         text = stringResource(R.string.settings_download_quality_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Lyrics provider order -- the chain the engine walks; a text-only
+                // provider placed first can shadow a synced version further down.
+                val lyricsSourceSummary = lyricsSourceOrder
+                    .take(3)
+                    .map { com.vyllo.music.presentation.components.dialogs.lyricsSourceLabel(it) }
+                    .joinToString(" > ")
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showLyricsSourcesDialog = true }
+                        .padding(vertical = 4.dp)
+                ) {
+                    SettingsValueRow(
+                        title = stringResource(R.string.settings_lyrics_sources),
+                        value = lyricsSourceSummary,
+                        emphasize = true
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_lyrics_sources_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

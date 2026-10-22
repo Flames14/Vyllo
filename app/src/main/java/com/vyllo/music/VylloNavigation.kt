@@ -653,6 +653,10 @@ downloadsRequireBatteryOk = settingsViewModel.downloadsRequireBatteryOk,
                            onStreamQualityChange = { settingsViewModel.updateStreamQuality(it) },
                            downloadQuality = settingsViewModel.downloadQuality,
                            onDownloadQualityChange = { settingsViewModel.updateDownloadQuality(it) },
+                           lyricsSourceOrder = settingsViewModel.lyricsSourceOrder,
+                           onMoveLyricsSource = { source, offset ->
+                               settingsViewModel.moveLyricsSource(source, offset)
+                           },
                            sleepSchedule = settingsViewModel.sleepSchedule,
                            onSleepScheduleChange = { settingsViewModel.updateSleepSchedule(it) },
                            skipSilence = settingsViewModel.skipSilence,

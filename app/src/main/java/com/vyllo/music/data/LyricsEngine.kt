@@ -11,8 +11,10 @@ import com.vyllo.music.data.lyrics.engine.LyricsOvhClient
 import com.vyllo.music.data.lyrics.engine.LyricsResponseFactory
 import com.vyllo.music.data.lyrics.engine.NetEaseClient
 import com.vyllo.music.data.lyrics.engine.TitleArtistCleaner
+import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.domain.model.LyricsResponse
 import com.vyllo.music.domain.model.LyricsResult
+import com.vyllo.music.domain.model.LyricsSource
 import com.vyllo.music.domain.model.SyncedLyricLine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -25,7 +27,8 @@ import javax.inject.Singleton
 /** Multi-Source Lyrics Engine (orchestrator). Delegates to data/lyrics/engine/ without behavior change. */
 @Singleton
 class LyricsEngine @Inject constructor(
-    @Named("lyrics") private val client: OkHttpClient
+    @Named("lyrics") private val client: OkHttpClient,
+    private val preferenceManager: PreferenceManager
 ) {
     companion object {
         private const val TAG = "LyricsEngine"
@@ -36,7 +39,7 @@ class LyricsEngine @Inject constructor(
             LrcParser.getCurrentLyricLine(syncedLyrics, currentTimeMs)
     }
     fun isRecordLabel(name: String): Boolean = TitleArtistCleaner.isRecordLabel(name)
-    /** Main entry point. Tries multiple strategies in order of reliability. */
+    /** Main entry point. Tries the user-ordered list of sources. */
     suspend fun findLyricsUniversal(
         rawTitle: String,
         rawArtist: String,
@@ -66,90 +69,19 @@ class LyricsEngine @Inject constructor(
         if (cleanTitle.isBlank()) {
             return@withContext LyricsResponse(success = false, strategy = "NO_TITLE", error = "Song title is empty")
         }
-        // Strategy 1: Paxsenix (Dynamic Apple Music token scrape & Paxsenix synced lyrics fetch)
-        if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
-            SecureLogger.d(TAG, "Strategy 1: Paxsenix (title='$cleanTitle', artist='$cleanArtist')")
-            val paxLrc = PaxsenixProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum)
-            if (paxLrc != null) {
-                SecureLogger.d(TAG, "FOUND via Paxsenix: $cleanTitle")
-                val lyricsResult = LyricsResponseFactory.buildResultFromLrc(cleanTitle, cleanArtist, extractedAlbum, durationSecs, paxLrc)
-                return@withContext LyricsResponseFactory.buildResponse("PAXSENIX", lyricsResult)
+
+        // The chain is user-ordered. Sources that need both title and artist are
+        // skipped when cleaning left no artist, but they keep their slot: a user
+        // who moved a provider up should not silently get a different one.
+        val order = LyricsSource.parse(preferenceManager.lyricsSourceOrder)
+        order.forEachIndexed { index, source ->
+            if (source.needsArtist && cleanArtist.isBlank()) return@forEachIndexed
+            SecureLogger.d(TAG, "Source ${index + 1}/${order.size}: ${source.key}")
+            val response = trySource(source, cleanTitle, cleanArtist, extractedAlbum, durationSecs)
+            if (response != null) {
+                SecureLogger.d(TAG, "FOUND via ${source.key}: $cleanTitle")
+                return@withContext response
             }
-        }
-        // Strategy 2: BetterLyrics (Boidu cached Timed-Text XML API)
-        if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
-            SecureLogger.d(TAG, "Strategy 2: BetterLyrics (title='$cleanTitle', artist='$cleanArtist')")
-            val betterLrc = BetterLyricsProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum)
-            if (betterLrc != null) {
-                SecureLogger.d(TAG, "FOUND via BetterLyrics: $cleanTitle")
-                val lyricsResult = LyricsResponseFactory.buildResultFromLrc(cleanTitle, cleanArtist, extractedAlbum, durationSecs, betterLrc)
-                return@withContext LyricsResponseFactory.buildResponse("BETTERLYRICS", lyricsResult)
-            }
-        }
-        // Strategy 3: LRCLIB exact match with clean data
-        if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
-            SecureLogger.d(TAG, "Strategy 3: LRCLIB exact (title='$cleanTitle', artist='$cleanArtist')")
-            val result = LrclibClient.tryLrclibExact(client, cleanTitle, cleanArtist, durationSecs)
-            if (result != null) {
-                SecureLogger.d(TAG, "FOUND via LRCLIB exact: ${result.trackName}")
-                return@withContext LyricsResponseFactory.buildResponse("LRCLIB_EXACT", result)
-            }
-        }
-        // Strategy 4: LRCLIB structured search (track_name + artist_name)
-        if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
-            SecureLogger.d(TAG, "Strategy 4: LRCLIB search (track_name='$cleanTitle', artist_name='$cleanArtist')")
-            val result = LrclibClient.tryLrclibSearch(client, cleanTitle, cleanArtist, durationSecs)
-            if (result != null) {
-                SecureLogger.d(TAG, "FOUND via LRCLIB search: ${result.trackName}")
-                return@withContext LyricsResponseFactory.buildResponse("LRCLIB_SEARCH", result)
-            }
-        }
-        // Strategy 5: LyricsPlus / Binimum API (mirrors and metadata search)
-        if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
-            SecureLogger.d(TAG, "Strategy 5: LyricsPlus (title='$cleanTitle', artist='$cleanArtist')")
-            val plusLrc = LyricsPlusProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum)
-            if (plusLrc != null) {
-                SecureLogger.d(TAG, "FOUND via LyricsPlus: $cleanTitle")
-                val lyricsResult = LyricsResponseFactory.buildResultFromLrc(cleanTitle, cleanArtist, extractedAlbum, durationSecs, plusLrc)
-                return@withContext LyricsResponseFactory.buildResponse("LYRICS_PLUS", lyricsResult)
-            }
-        }
-        // Strategy 6: KuGou (East Asian/regional and instrumental)
-        if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
-            SecureLogger.d(TAG, "Strategy 6: KuGou (title='$cleanTitle', artist='$cleanArtist')")
-            val kugouLrc = KuGouProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum)
-            if (kugouLrc != null) {
-                SecureLogger.d(TAG, "FOUND via KuGou: $cleanTitle")
-                val lyricsResult = LyricsResponseFactory.buildResultFromLrc(cleanTitle, cleanArtist, extractedAlbum, durationSecs, kugouLrc)
-                return@withContext LyricsResponseFactory.buildResponse("KUGOU", lyricsResult)
-            }
-        }
-        // Strategy 7: NetEase (Asian music) — synced-capable, so it runs ahead of
-        // the plain-text-only source below: any non-null result ends the chain.
-        SecureLogger.d(TAG, "Strategy 7: NetEase")
-        val netease = NetEaseClient.tryNetEase(client, cleanTitle, cleanArtist, durationSecs)
-        if (netease != null) {
-            SecureLogger.d(TAG, "FOUND via NetEase: ${netease.trackName}")
-            return@withContext LyricsResponseFactory.buildResponse("NETEASE", netease)
-        }
-        // Strategy 8: Lyrics.ovh (plain text only)
-        if (cleanTitle.isNotBlank() && cleanArtist.isNotBlank()) {
-            SecureLogger.d(TAG, "Strategy 8: Lyrics.ovh")
-            val ovh = LyricsOvhClient.tryLyricsOvh(client, cleanTitle, cleanArtist)
-            if (ovh != null) {
-                SecureLogger.d(TAG, "FOUND via Lyrics.ovh: ${ovh.trackName}")
-                return@withContext LyricsResponseFactory.buildResponse("LYRICS_OVH", ovh)
-            }
-        }
-        // Strategy 9: LRCLIB title-only search — matches with NO artist check, so
-        // a blind hit can be a different song with the same title. It used to run
-        // as strategy 5, where it masked every artist-aware provider below it;
-        // now it is the absolute last resort.
-        SecureLogger.d(TAG, "Strategy 9: LRCLIB title-only search (title='$cleanTitle')")
-        val titleOnly = LrclibClient.tryLrclibSearch(client, cleanTitle, "", durationSecs)
-        if (titleOnly != null) {
-            SecureLogger.d(TAG, "FOUND via LRCLIB title-only: ${titleOnly.trackName}")
-            return@withContext LyricsResponseFactory.buildResponse("LRCLIB_TITLE_ONLY", titleOnly)
         }
 
         SecureLogger.w(TAG, "=== ALL LYRICS SOURCES FAILED ===")
@@ -159,6 +91,69 @@ class LyricsEngine @Inject constructor(
             error = "No lyrics found from any source."
         )
     }
+
+    /**
+     * One provider attempt. Null means "not found" and lets the caller continue
+     * down the chain; a hit is returned as a finished [LyricsResponse] because
+     * the result carries the strategy name the UI reports.
+     */
+    private suspend fun trySource(
+        source: LyricsSource,
+        cleanTitle: String,
+        cleanArtist: String,
+        extractedAlbum: String?,
+        durationSecs: Long
+    ): LyricsResponse? {
+        fun lrc(raw: String?, strategy: String): LyricsResponse? {
+            if (raw == null) return null
+            val result = LyricsResponseFactory.buildResultFromLrc(
+                cleanTitle, cleanArtist, extractedAlbum, durationSecs, raw
+            )
+            return LyricsResponseFactory.buildResponse(strategy, result)
+        }
+        fun structured(result: LyricsResult?, strategy: String): LyricsResponse? =
+            result?.let { LyricsResponseFactory.buildResponse(strategy, it) }
+
+        return when (source) {
+            LyricsSource.PAXSENIX -> lrc(
+                PaxsenixProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum),
+                "PAXSENIX"
+            )
+            LyricsSource.BETTER_LYRICS -> lrc(
+                BetterLyricsProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum),
+                "BETTERLYRICS"
+            )
+            LyricsSource.LRCLIB_EXACT -> structured(
+                LrclibClient.tryLrclibExact(client, cleanTitle, cleanArtist, durationSecs),
+                "LRCLIB_EXACT"
+            )
+            LyricsSource.LRCLIB_SEARCH -> structured(
+                LrclibClient.tryLrclibSearch(client, cleanTitle, cleanArtist, durationSecs),
+                "LRCLIB_SEARCH"
+            )
+            LyricsSource.LYRICS_PLUS -> lrc(
+                LyricsPlusProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum),
+                "LYRICS_PLUS"
+            )
+            LyricsSource.KUGOU -> lrc(
+                KuGouProvider.getLyrics(client, cleanTitle, cleanArtist, durationSecs, extractedAlbum),
+                "KUGOU"
+            )
+            LyricsSource.NETEASE -> structured(
+                NetEaseClient.tryNetEase(client, cleanTitle, cleanArtist, durationSecs),
+                "NETEASE"
+            )
+            LyricsSource.LYRICS_OVH -> structured(
+                LyricsOvhClient.tryLyricsOvh(client, cleanTitle, cleanArtist),
+                "LYRICS_OVH"
+            )
+            LyricsSource.LRCLIB_TITLE_ONLY -> structured(
+                LrclibClient.tryLrclibSearch(client, cleanTitle, "", durationSecs),
+                "LRCLIB_TITLE_ONLY"
+            )
+        }
+    }
+
     suspend fun searchLyrics(query: String): List<LyricsResult> = withContext(Dispatchers.IO) {
         SecureLogger.d(TAG, "MANUAL SEARCH: query='$query'")
         return@withContext try {

@@ -62,6 +62,29 @@
     <!-- Common -->
     <string name="common_close">Cerrar</string>
     <string name="common_cancel">Cancelar</string>
+    <string name="common_done">Listo</string>
+    <string name="settings_lyrics_sources">Fuentes de letras</string>
+    <string name="settings_lyrics_sources_desc">Orden en que se consultan las fuentes. Pon las que admiten letras sincronizadas antes que las de solo texto.</string>
+    <string name="lyrics_source_move_up">Subir</string>
+    <string name="lyrics_source_move_down">Bajar</string>
+    <string name="lyrics_source_paxsenix">Paxsenix</string>
+    <string name="lyrics_source_better_lyrics">BetterLyrics</string>
+    <string name="lyrics_source_lrclib_exact">LRCLIB (exacta)</string>
+    <string name="lyrics_source_lrclib_search">LRCLIB (búsqueda)</string>
+    <string name="lyrics_source_lyrics_plus">LyricsPlus</string>
+    <string name="lyrics_source_kugou">KuGou</string>
+    <string name="lyrics_source_netease">NetEase</string>
+    <string name="lyrics_source_lyrics_ovh">Lyrics.ovh</string>
+    <string name="lyrics_source_lrclib_title_only">LRCLIB (solo título)</string>
+    <string name="lyrics_style_title">Apariencia de las letras</string>
+    <string name="lyrics_style_reset">Restablecer</string>
+    <string name="lyrics_style_size">Tamaño del texto</string>
+    <string name="lyrics_style_spacing">Espaciado entre líneas</string>
+    <string name="lyrics_style_alignment">Alineación</string>
+    <string name="lyrics_style_align_center">Centrada</string>
+    <string name="lyrics_style_align_start">Izquierda</string>
+    <string name="lyrics_style_glow">Brillo en la línea activa</string>
+    <string name="lyrics_style_animate">Animaciones de línea</string>
 
     <!-- Player full screen -->
     <string name="player_lyrics_sync">Sincronizar letra</string>

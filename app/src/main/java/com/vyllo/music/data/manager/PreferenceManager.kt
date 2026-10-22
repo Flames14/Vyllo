@@ -184,6 +184,50 @@ class PreferenceManager @Inject constructor(
         get() = preferences.getString(KEY_DOWNLOAD_QUALITY, "High") ?: "High"
         set(value) { preferences.edit().putString(KEY_DOWNLOAD_QUALITY, value).apply() }
 
+    /**
+     * Comma-separated [com.vyllo.music.domain.model.LyricsSource] keys, most
+     * preferred first. Encoded rather than ordinal so reordering the enum never
+     * reshuffles an existing user's chain.
+     */
+    var lyricsSourceOrder: String
+        get() = preferences.getString(
+            KEY_LYRICS_SOURCE_ORDER,
+            com.vyllo.music.domain.model.LyricsSource.encode(
+                com.vyllo.music.domain.model.LyricsSource.DEFAULT_ORDER
+            )
+        ) ?: ""
+        set(value) { preferences.edit().putString(KEY_LYRICS_SOURCE_ORDER, value).apply() }
+
+    /** Lyrics typography, read once per player session. */
+    fun readLyricsStyle(): com.vyllo.music.domain.model.LyricsStyle =
+        com.vyllo.music.domain.model.LyricsStyle(
+            scale = com.vyllo.music.domain.model.LyricsStyle.scaleFromPercent(
+                preferences.getInt(KEY_LYRICS_TEXT_SCALE, 100)
+            ),
+            lineSpacing = com.vyllo.music.domain.model.LyricsStyle.spacingFromPercent(
+                preferences.getInt(KEY_LYRICS_LINE_SPACING, 100)
+            ),
+            alignStart = preferences.getBoolean(KEY_LYRICS_ALIGN_START, false),
+            glow = preferences.getBoolean(KEY_LYRICS_GLOW, true),
+            animate = preferences.getBoolean(KEY_LYRICS_ANIMATE, true)
+        )
+
+    fun writeLyricsStyle(style: com.vyllo.music.domain.model.LyricsStyle) {
+        preferences.edit()
+            .putInt(
+                KEY_LYRICS_TEXT_SCALE,
+                com.vyllo.music.domain.model.LyricsStyle.percentOf(style.scale)
+            )
+            .putInt(
+                KEY_LYRICS_LINE_SPACING,
+                com.vyllo.music.domain.model.LyricsStyle.percentOf(style.lineSpacing)
+            )
+            .putBoolean(KEY_LYRICS_ALIGN_START, style.alignStart)
+            .putBoolean(KEY_LYRICS_GLOW, style.glow)
+            .putBoolean(KEY_LYRICS_ANIMATE, style.animate)
+            .apply()
+    }
+
     /** Loudness normalization preset: Off/Aggressive/Loud/Balanced/Quiet. */    var loudnessPreset: String
         get() = preferences.getString(KEY_LOUDNESS_PRESET, "Off") ?: "Off"
         set(value) {
@@ -460,6 +504,12 @@ class PreferenceManager @Inject constructor(
         const val KEY_LOUDNESS_PRESET = "loudness_preset"
         const val KEY_STREAM_QUALITY = "stream_quality"
         const val KEY_DOWNLOAD_QUALITY = "download_quality"
+        const val KEY_LYRICS_SOURCE_ORDER = "lyrics_source_order"
+        const val KEY_LYRICS_TEXT_SCALE = "lyrics_text_scale"
+        const val KEY_LYRICS_LINE_SPACING = "lyrics_line_spacing"
+        const val KEY_LYRICS_ALIGN_START = "lyrics_align_start"
+        const val KEY_LYRICS_GLOW = "lyrics_glow"
+        const val KEY_LYRICS_ANIMATE = "lyrics_animate"
         const val KEY_SLEEP_SCHEDULE = "sleep_schedule"
         const val KEY_SLEEP_SCHEDULE_FIRED_DAY = "sleep_schedule_fired_day"
         const val KEY_SKIP_SILENCE = "skip_silence"

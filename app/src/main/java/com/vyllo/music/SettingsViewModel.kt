@@ -36,6 +36,9 @@ class SettingsViewModel @Inject constructor(
     var loudnessPreset by mutableStateOf(preferenceManager.loudnessPreset)
     var streamQuality by mutableStateOf(preferenceManager.streamQuality)
     var downloadQuality by mutableStateOf(preferenceManager.downloadQuality)
+    var lyricsSourceOrder by mutableStateOf(
+        com.vyllo.music.domain.model.LyricsSource.parse(preferenceManager.lyricsSourceOrder)
+    )
     var sleepSchedule by mutableStateOf(preferenceManager.sleepSchedule)
     var skipSilence by mutableStateOf(preferenceManager.skipSilence)
     var pauseOnDeviceDisconnect by mutableStateOf(preferenceManager.pauseOnDeviceDisconnect)
@@ -81,6 +84,24 @@ class SettingsViewModel @Inject constructor(
     fun updateDownloadQuality(quality: String) {
         preferenceManager.downloadQuality = quality
         downloadQuality = preferenceManager.downloadQuality
+    }
+
+    /** Moves [source] by [offset] places and persists the new chain. */
+    fun moveLyricsSource(source: com.vyllo.music.domain.model.LyricsSource, offset: Int) {
+        val current = lyricsSourceOrder
+        val from = current.indexOf(source)
+        if (from < 0) return
+        val to = (from + offset).coerceIn(0, current.lastIndex)
+        if (to == from) return
+        val reordered = current.toMutableList().apply {
+            add(to, removeAt(from))
+        }
+        val normalized = com.vyllo.music.domain.model.LyricsSource.parse(
+            com.vyllo.music.domain.model.LyricsSource.encode(reordered)
+        )
+        preferenceManager.lyricsSourceOrder =
+            com.vyllo.music.domain.model.LyricsSource.encode(normalized)
+        lyricsSourceOrder = normalized
     }
 
     fun updateLoudnessPreset(preset: String) {
@@ -219,6 +240,9 @@ class SettingsViewModel @Inject constructor(
                 loudnessPreset = preferenceManager.loudnessPreset
                 streamQuality = preferenceManager.streamQuality
                 downloadQuality = preferenceManager.downloadQuality
+                lyricsSourceOrder = com.vyllo.music.domain.model.LyricsSource.parse(
+                    preferenceManager.lyricsSourceOrder
+                )
                 sleepSchedule = preferenceManager.sleepSchedule
                 skipSilence = preferenceManager.skipSilence
                 pauseOnDeviceDisconnect = preferenceManager.pauseOnDeviceDisconnect
