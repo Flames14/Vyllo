@@ -89,6 +89,9 @@ The APK is written to `app/build/outputs/apk/release/app-release.apk`. `-PallowD
 
 Kotlin · Jetpack Compose · Material 3 · AndroidX Media3 · Room · DataStore · Hilt · NewPipe Extractor · OkHttp · Coil · WorkManager
 
+For contributors, see the [architecture guide](docs/ARCHITECTURE.md) and
+[database/migration guide](docs/DATABASE.md).
+
 ## Want to help?
 
 Found a bug or have an idea? [Open an issue](https://github.com/Flames14/Vyllo/issues). Pull requests are welcome—please run the checks above and, for bigger changes, start with an issue so we can talk through the approach.
