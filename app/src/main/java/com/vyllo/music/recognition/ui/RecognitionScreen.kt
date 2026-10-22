@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,7 +44,22 @@ fun RecognitionScreen(
     onTrackFound: (com.vyllo.music.domain.model.MusicItem) -> Unit
 ) {
     val status by viewModel.status.collectAsState()
+    val history by viewModel.history.collectAsState()
+    var showHistory by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
+
+    if (showHistory) {
+        RecognitionHistoryScreen(
+            entries = history,
+            onBack = { showHistory = false },
+            onPlay = { entry ->
+                viewModel.resolveAndPlay(entry.result) { onTrackFound(it) }
+            },
+            onRemove = viewModel::removeHistoryEntry,
+            onClear = viewModel::clearHistory
+        )
+        return
+    }
     
     var hasPermission by remember {
         mutableStateOf(
@@ -166,6 +182,16 @@ fun RecognitionScreen(
                 .padding(start = 8.dp, top = 8.dp)
         ) {
             Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_close))
+        }
+
+        IconButton(
+            onClick = { showHistory = true },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(end = 8.dp, top = 8.dp)
+        ) {
+            Icon(Icons.Rounded.History, contentDescription = stringResource(R.string.recognition_history_title))
         }
     }
 }

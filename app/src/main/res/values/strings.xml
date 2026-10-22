@@ -141,6 +141,14 @@
     <string name="recognition_try_again">Try Again</string>
     <string name="recognition_play_song">Play Song</string>
     <string name="recognition_start_over">Start over</string>
+    <string name="recognition_history_title">Recognition history</string>
+    <string name="recognition_history_empty">Recognized tracks will appear here.</string>
+    <string name="recognition_history_remove">Remove from history</string>
+    <string name="recognition_history_clear_title">Clear recognition history?</string>
+    <string name="recognition_history_clear_message">This removes all saved recognition results from this device.</string>
+    <string name="recognition_widget_title">Recognize music</string>
+    <string name="recognition_widget_subtitle">Identify a song nearby</string>
+    <string name="recognition_widget_description">Shortcut to identify music playing nearby.</string>
     <string name="recognition_subtitle">Identify the music playing around you</string>
 
     <!-- Accessibility Labels -->

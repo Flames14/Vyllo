@@ -143,6 +143,14 @@
     <string name="recognition_try_again">Intentar de nuevo</string>
     <string name="recognition_play_song">Reproducir canción</string>
     <string name="recognition_start_over">Empezar de nuevo</string>
+    <string name="recognition_history_title">Historial de reconocimientos</string>
+    <string name="recognition_history_empty">Las canciones reconocidas aparecerán aquí.</string>
+    <string name="recognition_history_remove">Quitar del historial</string>
+    <string name="recognition_history_clear_title">¿Borrar el historial de reconocimientos?</string>
+    <string name="recognition_history_clear_message">Se eliminarán de este dispositivo todos los resultados guardados.</string>
+    <string name="recognition_widget_title">Reconocer música</string>
+    <string name="recognition_widget_subtitle">Identifica la música cercana</string>
+    <string name="recognition_widget_description">Acceso directo para identificar música que suena cerca.</string>
     <string name="recognition_subtitle">Identifica la música que suena a tu alrededor</string>
 
     <!-- Accessibility Labels -->

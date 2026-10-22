@@ -6,6 +6,8 @@ import com.vyllo.music.recognition.domain.extractYouTubeVideoId
 import com.vyllo.music.recognition.domain.CandidateScorer
 import com.vyllo.music.recognition.domain.model.RecognitionStatus
 import com.vyllo.music.recognition.domain.usecase.RecognizeMusicUseCase
+import com.vyllo.music.recognition.data.RecognitionHistoryRepository
+import com.vyllo.music.recognition.data.RecognitionHistoryEntry
 import com.vyllo.music.domain.repository.IMusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,13 +18,15 @@ import javax.inject.Inject
 @HiltViewModel
 class RecognitionViewModel @Inject constructor(
     private val recognizeMusicUseCase: RecognizeMusicUseCase,
-    private val repository: IMusicRepository
+    private val repository: IMusicRepository,
+    private val recognitionHistoryRepository: RecognitionHistoryRepository
 ) : ViewModel() {
     
     private var recognitionJob: kotlinx.coroutines.Job? = null
 
     private val _status = MutableStateFlow<RecognitionStatus>(RecognitionStatus.Idle)
     val status = _status.asStateFlow()
+    val history = recognitionHistoryRepository.entries
 
     fun startRecognition() {
         if (_status.value is RecognitionStatus.Listening || _status.value is RecognitionStatus.Processing) return
@@ -35,6 +39,7 @@ class RecognitionViewModel @Inject constructor(
 
                 result.fold(
                     onSuccess = { recognitionResult ->
+                        recognitionHistoryRepository.add(recognitionResult)
                         _status.value = RecognitionStatus.Success(recognitionResult)
                     },
                     onFailure = { error ->
@@ -65,6 +70,11 @@ class RecognitionViewModel @Inject constructor(
     fun reset() {
         _status.value = RecognitionStatus.Idle
     }
+
+    fun removeHistoryEntry(entry: RecognitionHistoryEntry) =
+        recognitionHistoryRepository.remove(entry.key)
+
+    fun clearHistory() = recognitionHistoryRepository.clear()
 
     fun resolveAndPlay(result: com.vyllo.music.recognition.domain.model.RecognitionResult, onResolved: (com.vyllo.music.domain.model.MusicItem) -> Unit) {
         // Only trust a strictly-valid video ID. A malformed one plays the wrong
