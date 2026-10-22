@@ -619,6 +619,8 @@
     <string name="notif_downloading">Downloading Music</string>
     <string name="notif_floating_title">Floating Player Active</string>
     <string name="notif_floating_text">Tap the bubble to return to app</string>
+    <string name="floating_lyrics_toggle">Toggle floating lyrics</string>
+    <string name="floating_lyrics_unavailable">Synced lyrics are unavailable for this track.</string>
     <!-- Accessibility: icon content descriptions (TalkBack) -->
     <string name="cd_selected">Selected</string>
     <string name="cd_likes">Likes</string>

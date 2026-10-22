@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
@@ -29,7 +31,9 @@ import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,8 +44,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
@@ -59,7 +65,11 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.vyllo.music.MainActivity
 import com.vyllo.music.R
 import com.vyllo.music.data.manager.PreferenceManager
+import com.vyllo.music.data.LyricsEngine
+import com.vyllo.music.domain.model.SyncedLyricLine
 import com.vyllo.music.core.security.SecureLogger
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import androidx.compose.ui.res.stringResource
@@ -69,6 +79,9 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
 
     @Inject
     lateinit var preferenceManager: PreferenceManager
+
+    @Inject
+    lateinit var lyricsEngine: LyricsEngine
 
     private lateinit var windowManager: WindowManager
     private lateinit var params: WindowManager.LayoutParams
@@ -81,6 +94,8 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController by mutableStateOf<MediaController?>(null)
+    private var floatingLyrics by mutableStateOf<List<SyncedLyricLine>>(emptyList())
+    private var lyricsFetchJob: Job? = null
 
     // SavedStateRegistryOwner boilerplate
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
@@ -140,6 +155,7 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
             setContent {
                 FloatingBubbleContent(
                     mediaController = mediaController,
+                    syncedLyrics = floatingLyrics,
                     onDrag = { dx, dy ->
                         try {
                             params.x += dx.toInt()
@@ -161,6 +177,7 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
                         startActivity(intent)
                         stopSelf()
                     },
+                    onMediaItemChanged = ::fetchFloatingLyrics,
                     onClose = { stopSelf() }
                 )
             }
@@ -179,6 +196,7 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
         controllerFuture?.addListener({
             try {
                 mediaController = controllerFuture?.get()
+                fetchFloatingLyrics(mediaController?.currentMediaItem)
             } catch (e: Exception) {
                 SecureLogger.e("FloatingWindowService", "Failed to connect media controller", e)
             }
@@ -197,9 +215,26 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
         }
     }
 
+    private fun fetchFloatingLyrics(mediaItem: MediaItem?) {
+        lyricsFetchJob?.cancel()
+        floatingLyrics = emptyList()
+        val metadata = mediaItem?.mediaMetadata ?: return
+        val title = metadata.title?.toString()?.takeIf { it.isNotBlank() } ?: return
+        val artist = metadata.artist?.toString().orEmpty()
+        val album = metadata.albumTitle?.toString()
+        lyricsFetchJob = lifecycleScope.launch {
+            val durationSecs = mediaController?.duration?.takeIf { it > 0L }?.div(1_000L) ?: 0L
+            val response = runCatching {
+                lyricsEngine.findLyricsUniversal(title, artist, durationSecs, extractedAlbum = album)
+            }.getOrNull()
+            floatingLyrics = response?.syncedLines.orEmpty()
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         controllerFuture?.let { MediaController.releaseFuture(it) }
+        lyricsFetchJob?.cancel()
         composeView?.let { view ->
             try {
                 windowManager.removeView(view)
@@ -215,19 +250,24 @@ class FloatingWindowService : LifecycleService(), SavedStateRegistryOwner, ViewM
 @Composable
 fun FloatingBubbleContent(
     mediaController: MediaController?,
+    syncedLyrics: List<SyncedLyricLine>,
     onDrag: (Float, Float) -> Unit,
     onDragEnd: () -> Unit,
     onClick: () -> Unit,
+    onMediaItemChanged: (MediaItem?) -> Unit,
     onClose: () -> Unit
 ) {
     var artworkUri by remember { mutableStateOf<String?>(null) }
     var isCurrentlyPlaying by remember { mutableStateOf(false) }
+    var showLyrics by rememberSaveable { mutableStateOf(false) }
+    var currentPosition by remember { mutableLongStateOf(0L) }
 
     // Listen to player state — artwork + play/pause sync with the session.
     DisposableEffect(mediaController) {
         val listener = object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 artworkUri = mediaItem?.mediaMetadata?.artworkUri?.toString()
+                onMediaItemChanged(mediaItem)
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 isCurrentlyPlaying = isPlaying
@@ -246,7 +286,15 @@ fun FloatingBubbleContent(
         onDispose { mediaController?.removeListener(listener) }
     }
 
-    Row(
+    LaunchedEffect(mediaController, showLyrics) {
+        while (showLyrics && mediaController != null) {
+            currentPosition = mediaController.currentPosition
+            kotlinx.coroutines.delay(150)
+        }
+    }
+    val activeLyric = syncedLyrics.lastOrNull { it.startTimeMs <= currentPosition }
+
+    Column(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
             .background(Color.Black)
@@ -256,9 +304,12 @@ fun FloatingBubbleContent(
                 RoundedCornerShape(20.dp)
             )
             .padding(horizontal = 6.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+      ) {
         // Artwork — draggable surface; tap opens the app.
         Box(
             modifier = Modifier
@@ -335,6 +386,18 @@ fun FloatingBubbleContent(
             )
         }
 
+        IconButton(
+            onClick = { showLyrics = !showLyrics },
+            enabled = syncedLyrics.isNotEmpty()
+        ) {
+            Icon(
+                Icons.Rounded.Lyrics,
+                contentDescription = stringResource(R.string.floating_lyrics_toggle),
+                tint = if (showLyrics) MaterialTheme.colorScheme.primary else Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
         // Close bubble
         IconButton(onClick = onClose) {
             Icon(
@@ -344,5 +407,18 @@ fun FloatingBubbleContent(
                 modifier = Modifier.size(18.dp)
             )
         }
+      }
+
+      if (showLyrics) {
+          Text(
+              text = activeLyric?.content ?: stringResource(R.string.floating_lyrics_unavailable),
+              color = Color.White,
+              style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+              maxLines = 2,
+              modifier = Modifier
+                  .padding(horizontal = 8.dp, vertical = 2.dp)
+                  .clickable { onClick() }
+          )
+      }
     }
 }

@@ -625,6 +625,8 @@
     <string name="notif_downloading">Descargando música</string>
     <string name="notif_floating_title">Reproductor flotante activo</string>
     <string name="notif_floating_text">Toca la burbuja para volver a la app</string>
+    <string name="floating_lyrics_toggle">Mostrar u ocultar letras flotantes</string>
+    <string name="floating_lyrics_unavailable">No hay letras sincronizadas para esta canción.</string>
     <!-- Accesibilidad: descripciones de contenido de iconos (TalkBack) -->
     <string name="cd_selected">Seleccionado</string>
     <string name="cd_likes">Me gusta</string>
