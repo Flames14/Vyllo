@@ -167,6 +167,15 @@
 
     <!-- Playlist dialogs -->
     <string name="playlist_add_to">Añadir a la lista</string>
+    <string name="playlist_insert_position">Insertar en la posición (opcional)</string>
+    <string name="playlist_insert_position_hint">Déjalo vacío para añadir al final. Las posiciones empiezan en 1.</string>
+    <string name="playlist_cover_title">Portada de la lista</string>
+    <string name="playlist_cover_preview">Vista previa de la portada</string>
+    <string name="playlist_cover_choose">Elige una imagen de una canción</string>
+    <string name="playlist_cover_horizontal_crop">Recorte horizontal</string>
+    <string name="playlist_cover_vertical_crop">Recorte vertical</string>
+    <string name="playlist_cover_use_default">Usar portada predeterminada</string>
+    <string name="playlist_cover_edit">Editar portada</string>
     <string name="playlist_new">Nueva lista</string>
     <string name="playlist_song_already_added">Esta canción ya está en esa lista.</string>
     <string name="playlist_move_up">Mover arriba</string>

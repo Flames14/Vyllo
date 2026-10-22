@@ -110,7 +110,8 @@ private class FakeMusicRepository(
     override fun getAllPlaylists(): Flow<List<PlaylistEntity>> = emptyFlow()
     override suspend fun createPlaylist(name: String): Long = 0L
     override suspend fun deletePlaylist(playlist: PlaylistEntity) = Unit
-    override suspend fun addSongToPlaylist(playlistId: Long, item: MusicItem): Boolean = true
+    override suspend fun addSongToPlaylist(playlistId: Long, item: MusicItem, position: Int?): Boolean = true
+    override suspend fun updatePlaylistCover(playlistId: Long, coverUrl: String?, cropX: Float, cropY: Float) = Unit
     override suspend fun removeSongFromPlaylist(playlistId: Long, url: String) = Unit
     override suspend fun moveSongInPlaylist(playlistId: Long, fromIndex: Int, toIndex: Int): Boolean = false
     override fun getSongsInPlaylist(playlistId: Long): Flow<List<PlaylistSongEntity>> = emptyFlow()

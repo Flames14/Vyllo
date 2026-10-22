@@ -31,6 +31,28 @@ class PlaylistSongOrderingTest {
         assertNull(PlaylistSongOrdering.move(songs, 0, songs.size, nowMillis = 10L))
     }
 
+    @Test
+    fun `insert places a song at the requested zero based index`() {
+        val songs = listOf(song("a", 10L), song("b", 20L), song("c", 30L))
+        val inserted = PlaylistSongOrdering.insert(
+            songs = songs,
+            song = song("new", 0L),
+            position = 1,
+            nowMillis = 100L
+        )
+        assertEquals(listOf("a", "new", "b", "c"), inserted.map { it.url })
+        assertEquals(listOf(100L, 101L, 102L, 103L), inserted.map { it.addedAt })
+    }
+
+    @Test
+    fun `insert clamps position to playlist bounds`() {
+        val songs = listOf(song("a", 10L), song("b", 20L))
+        val first = PlaylistSongOrdering.insert(songs, song("new", 0L), -5, 100L)
+        val last = PlaylistSongOrdering.insert(songs, song("new", 0L), 50, 100L)
+        assertEquals(listOf("new", "a", "b"), first.map { it.url })
+        assertEquals(listOf("a", "b", "new"), last.map { it.url })
+    }
+
     private fun song(url: String, addedAt: Long) = PlaylistSongEntity(
         playlistId = 7L,
         url = url,

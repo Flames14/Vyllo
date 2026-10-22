@@ -165,6 +165,15 @@
 
     <!-- Playlist dialogs -->
     <string name="playlist_add_to">Add to Playlist</string>
+    <string name="playlist_insert_position">Insert at position (optional)</string>
+    <string name="playlist_insert_position_hint">Leave blank to add at the end. Positions start at 1.</string>
+    <string name="playlist_cover_title">Playlist cover</string>
+    <string name="playlist_cover_preview">Playlist cover preview</string>
+    <string name="playlist_cover_choose">Choose artwork from a track</string>
+    <string name="playlist_cover_horizontal_crop">Horizontal crop</string>
+    <string name="playlist_cover_vertical_crop">Vertical crop</string>
+    <string name="playlist_cover_use_default">Use default cover</string>
+    <string name="playlist_cover_edit">Edit cover</string>
     <string name="playlist_new">New Playlist</string>
     <string name="playlist_song_already_added">This song is already in that playlist.</string>
     <string name="playlist_move_up">Move up</string>

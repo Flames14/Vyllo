@@ -6,6 +6,8 @@ import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.domain.model.PlaylistSongEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -13,6 +15,7 @@ import javax.inject.Singleton
 class PlaylistRepository @Inject constructor(
     private val playlistDao: PlaylistDao
 ) {
+    private val addSongMutex = Mutex()
     fun getAllPlaylists(): Flow<List<PlaylistEntity>> =
         playlistDao.getAllPlaylists().distinctUntilChanged()
 
@@ -22,26 +25,48 @@ class PlaylistRepository @Inject constructor(
         playlistDao.deletePlaylist(playlist)
     }
 
-    suspend fun addSongToPlaylist(playlistId: Long, item: MusicItem): Boolean {
-        val currentSongs = playlistDao.getSongsByPlaylistList(playlistId)
-        val nextAddedAt = maxOf(
-            System.currentTimeMillis(),
-            (currentSongs.maxOfOrNull { it.addedAt } ?: Long.MIN_VALUE).let {
-                if (it == Long.MAX_VALUE) Long.MAX_VALUE else it + 1
-            }
+    suspend fun updatePlaylistCover(playlistId: Long, coverUrl: String?, cropX: Float, cropY: Float) {
+        val playlist = playlistDao.getPlaylistById(playlistId) ?: return
+        playlistDao.updatePlaylist(
+            playlist.copy(
+                coverUrl = coverUrl?.takeIf(String::isNotBlank),
+                coverCropX = cropX.coerceIn(0f, 1f),
+                coverCropY = cropY.coerceIn(0f, 1f)
+            )
         )
-        val insertedRowId = playlistDao.insertSongIfAbsent(
-            PlaylistSongEntity(
+    }
+
+    suspend fun addSongToPlaylist(playlistId: Long, item: MusicItem, position: Int? = null): Boolean =
+        addSongMutex.withLock {
+            val currentSongs = playlistDao.getSongsByPlaylistList(playlistId)
+            if (currentSongs.any { it.url == item.url }) return@withLock false
+
+            val newSong = PlaylistSongEntity(
                 playlistId = playlistId,
                 url = item.url,
                 title = item.title,
                 uploader = item.uploader,
-                thumbnailUrl = item.thumbnailUrl,
-                addedAt = nextAddedAt
+                thumbnailUrl = item.thumbnailUrl
             )
-        )
-        return insertedRowId != -1L
-    }
+            if (position == null) {
+                val previousMax = currentSongs.maxOfOrNull { it.addedAt } ?: Long.MIN_VALUE
+                val nextOrderKey = if (previousMax == Long.MAX_VALUE) Long.MAX_VALUE else previousMax + 1
+                val addedAt = maxOf(System.currentTimeMillis(), nextOrderKey)
+                return@withLock playlistDao.insertSongIfAbsent(newSong.copy(addedAt = addedAt)) != -1L
+            }
+            val targetIndex = position?.coerceIn(0, currentSongs.size) ?: currentSongs.size
+            val ordered = PlaylistSongOrdering.insert(
+                songs = currentSongs,
+                song = newSong,
+                position = targetIndex,
+                nowMillis = System.currentTimeMillis()
+            )
+            val insertedSong = ordered.first { it.url == item.url }
+            val insertedRowId = playlistDao.insertSongIfAbsent(insertedSong)
+            if (insertedRowId == -1L) return@withLock false
+            playlistDao.updatePlaylistSongs(ordered)
+            true
+        }
 
     suspend fun moveSongInPlaylist(playlistId: Long, fromIndex: Int, toIndex: Int): Boolean {
         val songs = playlistDao.getSongsByPlaylistList(playlistId)

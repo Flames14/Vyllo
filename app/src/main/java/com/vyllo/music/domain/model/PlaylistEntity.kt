@@ -7,5 +7,8 @@ import androidx.room.PrimaryKey
 data class PlaylistEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val name: String
+    val name: String,
+    val coverUrl: String? = null,
+    val coverCropX: Float = 0.5f,
+    val coverCropY: Float = 0.5f
 )

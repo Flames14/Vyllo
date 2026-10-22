@@ -117,4 +117,22 @@ class DownloadDatabaseMigrationTest {
 
         db.close()
     }
+
+    @Test
+    fun migrate6To7_addsPlaylistCoverDefaultsAndPreservesRows() {
+        helper.createDatabase(TEST_DB, 6).apply {
+            execSQL("INSERT INTO playlists (id, name) VALUES (42, 'Road trip')")
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 7, true, MIGRATION_6_7)
+        db.query("SELECT name, coverUrl, coverCropX, coverCropY FROM playlists WHERE id = 42").use { c ->
+            assertTrue("playlist row lost", c.moveToFirst())
+            assertTrue(c.getString(0) == "Road trip")
+            assertTrue(c.isNull(1))
+            assertTrue(c.getFloat(2) == 0.5f)
+            assertTrue(c.getFloat(3) == 0.5f)
+        }
+        db.close()
+    }
 }

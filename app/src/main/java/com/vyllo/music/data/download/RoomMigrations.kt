@@ -127,3 +127,12 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         )
     }
 }
+
+/** Persist custom playlist artwork and the crop focal point. */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `playlists` ADD COLUMN `coverUrl` TEXT")
+        db.execSQL("ALTER TABLE `playlists` ADD COLUMN `coverCropX` REAL NOT NULL DEFAULT 0.5")
+        db.execSQL("ALTER TABLE `playlists` ADD COLUMN `coverCropY` REAL NOT NULL DEFAULT 0.5")
+    }
+}

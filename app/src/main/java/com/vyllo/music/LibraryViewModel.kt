@@ -319,16 +319,23 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    fun addSongToPlaylist(playlistId: Long, item: MusicItem) {
+    /** [position] is a zero-based insert index; null appends to the playlist. */
+    fun addSongToPlaylist(playlistId: Long, item: MusicItem, position: Int? = null) {
         viewModelScope.launch {
             playlistAddWasDuplicate = false
-            val added = managePlaylistUseCase.addSongToPlaylist(playlistId, item)
+            val added = managePlaylistUseCase.addSongToPlaylist(playlistId, item, position)
             if (added) {
                 showPlaylistAddDialog = false
                 songToAddToPlaylist = null
             } else {
                 playlistAddWasDuplicate = true
             }
+        }
+    }
+
+    fun updatePlaylistCover(playlistId: Long, coverUrl: String?, cropX: Float, cropY: Float) {
+        viewModelScope.launch {
+            managePlaylistUseCase.updatePlaylistCover(playlistId, coverUrl, cropX, cropY)
         }
     }
 

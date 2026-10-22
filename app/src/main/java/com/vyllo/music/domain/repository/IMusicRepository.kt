@@ -48,7 +48,8 @@ interface IMusicRepository {
     suspend fun createPlaylist(name: String): Long
     suspend fun deletePlaylist(playlist: PlaylistEntity)
     /** Adds once; returns false if the same URL is already in the playlist. */
-    suspend fun addSongToPlaylist(playlistId: Long, item: MusicItem): Boolean
+    suspend fun addSongToPlaylist(playlistId: Long, item: MusicItem, position: Int? = null): Boolean
+    suspend fun updatePlaylistCover(playlistId: Long, coverUrl: String?, cropX: Float, cropY: Float)
     suspend fun removeSongFromPlaylist(playlistId: Long, url: String)
     suspend fun moveSongInPlaylist(playlistId: Long, fromIndex: Int, toIndex: Int): Boolean
     fun getSongsInPlaylist(playlistId: Long): Flow<List<PlaylistSongEntity>>

@@ -16,8 +16,11 @@ class ManagePlaylistUseCase @Inject constructor(
     
     suspend fun deletePlaylist(playlist: PlaylistEntity) = repository.deletePlaylist(playlist)
     
-    suspend fun addSongToPlaylist(playlistId: Long, item: MusicItem) = 
-        repository.addSongToPlaylist(playlistId, item)
+    suspend fun addSongToPlaylist(playlistId: Long, item: MusicItem, position: Int? = null) =
+        repository.addSongToPlaylist(playlistId, item, position)
+
+    suspend fun updatePlaylistCover(playlistId: Long, coverUrl: String?, cropX: Float, cropY: Float) =
+        repository.updatePlaylistCover(playlistId, coverUrl, cropX, cropY)
     
     suspend fun removeSongFromPlaylist(playlistId: Long, url: String) = 
         repository.removeSongFromPlaylist(playlistId, url)

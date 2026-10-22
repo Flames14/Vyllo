@@ -16,6 +16,12 @@ interface PlaylistDao {
     @Delete
     suspend fun deletePlaylist(playlist: PlaylistEntity)
 
+    @Query("SELECT * FROM playlists WHERE id = :playlistId LIMIT 1")
+    suspend fun getPlaylistById(playlistId: Long): PlaylistEntity?
+
+    @Update
+    suspend fun updatePlaylist(playlist: PlaylistEntity)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSongToPlaylist(song: PlaylistSongEntity)
 

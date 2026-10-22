@@ -1,6 +1,7 @@
 package com.vyllo.music.ui.library
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -18,6 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
+import coil.compose.AsyncImage
 import com.vyllo.music.R
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.model.PlaylistEntity
@@ -44,6 +48,7 @@ fun YTMPlaylistScreen(
     onDownloadAll: () -> Unit = {}
 ) {
     var showExportMenu by remember { mutableStateOf(false) }
+    var showCoverEditor by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -145,6 +150,34 @@ fun YTMPlaylistScreen(
             }
         }
 
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = VylloSpacing.screenHorizontal, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val visibleCover = playlist.coverUrl
+                ?: viewModel.currentPlaylistSongs.firstOrNull()?.thumbnailUrl?.takeIf { it.isNotBlank() }
+            if (!visibleCover.isNullOrBlank()) {
+                AsyncImage(
+                    model = visibleCover,
+                    contentDescription = stringResource(R.string.playlist_cover_preview),
+                    contentScale = ContentScale.Crop,
+                    alignment = androidx.compose.ui.BiasAlignment(
+                        playlist.coverCropX * 2f - 1f,
+                        playlist.coverCropY * 2f - 1f
+                    ),
+                    modifier = Modifier.size(88.dp).clip(RoundedCornerShape(14.dp))
+                )
+            }
+            TextButton(
+                onClick = { showCoverEditor = true },
+                enabled = viewModel.currentPlaylistSongs.isNotEmpty()
+            ) {
+                Text(stringResource(R.string.playlist_cover_edit))
+            }
+        }
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 16.dp)
@@ -184,5 +217,19 @@ fun YTMPlaylistScreen(
                 }
             }
         }
+    }
+
+    if (showCoverEditor) {
+        PlaylistCoverEditorDialog(
+            songs = viewModel.currentPlaylistSongs,
+            initialCoverUrl = playlist.coverUrl,
+            initialCropX = playlist.coverCropX,
+            initialCropY = playlist.coverCropY,
+            onDismiss = { showCoverEditor = false },
+            onSave = { url, cropX, cropY ->
+                viewModel.updatePlaylistCover(playlist.id, url, cropX, cropY)
+                showCoverEditor = false
+            }
+        )
     }
 }

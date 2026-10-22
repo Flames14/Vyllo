@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.vyllo.music.LibraryViewModel
 import com.vyllo.music.R
@@ -41,6 +43,7 @@ fun PlaylistAddDialog(
     onDismiss: () -> Unit
 ) {
     var showCreateDialog by remember { mutableStateOf(false) }
+    var positionText by remember { mutableStateOf("") }
 
     if (showCreateDialog) {
         CreatePlaylistDialog(
@@ -79,6 +82,16 @@ fun PlaylistAddDialog(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
+                OutlinedTextField(
+                    value = positionText,
+                    onValueChange = { input -> positionText = input.filter(Char::isDigit).take(5) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.playlist_insert_position)) },
+                    supportingText = { Text(stringResource(R.string.playlist_insert_position_hint)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+
                 if (viewModel.allPlaylists.isEmpty()) {
                     Text(
                         stringResource(R.string.playlist_none_yet),
@@ -93,7 +106,10 @@ fun PlaylistAddDialog(
                                 .fillMaxWidth()
                                 .clickable {
                                     viewModel.songToAddToPlaylist?.let {
-                                        viewModel.addSongToPlaylist(playlist.id, it)
+                                        val index = positionText.toIntOrNull()?.let { position ->
+                                            (position.coerceAtLeast(1) - 1)
+                                        }
+                                        viewModel.addSongToPlaylist(playlist.id, it, index)
                                     }
                                 }
                                 .padding(vertical = 12.dp),
