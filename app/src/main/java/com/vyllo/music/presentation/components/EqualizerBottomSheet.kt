@@ -16,17 +16,25 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.BookmarkAdd
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,8 +59,22 @@ fun EqualizerBottomSheet(
     onBandLevelChange: (Int, Int) -> Unit,
     onVolumeBoostChange: (Float) -> Unit,
     onPresetSelected: (EqualizerPreset) -> Unit = {},
+    customPresets: List<EqualizerPreset> = emptyList(),
+    onSavePreset: (String) -> Unit = {},
+    onDeletePreset: (EqualizerPreset) -> Unit = {},
     onReset: () -> Unit
 ) {
+    var showSaveDialog by rememberSaveable { mutableStateOf(false) }
+    if (showSaveDialog) {
+        EqualizerPresetNameDialog(
+            onDismiss = { showSaveDialog = false },
+            onConfirm = { name ->
+                onSavePreset(name)
+                showSaveDialog = false
+            }
+        )
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
@@ -110,14 +132,39 @@ fun EqualizerBottomSheet(
                 )
             }
 
+            EqualizerCurveGraph(
+                bands = settings.bands,
+                enabled = settings.enabled
+            )
+
             // Presets Horizontal Row
             Column {
-                Text(
-                    text = stringResource(R.string.equalizer_presets),
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.equalizer_presets),
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    TextButton(
+                        onClick = { showSaveDialog = true },
+                        enabled = settings.enabled
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.BookmarkAdd,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.eq_preset_save),
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                    }
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -126,23 +173,20 @@ fun EqualizerBottomSheet(
                 ) {
                     EqualizerSettings.PRESETS.forEach { preset ->
                         val isSelected = settings.enabled && settings.matchesPreset(preset)
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.surfaceVariant
-                                )
-                                .clickable { onPresetSelected(preset) }
-                                .padding(horizontal = 14.dp, vertical = 8.dp)
-                        ) {
-                            Text(
-                                text = preset.name,
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                                       else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+                        PresetChip(
+                            label = preset.name,
+                            selected = isSelected,
+                            onClick = { onPresetSelected(preset) }
+                        )
+                    }
+                    customPresets.forEach { preset ->
+                        val isSelected = settings.enabled && settings.matchesPreset(preset)
+                        PresetChip(
+                            label = preset.name,
+                            selected = isSelected,
+                            onClick = { onPresetSelected(preset) },
+                            onDelete = { onDeletePreset(preset) }
+                        )
                     }
                 }
             }
@@ -210,6 +254,84 @@ fun EqualizerBottomSheet(
             }
         }
     }
+}
+
+@Composable
+private fun PresetChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onDelete: (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (selected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.surfaceVariant
+            )
+            .clickable(onClick = onClick)
+            .padding(
+                start = 14.dp,
+                end = if (onDelete == null) 14.dp else 4.dp,
+                top = 8.dp,
+                bottom = 8.dp
+            ),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = if (selected) MaterialTheme.colorScheme.onPrimary
+            else MaterialTheme.colorScheme.onSurface
+        )
+        if (onDelete != null) {
+            val deleteCd = stringResource(R.string.eq_preset_delete_cd, label)
+            Icon(
+                imageVector = Icons.Rounded.Close,
+                contentDescription = deleteCd,
+                tint = if (selected) MaterialTheme.colorScheme.onPrimary
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                modifier = Modifier
+                    .padding(start = 2.dp)
+                    .size(16.dp)
+                    .clickable(onClick = onDelete)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EqualizerPresetNameDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var name by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.eq_preset_save_title)) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it.take(40) },
+                singleLine = true,
+                label = { Text(stringResource(R.string.eq_preset_name)) }
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name) },
+                enabled = name.isNotBlank()
+            ) {
+                Text(stringResource(R.string.common_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        }
+    )
 }
 
 @Composable

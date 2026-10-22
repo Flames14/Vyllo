@@ -391,8 +391,12 @@ class PreferenceManager @Inject constructor(
         saveEqualizerBandLevels(sanitized.bands.map(EqualizerBandSetting::level))
     }
 
-    fun saveEqualizerBandLevels(levels: List<Int>) {
-        val sanitized = levels
+    /** User-saved equalizer presets, stored as JSON. */
+    var customEqualizerPresets: String
+        get() = preferences.getString(KEY_CUSTOM_EQ_PRESETS, "") ?: ""
+        set(value) { preferences.edit().putString(KEY_CUSTOM_EQ_PRESETS, value).apply() }
+
+    fun saveEqualizerBandLevels(levels: List<Int>) {        val sanitized = levels
             .take(EqualizerSettings.DEFAULT_BANDS.size)
             .map { it.coerceIn(EqualizerSettings.BAND_LEVEL_MIN, EqualizerSettings.BAND_LEVEL_MAX) }
         preferences.edit()
@@ -510,6 +514,7 @@ class PreferenceManager @Inject constructor(
         const val KEY_LYRICS_ALIGN_START = "lyrics_align_start"
         const val KEY_LYRICS_GLOW = "lyrics_glow"
         const val KEY_LYRICS_ANIMATE = "lyrics_animate"
+        const val KEY_CUSTOM_EQ_PRESETS = "custom_eq_presets"
         const val KEY_SLEEP_SCHEDULE = "sleep_schedule"
         const val KEY_SLEEP_SCHEDULE_FIRED_DAY = "sleep_schedule_fired_day"
         const val KEY_SKIP_SILENCE = "skip_silence"

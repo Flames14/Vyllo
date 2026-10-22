@@ -326,6 +326,11 @@
     <string name="equalizer_presets">Preajustes</string>
     <string name="equalizer_percent">%1$d%%</string>
     <string name="equalizer_reset_cd">Restablecer el ecualizador a la respuesta plana</string>
+    <string name="eq_preset_save">Guardar</string>
+    <string name="eq_preset_save_title">Guardar preajuste</string>
+    <string name="eq_preset_name">Nombre del preajuste</string>
+    <string name="eq_preset_delete_cd">Eliminar preajuste %1$s</string>
+    <string name="eq_curve_cd">Curva de respuesta del ecualizador</string>
     <string name="eq_band_bass">Graves</string>
     <string name="eq_band_low_mid">Medio-graves</string>
     <string name="eq_band_mid">Medios</string>

@@ -9,6 +9,7 @@ import com.vyllo.music.domain.model.SyncedLyricLine
 import com.vyllo.music.domain.model.LyricsResult
 import com.vyllo.music.domain.model.EqualizerSettings
 import com.vyllo.music.domain.model.EqualizerPreset
+import com.vyllo.music.domain.model.EqualizerPresetCodec
 import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.data.*
 import com.vyllo.music.domain.manager.PlaybackQueueManager
@@ -68,6 +69,7 @@ data class PlayerUiState(
     val isTranslating: Boolean = false,
     val detectedLyricsLangCode: String? = null,
     val equalizerSettings: EqualizerSettings = EqualizerSettings(),
+    val customEqualizerPresets: List<EqualizerPreset> = emptyList(),
     val volumeBoostMultiplier: Float = 1.0f,
     val isVolumeBoosterUIVisible: Boolean = false,
     val isInPipMode: Boolean = false,
@@ -280,6 +282,7 @@ class PlayerViewModel @Inject constructor(
 
         _uiState.update { it.copy(
             equalizerSettings = preferenceManager.loadEqualizerSettings(),
+            customEqualizerPresets = EqualizerPresetCodec.decode(preferenceManager.customEqualizerPresets),
             volumeBoostMultiplier = preferenceManager.volumeBoostMultiplier,
             isQueueSticky = preferenceManager.isQueueSticky,
             upNextIncludeVariants = preferenceManager.upNextIncludeVariants
@@ -476,6 +479,27 @@ class PlayerViewModel @Inject constructor(
 
     fun resetEqualizer() =
         equalizerController.resetEqualizer()
+
+    /**
+     * Saves the current curve as a named preset. An existing preset with the
+     * same name is replaced, which doubles as "update existing".
+     */
+    fun saveEqualizerPreset(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        val snapshot = EqualizerPresetCodec.fromSettings(trimmed, equalizerSettings)
+        val updated = _uiState.value.customEqualizerPresets
+            .filterNot { it.name.equals(trimmed, ignoreCase = true) } + snapshot
+        preferenceManager.customEqualizerPresets = EqualizerPresetCodec.encode(updated)
+        _uiState.update { it.copy(customEqualizerPresets = updated) }
+    }
+
+    fun deleteEqualizerPreset(preset: EqualizerPreset) {
+        val updated = _uiState.value.customEqualizerPresets
+            .filterNot { it.name.equals(preset.name, ignoreCase = true) }
+        preferenceManager.customEqualizerPresets = EqualizerPresetCodec.encode(updated)
+        _uiState.update { it.copy(customEqualizerPresets = updated) }
+    }
 
     fun updateVolumeBoost(multiplier: Float) =
         equalizerController.updateVolumeBoost(multiplier)

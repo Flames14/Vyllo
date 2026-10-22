@@ -324,6 +324,11 @@
     <string name="equalizer_presets">Presets</string>
     <string name="equalizer_percent">%1$d%%</string>
     <string name="equalizer_reset_cd">Reset equalizer to flat</string>
+    <string name="eq_preset_save">Save</string>
+    <string name="eq_preset_save_title">Save preset</string>
+    <string name="eq_preset_name">Preset name</string>
+    <string name="eq_preset_delete_cd">Delete preset %1$s</string>
+    <string name="eq_curve_cd">Equalizer response curve</string>
     <string name="eq_band_bass">Bass</string>
     <string name="eq_band_low_mid">Low Mid</string>
     <string name="eq_band_mid">Mid</string>

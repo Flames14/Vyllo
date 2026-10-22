@@ -70,6 +70,9 @@ fun PlayerEqualizerSheet(
             onBandLevelChange = viewModel::updateEqualizerBand,
             onVolumeBoostChange = viewModel::updateVolumeBoost,
             onPresetSelected = viewModel::applyEqualizerPreset,
+            customPresets = playerUiState.customEqualizerPresets,
+            onSavePreset = viewModel::saveEqualizerPreset,
+            onDeletePreset = viewModel::deleteEqualizerPreset,
             onReset = viewModel::resetEqualizer
         )
     }
