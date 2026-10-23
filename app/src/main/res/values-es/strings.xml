@@ -17,6 +17,25 @@
     <string name="tv_home_now_playing">Reproduciendo</string>
     <string name="tv_home_now_playing_subtitle">Abrir el reproductor completo</string>
     <string name="tv_home_continue">Sigue escuchando</string>
+    <!-- Last.fm -->
+    <string name="settings_lastfm">Last.fm</string>
+    <string name="settings_lastfm_desc">Scrobbling y reproducción actual</string>
+    <string name="lastfm_title">Last.fm</string>
+    <string name="lastfm_description">Envía tus reproducciones a Last.fm. Vyllo no incluye claves compartidas: crea una cuenta de API y usa tus propias credenciales.</string>
+    <string name="lastfm_scrobbling">Scrobbling</string>
+    <string name="lastfm_scrobbling_desc">Enviar reproducciones a tu perfil de Last.fm</string>
+    <string name="lastfm_connected_as">Conectado como %1$s</string>
+    <string name="lastfm_disconnect">Desconectar</string>
+    <string name="lastfm_api_key">Clave de API</string>
+    <string name="lastfm_api_secret">Secreto de API</string>
+    <string name="lastfm_credentials_help">Usa la clave y el secreto de tu cuenta de API de Last.fm.</string>
+    <string name="lastfm_create_account">Crear una cuenta de API</string>
+    <string name="lastfm_connect">Conectar</string>
+    <string name="lastfm_waiting_auth">Esperando la autorización en tu navegador…</string>
+    <string name="lastfm_error_missing_credentials">Introduce la clave de API y el secreto.</string>
+    <string name="lastfm_error_invalid_credentials">Last.fm rechazó estas credenciales.</string>
+    <string name="lastfm_error_network">No se pudo contactar con Last.fm. Revisa tu conexión.</string>
+    <string name="lastfm_error_timeout">La autorización ha caducado. Inténtalo de nuevo.</string>
     <!-- App name -->
     <string name="app_name">Vyllo</string>
 

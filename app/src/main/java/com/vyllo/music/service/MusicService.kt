@@ -19,6 +19,7 @@ import com.vyllo.music.data.manager.PlaybackAudioEffectsManager
 import com.vyllo.music.data.manager.PreferenceManager
 import com.vyllo.music.data.manager.WakeLockManager
 import com.vyllo.music.domain.manager.PlaybackErrorHandler
+import com.vyllo.music.domain.manager.LastFmScrobbleManager
 import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.service.audio.AudioSinkFactory
@@ -70,6 +71,9 @@ class MusicService : MediaLibraryService() {
 
     @Inject
     lateinit var playbackAudioEffectsManager: PlaybackAudioEffectsManager
+
+    @Inject
+    lateinit var lastFmScrobbleManager: LastFmScrobbleManager
 
     private var mediaSession: MediaLibrarySession? = null
     private var player: ExoPlayer? = null
@@ -153,7 +157,8 @@ class MusicService : MediaLibraryService() {
         title = mediaMetadata.title?.toString().orEmpty(),
         url = mediaId,
         uploader = mediaMetadata.artist?.toString().orEmpty(),
-        thumbnailUrl = mediaMetadata.artworkUri?.toString().orEmpty()
+        thumbnailUrl = mediaMetadata.artworkUri?.toString().orEmpty(),
+        durationSecs = (mediaMetadata.durationMs ?: 0L) / 1_000L
     )
 
     private fun startOutputDeviceWatcher() {
@@ -299,6 +304,16 @@ class MusicService : MediaLibraryService() {
                 if (::statsRecorder.isInitialized) {
                     statsRecorder.onTrackStarted(mediaItem?.toStatsItem())
                 }
+                val durationMs = player?.duration?.takeIf { it > 0L } ?: 0L
+                lastFmScrobbleManager.onTrackStarted(
+                    item = mediaItem?.toStatsItem(),
+                    durationMs = durationMs,
+                    isPlaying = player?.isPlaying == true
+                )
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (isPlaying) lastFmScrobbleManager.onPlaybackStarted()
             }
 
             override fun onPositionDiscontinuity(
@@ -317,6 +332,10 @@ class MusicService : MediaLibraryService() {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY && ::statsRecorder.isInitialized) {
                     statsRecorder.onTrackStarted(player?.currentMediaItem?.toStatsItem())
+                    lastFmScrobbleManager.onDurationAvailable(player?.duration ?: 0L)
+                }
+                if (playbackState == Player.STATE_ENDED) {
+                    lastFmScrobbleManager.onStopped()
                 }
             }
         })
@@ -346,6 +365,16 @@ class MusicService : MediaLibraryService() {
         queuePersistence.start(serviceScope)
 
         startSleepScheduleWatcher()
+
+        // Scrobbling: replay anything queued while offline and keep the current
+        // position sampled so a manual skip still knows how far the track played.
+        lastFmScrobbleManager.start(serviceScope)
+        serviceScope.launch {
+            while (true) {
+                lastFmScrobbleManager.onProgress(player?.currentPosition ?: 0L)
+                delay(3_000L)
+            }
+        }
 
         val openIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
@@ -468,6 +497,7 @@ class MusicService : MediaLibraryService() {
                 player?.currentPosition ?: 0L
             )
         }
+        lastFmScrobbleManager.onStopped()
         outputDeviceWatcher?.stop()
         outputDeviceWatcher = null
         muteWatcher?.stop()

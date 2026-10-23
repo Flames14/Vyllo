@@ -16,6 +16,25 @@
     <string name="tv_home_now_playing">Now playing</string>
     <string name="tv_home_now_playing_subtitle">Open the full player</string>
     <string name="tv_home_continue">Continue listening</string>
+    <!-- Last.fm -->
+    <string name="settings_lastfm">Last.fm</string>
+    <string name="settings_lastfm_desc">Scrobbling and now playing</string>
+    <string name="lastfm_title">Last.fm</string>
+    <string name="lastfm_description">Scrobble your plays to Last.fm. Vyllo ships no shared keys: create an API account and use your own credentials.</string>
+    <string name="lastfm_scrobbling">Scrobbling</string>
+    <string name="lastfm_scrobbling_desc">Send plays to your Last.fm profile</string>
+    <string name="lastfm_connected_as">Connected as %1$s</string>
+    <string name="lastfm_disconnect">Disconnect</string>
+    <string name="lastfm_api_key">API key</string>
+    <string name="lastfm_api_secret">API secret</string>
+    <string name="lastfm_credentials_help">Use the key and secret from your Last.fm API account.</string>
+    <string name="lastfm_create_account">Create an API account</string>
+    <string name="lastfm_connect">Connect</string>
+    <string name="lastfm_waiting_auth">Waiting for authorization in your browser…</string>
+    <string name="lastfm_error_missing_credentials">Enter both the API key and secret.</string>
+    <string name="lastfm_error_invalid_credentials">Last.fm rejected these credentials.</string>
+    <string name="lastfm_error_network">Could not reach Last.fm. Check your connection.</string>
+    <string name="lastfm_error_timeout">Authorization timed out. Try connecting again.</string>
     <!-- App name -->
     <string name="app_name">Vyllo</string>
 

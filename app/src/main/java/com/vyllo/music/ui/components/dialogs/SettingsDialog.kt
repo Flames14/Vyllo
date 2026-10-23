@@ -1,4 +1,4 @@
-﻿package com.vyllo.music.ui.components.dialogs
+package com.vyllo.music.ui.components.dialogs
 
 import androidx.compose.foundation.clickable
 import android.os.Build
@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -99,7 +100,8 @@ fun SettingsDialog(
     onClearCacheClick: () -> Unit = {},
     onExportBackupClick: () -> Unit = {},
     onImportBackupClick: () -> Unit = {},
-    onCheckUpdateClick: () -> Unit = {}
+    onCheckUpdateClick: () -> Unit = {},
+    onLastFmClick: () -> Unit = {}
 ) {
     var showClearCacheConfirm by remember { mutableStateOf(false) }
     var showCrossfadePicker by remember { mutableStateOf(false) }
@@ -799,6 +801,14 @@ fun SettingsDialog(
                         }
                     }
                 }
+
+                SettingsActionRow(
+                    title = stringResource(R.string.settings_lastfm),
+                    subtitle = stringResource(R.string.settings_lastfm_desc),
+                    icon = Icons.Rounded.Sync,
+                    onClick = { onLastFmClick() },
+                    iconContentDescription = stringResource(R.string.settings_lastfm)
+                )
 
                 val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
                 SettingsActionRow(

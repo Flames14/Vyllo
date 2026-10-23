@@ -146,6 +146,8 @@ fun VylloNavigation(
     val searchScrollState = rememberLazyListState()
     val recognitionViewModel: RecognitionViewModel = hiltViewModel()
     val updateViewModel: AppUpdateViewModel = hiltViewModel()
+    val lastFmViewModel: com.vyllo.music.ui.settings.LastFmViewModel = hiltViewModel()
+    var showLastFmSettings by remember { mutableStateOf(false) }
 
     // Slice player state to avoid whole-app recomposition on unrelated fields
     // (likeCount, lyricsLoading, equalizer...). Each slice only recomposes its readers.
@@ -696,8 +698,16 @@ downloadsRequireBatteryOk = settingsViewModel.downloadsRequireBatteryOk,
                            onClearCacheClick = { settingsViewModel.clearCache() },
                            onExportBackupClick = { exportLauncher.launch("vyllo_backup_${System.currentTimeMillis()}.json") },
                            onImportBackupClick = { importLauncher.launch(arrayOf("application/json", "text/*")) },
-                           onCheckUpdateClick = { updateViewModel.checkForUpdates() }
+                           onCheckUpdateClick = { updateViewModel.checkForUpdates() },
+                           onLastFmClick = { showLastFmSettings = true }
                        )
+                    }
+
+                    if (showLastFmSettings) {
+                        com.vyllo.music.ui.settings.LastFmSettingsDialog(
+                            viewModel = lastFmViewModel,
+                            onDismiss = { showLastFmSettings = false }
+                        )
                     }
 
                     // App Update Dialog
