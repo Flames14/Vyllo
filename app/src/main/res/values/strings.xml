@@ -5,6 +5,17 @@
     <string name="exact_alarm_permission_title">Allow exact alarms</string>
     <string name="exact_alarm_permission_message">Android needs this access so alarms can ring at the time you set. Enable Alarms &amp; reminders for Vyllo, then return and save or enable your alarm.</string>
     <string name="exact_alarm_permission_action">Open settings</string>
+    <!-- Android TV browse -->
+    <string name="tv_home_tagline">Your music, built for the big screen</string>
+    <string name="tv_home_search">Search</string>
+    <string name="tv_home_search_subtitle">Find songs, albums and artists</string>
+    <string name="tv_home_explore">Explore</string>
+    <string name="tv_home_explore_subtitle">Charts, moods and genres</string>
+    <string name="tv_home_library">Library</string>
+    <string name="tv_home_library_subtitle">Playlists, likes and downloads</string>
+    <string name="tv_home_now_playing">Now playing</string>
+    <string name="tv_home_now_playing_subtitle">Open the full player</string>
+    <string name="tv_home_continue">Continue listening</string>
     <!-- App name -->
     <string name="app_name">Vyllo</string>
 

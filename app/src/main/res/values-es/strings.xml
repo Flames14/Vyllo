@@ -6,6 +6,17 @@
     <string name="exact_alarm_permission_title">Permitir alarmas exactas</string>
     <string name="exact_alarm_permission_message">Android necesita este acceso para que las alarmas suenen a la hora que establezcas. Activa Alarmas y recordatorios para Vyllo y luego vuelve aquí para guardar o activar tu alarma.</string>
     <string name="exact_alarm_permission_action">Abrir ajustes</string>
+    <!-- Android TV browse -->
+    <string name="tv_home_tagline">Tu música, pensada para la pantalla grande</string>
+    <string name="tv_home_search">Buscar</string>
+    <string name="tv_home_search_subtitle">Encuentra canciones, álbumes y artistas</string>
+    <string name="tv_home_explore">Explorar</string>
+    <string name="tv_home_explore_subtitle">Éxitos, estados de ánimo y géneros</string>
+    <string name="tv_home_library">Biblioteca</string>
+    <string name="tv_home_library_subtitle">Listas, favoritos y descargas</string>
+    <string name="tv_home_now_playing">Reproduciendo</string>
+    <string name="tv_home_now_playing_subtitle">Abrir el reproductor completo</string>
+    <string name="tv_home_continue">Sigue escuchando</string>
     <!-- App name -->
     <string name="app_name">Vyllo</string>
 

@@ -164,6 +164,9 @@ fun VylloNavigation(
     val pinnedPlaylistIds by remember(homeViewModel) {
         homeViewModel.uiState.map { it.pinnedPlaylistIds }.distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val recentlyPlayed by remember(homeViewModel) {
+        homeViewModel.uiState.map { it.recentlyPlayed }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
     // Full state kept only for fullscreen overlay that genuinely needs many fields.
     // Screens above read the slices, not this.
 
@@ -225,6 +228,7 @@ fun VylloNavigation(
     }
 
     val context = LocalContext.current
+    val isTvUi = remember { com.vyllo.music.core.tv.TvDevice.isTelevision(context) }
     val isControllerConnected by playbackManager.isConnected.collectAsStateWithLifecycle(initialValue = playbackManager.isConnected())
     val controller = remember(isControllerConnected) { playbackManager.getController() }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -369,25 +373,40 @@ fun VylloNavigation(
                         modifier = Modifier.fillMaxSize()
                     ) {
                         composable(VylloRoutes.HOME) {
-                            YTMHomeScreen(
-                                viewModel = homeViewModel,
-                                onPlay = { item ->
-                                    homeViewModel.addToRecentlyPlayed(item)
-                                    onPlay(item)
-                                },
-                                onSearchClick = { navController.navigateToTab(1) },
-                                onSettingsClick = { settingsViewModel.showSettings = true },
-                                onRecognizeClick = { navController.navigate(VylloRoutes.RECOGNITION) },
-                                onPlaylistClick = { playlist ->
-                                    libraryViewModel.loadPlaylistSongs(playlist.id)
-                                    navController.navigate(VylloRoutes.playlist(playlist.id))
-                                },
-                                currentPlayingItem = currentPlayingItem,
-                                loadingItemUrl = loadingItemUrl,
-                                scrollTuner = homeScrollTuner,
-                                homeScrollState = homeScrollState
-                                    ?: androidx.compose.foundation.lazy.rememberLazyListState()
-                            )
+                            if (isTvUi) {
+                                com.vyllo.music.ui.tv.TvHomeScreen(
+                                    recentlyPlayed = recentlyPlayed,
+                                    hasActiveTrack = currentPlayingItem != null,
+                                    onSearch = { navController.navigateToTab(1) },
+                                    onExplore = { navController.navigateToTab(2) },
+                                    onLibrary = { navController.navigateToTab(3) },
+                                    onNowPlaying = { isPlayerExpanded = true },
+                                    onPlay = { item ->
+                                        homeViewModel.addToRecentlyPlayed(item)
+                                        onPlay(item)
+                                    }
+                                )
+                            } else {
+                                YTMHomeScreen(
+                                    viewModel = homeViewModel,
+                                    onPlay = { item ->
+                                        homeViewModel.addToRecentlyPlayed(item)
+                                        onPlay(item)
+                                    },
+                                    onSearchClick = { navController.navigateToTab(1) },
+                                    onSettingsClick = { settingsViewModel.showSettings = true },
+                                    onRecognizeClick = { navController.navigate(VylloRoutes.RECOGNITION) },
+                                    onPlaylistClick = { playlist ->
+                                        libraryViewModel.loadPlaylistSongs(playlist.id)
+                                        navController.navigate(VylloRoutes.playlist(playlist.id))
+                                    },
+                                    currentPlayingItem = currentPlayingItem,
+                                    loadingItemUrl = loadingItemUrl,
+                                    scrollTuner = homeScrollTuner,
+                                    homeScrollState = homeScrollState
+                                        ?: androidx.compose.foundation.lazy.rememberLazyListState()
+                                )
+                            }
                         }
 
                         composable(VylloRoutes.EXPLORE) {
