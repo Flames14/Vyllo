@@ -10,6 +10,7 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.*
+import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import com.vyllo.music.MainActivity
 import com.vyllo.music.R
 import com.vyllo.music.core.security.SecureLogger
@@ -21,6 +22,7 @@ import com.vyllo.music.domain.manager.PlaybackErrorHandler
 import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.service.audio.AudioSinkFactory
+import com.vyllo.music.service.audio.AndroidAutoCatalog
 import com.vyllo.music.service.audio.CacheProvider
 import com.vyllo.music.service.audio.CrossfadeController
 import com.vyllo.music.service.audio.MediaSessionCallback
@@ -46,10 +48,13 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 @androidx.media3.common.util.UnstableApi
-class MusicService : MediaSessionService() {
+class MusicService : MediaLibraryService() {
 
     @Inject
     lateinit var repository: IMusicRepository
+
+    @Inject
+    lateinit var androidAutoCatalog: AndroidAutoCatalog
 
     @Inject
     lateinit var preferenceManager: PreferenceManager
@@ -66,7 +71,7 @@ class MusicService : MediaSessionService() {
     @Inject
     lateinit var playbackAudioEffectsManager: PlaybackAudioEffectsManager
 
-    private var mediaSession: MediaSession? = null
+    private var mediaSession: MediaLibrarySession? = null
     private var player: ExoPlayer? = null
     private lateinit var playheadPersistence: PlayheadPersistence
     private lateinit var crossfadeController: CrossfadeController
@@ -363,15 +368,18 @@ class MusicService : MediaSessionService() {
             serviceScope = serviceScope,
             playbackQueueOrchestrator = playbackQueueOrchestrator,
             commands = commandButtons,
-            resumption = PlaybackResumption(preferenceManager, playbackQueueManager, repository)
+            resumption = PlaybackResumption(preferenceManager, playbackQueueManager, repository),
+            catalog = androidAutoCatalog,
+            repository = repository,
+            playbackQueueManager = playbackQueueManager,
+            appPackageName = packageName
         )
 
-        // Initialize MediaSession (player was assigned just above; fail soft if builder raced)
+        // Initialize the browse-capable media library session on the same player.
         val initializedPlayer = player
             ?: throw IllegalStateException("ExoPlayer not initialized before MediaSession build")
-        val session = MediaSession.Builder(this, initializedPlayer)
+        val session = MediaLibrarySession.Builder(this, initializedPlayer, sessionCallback)
             .setSessionActivity(pendingIntent)
-            .setCallback(sessionCallback)
             .setCustomLayout(commandButtons.layout())
             .build()
         mediaSession = session
@@ -427,7 +435,7 @@ class MusicService : MediaSessionService() {
         }
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? {
         return mediaSession
     }
 

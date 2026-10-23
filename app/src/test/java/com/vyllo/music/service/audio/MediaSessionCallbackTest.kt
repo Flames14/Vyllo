@@ -4,6 +4,8 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionResult
+import com.vyllo.music.domain.manager.PlaybackQueueManager
+import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.service.PlaybackQueueOrchestrator
 import kotlinx.coroutines.test.TestScope
 import org.junit.Assert.assertEquals
@@ -28,7 +30,20 @@ class MediaSessionCallbackTest {
     private val resumption: PlaybackResumption = mock()
     private val session: MediaSession = mock()
     private val controllerInfo: MediaSession.ControllerInfo = mock()
-    private val callback = MediaSessionCallback({ player }, serviceScope, orchestrator, commands, resumption)
+    private val catalog: AndroidAutoCatalog = mock()
+    private val repository: IMusicRepository = mock()
+    private val queueManager: PlaybackQueueManager = mock()
+    private val callback = MediaSessionCallback(
+        playerProvider = { player },
+        serviceScope = serviceScope,
+        playbackQueueOrchestrator = orchestrator,
+        commands = commands,
+        resumption = resumption,
+        catalog = catalog,
+        repository = repository,
+        playbackQueueManager = queueManager,
+        appPackageName = "com.vyllo.music"
+    )
 
     @Test
     fun `next skips route through queue orchestrator for both command variants`() {
