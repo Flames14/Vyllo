@@ -242,6 +242,16 @@ fun LyricsViewContent(
                     tint = if (playerUiState.isTranslationEnabled) LyricsColors.accent else LyricsColors.textInactive
                 )
             }
+            IconButton(
+                onClick = { viewModel.toggleRomanization(!playerUiState.isRomanizationEnabled) },
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    Icons.Rounded.Spellcheck,
+                    contentDescription = stringResource(R.string.lyrics_toggle_romanization),
+                    tint = if (playerUiState.isRomanizationEnabled) LyricsColors.accent else LyricsColors.textInactive
+                )
+            }
             TextButton(onClick = {
                 SecureLogger.d("LyricsTabContent", "User tapped 'Search / Change lyrics' button")
                 viewModel.showLyricsSelector = true
@@ -510,6 +520,26 @@ private fun SyncedLyricsDisplay(
                         .fillMaxWidth()
                         .alpha(alpha)
                 )
+                if (playerUiState.isRomanizationEnabled && index < playerUiState.romanizedLyricsLines.size) {
+                    val romanized = playerUiState.romanizedLyricsLines[index]
+                    if (!romanized.isNullOrBlank() && romanized != line.content) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            romanized,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                lineHeight = (18f * style.scale * style.lineSpacing).sp,
+                                fontSize = (11f * style.scale).sp,
+                                fontWeight = FontWeight.Normal,
+                                textAlign = lineAlign
+                            ),
+                            color = LyricsColors.textInactive,
+                            textAlign = lineAlign,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .alpha(alpha * 0.9f)
+                        )
+                    }
+                }
                 if (playerUiState.isTranslationEnabled && index < playerUiState.translatedLyricsLines.size) {
                     val translated = playerUiState.translatedLyricsLines[index]
                     if (!translated.isNullOrBlank()) {
@@ -544,6 +574,19 @@ private fun PlainLyricsDisplay(
     style: com.vyllo.music.domain.model.LyricsStyle
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+        val romanized = playerUiState.romanizedPlainLyrics
+        if (playerUiState.isRomanizationEnabled && !romanized.isNullOrBlank()) {
+            Text(
+                romanized,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    lineHeight = (18f * style.scale * style.lineSpacing).sp,
+                    fontSize = (12f * style.scale).sp,
+                    textAlign = if (style.alignStart) TextAlign.Start else TextAlign.Center
+                ),
+                color = LyricsColors.textInactive
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
         val text = if (playerUiState.isTranslationEnabled && !playerUiState.translatedPlainLyrics.isNullOrBlank()) {
             playerUiState.translatedPlainLyrics
         } else {

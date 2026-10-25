@@ -1,5 +1,8 @@
 package com.vyllo.music.data.oauth
 
+import androidx.core.net.toUri
+import androidx.core.content.edit
+
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
@@ -88,10 +91,10 @@ class YouTubeOAuthManager @Inject constructor(
     fun setCustomClientId(clientId: String?) {
         val cleaned = clientId?.trim()?.takeIf { it.isNotBlank() }
         if (cleaned != null) {
-            prefs.edit().putString(KEY_CUSTOM_CLIENT_ID, cleaned).apply()
+            prefs.edit {putString(KEY_CUSTOM_CLIENT_ID, cleaned)}
             _hasConfiguredClientId.value = true
         } else {
-            prefs.edit().remove(KEY_CUSTOM_CLIENT_ID).apply()
+            prefs.edit {remove(KEY_CUSTOM_CLIENT_ID)}
             _hasConfiguredClientId.value = false
         }
     }
@@ -108,7 +111,7 @@ class YouTubeOAuthManager @Inject constructor(
     fun createAuthorizationUri(): Uri? {
         val clientId = getClientId() ?: return null
         val codeVerifier = generateCodeVerifier()
-        prefs.edit().putString(KEY_CODE_VERIFIER, codeVerifier).apply()
+        prefs.edit { putString(KEY_CODE_VERIFIER, codeVerifier) }
 
         val codeChallenge = generateCodeChallenge(codeVerifier)
 
@@ -116,9 +119,9 @@ class YouTubeOAuthManager @Inject constructor(
         val stateBytes = ByteArray(32)
         SecureRandom().nextBytes(stateBytes)
         val state = Base64.encodeToString(stateBytes, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
-        prefs.edit().putString(KEY_OAUTH_STATE, state).apply()
+        prefs.edit {putString(KEY_OAUTH_STATE, state)}
 
-        return Uri.parse(AUTH_ENDPOINT).buildUpon()
+        return AUTH_ENDPOINT.toUri().buildUpon()
             .appendQueryParameter("client_id", clientId)
             .appendQueryParameter("redirect_uri", REDIRECT_URI)
             .appendQueryParameter("response_type", "code")
@@ -148,7 +151,7 @@ class YouTubeOAuthManager @Inject constructor(
             }
 
             val expectedState = prefs.getString(KEY_OAUTH_STATE, null)
-            prefs.edit().remove(KEY_OAUTH_STATE).apply()
+            prefs.edit { remove(KEY_OAUTH_STATE) }
             val returnedState = uri.getQueryParameter("state")
             if (expectedState.isNullOrBlank() || returnedState != expectedState) {
                 SecureLogger.e(TAG, "OAuth state mismatch (possible CSRF)")
@@ -159,7 +162,7 @@ class YouTubeOAuthManager @Inject constructor(
                 ?: return@withContext Result.failure(Exception("PKCE Code verifier not found"))
             // PKCE verifiers are single-use credentials. Clear it before the
             // network exchange so a failed/intercepted redirect cannot be replayed.
-            prefs.edit().remove(KEY_CODE_VERIFIER).apply()
+            prefs.edit { remove(KEY_CODE_VERIFIER) }
 
             val clientId = getClientId() ?: return@withContext Result.failure(Exception("Google Client ID not configured"))
             val requestBody = FormBody.Builder()
@@ -188,11 +191,11 @@ class YouTubeOAuthManager @Inject constructor(
             val expiresIn = json.optLong("expires_in", 3600L)
             val expiresAt = System.currentTimeMillis() + (expiresIn * 1000L)
 
-            prefs.edit()
-                .putString(KEY_ACCESS_TOKEN, accessToken)
-                .putString(KEY_REFRESH_TOKEN, refreshToken)
-                .putLong(KEY_EXPIRES_AT, expiresAt)
-                .apply()
+            prefs.edit {
+                    putString(KEY_ACCESS_TOKEN, accessToken)
+                    .putString(KEY_REFRESH_TOKEN, refreshToken)
+                    .putLong(KEY_EXPIRES_AT, expiresAt)
+                }
 
             _isAuthorized.value = true
             SecureLogger.d(TAG, "Google OAuth successfully authorized")
@@ -252,10 +255,10 @@ class YouTubeOAuthManager @Inject constructor(
                 val expiresIn = json.optLong("expires_in", 3600L)
                 val expiresAt = System.currentTimeMillis() + (expiresIn * 1000L)
 
-                prefs.edit()
-                    .putString(KEY_ACCESS_TOKEN, newAccessToken)
-                    .putLong(KEY_EXPIRES_AT, expiresAt)
-                    .apply()
+                prefs.edit {
+                        putString(KEY_ACCESS_TOKEN, newAccessToken)
+                        .putLong(KEY_EXPIRES_AT, expiresAt)
+                    }
 
                 _isAuthorized.value = true
                 return@withContext newAccessToken
@@ -267,14 +270,14 @@ class YouTubeOAuthManager @Inject constructor(
     }
 
     fun signOut() {
-        prefs.edit()
-            .remove(KEY_ACCESS_TOKEN)
-            .remove(KEY_REFRESH_TOKEN)
-            .remove(KEY_EXPIRES_AT)
-            .remove(KEY_USER_EMAIL)
-            .remove(KEY_CODE_VERIFIER)
-            .remove(KEY_OAUTH_STATE)
-            .apply()
+        prefs.edit {
+                remove(KEY_ACCESS_TOKEN)
+                .remove(KEY_REFRESH_TOKEN)
+                .remove(KEY_EXPIRES_AT)
+                .remove(KEY_USER_EMAIL)
+                .remove(KEY_CODE_VERIFIER)
+                .remove(KEY_OAUTH_STATE)
+            }
         _isAuthorized.value = false
         _userEmail.value = null
     }

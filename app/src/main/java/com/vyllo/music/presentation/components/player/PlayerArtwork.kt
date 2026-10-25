@@ -78,6 +78,7 @@ fun PlayerArtwork(
     onSeekFeedback: (String?) -> Unit,
     onPositionChange: (Long) -> Unit,
     onTogglePlay: () -> Unit,
+    artworkVisible: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
@@ -98,7 +99,11 @@ fun PlayerArtwork(
         ),
         label = "artworkPlayScale"
     )
-    val activeArtworkUrl = playerUiState.resolvedThumbnailUrl ?: item.thumbnailUrl
+    val activeArtworkUrl = remember(item, playerUiState.resolvedThumbnailUrl) {
+        playerUiState.resolvedThumbnailUrl?.takeIf { it.isNotBlank() }
+            ?: item.thumbnailUrl.takeIf { it.isNotBlank() }
+            ?: com.vyllo.music.domain.model.ArtworkCandidates.forItem(item).firstOrNull().orEmpty()
+    }
     val artworkContext = LocalContext.current
     val lowRamMode = remember(artworkContext) {
         com.vyllo.music.core.utils.DevicePerf.isLowRamDevice(artworkContext)
@@ -121,7 +126,7 @@ fun PlayerArtwork(
         // crossfade while the drawer list was scrolling meant a fresh decode plus
         // a fade on top of the list's own work. The artwork URL is the only input
         // that can change it.
-        if (isPlaying && activeArtworkUrl.isNotBlank() && !viewModel.isVideoMode) {
+        if (artworkVisible && isPlaying && activeArtworkUrl.isNotBlank() && !viewModel.isVideoMode) {
             val glowContext = LocalContext.current
             val glowRequest = remember(activeArtworkUrl) {
                 coil.request.ImageRequest.Builder(glowContext)
@@ -142,12 +147,18 @@ fun PlayerArtwork(
             )
         }
 
-        Box(
-            modifier = Modifier
+        val cardModifier = if (artworkVisible) {
+            Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(22.dp))
                 .background(Color.Black)
                 .shadow(cardShadow, RoundedCornerShape(22.dp), spotColor = Color.Black.copy(alpha = 0.6f))
+        } else {
+            // Full-bleed backdrop mode: this layer only carries the seek gesture.
+            Modifier.fillMaxSize()
+        }
+        Box(
+            modifier = cardModifier
                 .pointerInput(Unit) {
                 detectTapGestures(
                     onDoubleTap = { offset ->
@@ -184,15 +195,11 @@ fun PlayerArtwork(
             )
         } else {
             val resolvedUrl = playerUiState.resolvedThumbnailUrl
-            val candidates = remember(item.thumbnailUrl, resolvedUrl) {
-                if (!resolvedUrl.isNullOrBlank()) {
-                    (listOf(resolvedUrl) + item.getThumbnailCandidates()).distinct()
-                } else {
-                    item.getThumbnailCandidates()
-                }
+            val candidates = remember(item, resolvedUrl) {
+                com.vyllo.music.domain.model.ArtworkCandidates.forItem(item, resolvedUrl)
             }
             var candidateIndex by remember(item.thumbnailUrl, resolvedUrl) { mutableIntStateOf(0) }
-            val currentThumbnail = candidates.getOrNull(candidateIndex) ?: item.thumbnailUrl
+            val currentThumbnail = candidates.getOrNull(candidateIndex) ?: resolvedUrl ?: item.thumbnailUrl
 
             // Remember request: parent recomposes 2.5x/s from seek loop, must not rebuild decoder.
             val appContext = LocalContext.current.applicationContext
@@ -206,19 +213,21 @@ fun PlayerArtwork(
                     .allowHardware(true)
                     .build()
             }
-            AsyncImage(
-                model = imageRequest,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-                onState = { state ->
-                    if (state is coil.compose.AsyncImagePainter.State.Error) {
-                        if (candidateIndex < candidates.size - 1) {
-                            candidateIndex++
+            if (artworkVisible) {
+                AsyncImage(
+                    model = imageRequest,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                    onState = { state ->
+                        if (state is coil.compose.AsyncImagePainter.State.Error) {
+                            if (candidateIndex < candidates.size - 1) {
+                                candidateIndex++
+                            }
                         }
                     }
-                }
-            )
+                )
+            }
 
             // Double-tap seeking indicator overlay
             androidx.compose.animation.AnimatedVisibility(

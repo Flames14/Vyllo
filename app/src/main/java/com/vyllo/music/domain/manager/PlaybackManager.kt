@@ -1,5 +1,7 @@
 package com.vyllo.music.domain.manager
 
+import androidx.core.net.toUri
+
 import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
@@ -179,7 +181,7 @@ class PlaybackManager @Inject constructor(
 
     private fun MusicItem.toMediaItem(streamUrl: String): MediaItem {
         val artworkUri = thumbnailUrl.takeIf { it.isNotBlank() }?.let {
-            runCatching { Uri.parse(it) }.getOrNull()
+            runCatching { it.toUri() }.getOrNull()
         }
         val metadata = MediaMetadata.Builder()
             .setTitle(title)
@@ -202,7 +204,7 @@ class PlaybackManager @Inject constructor(
 
         return try {
             val artworkUri = item?.thumbnailUrl?.takeIf { it.isNotBlank() }?.let {
-                runCatching { Uri.parse(it) }.getOrNull()
+                runCatching { it.toUri() }.getOrNull()
             }
             val metadata = MediaMetadata.Builder()
                 .setTitle(item?.title)

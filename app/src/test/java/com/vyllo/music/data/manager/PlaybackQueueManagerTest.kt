@@ -330,4 +330,41 @@ class PlaybackQueueManagerTest {
         assertEquals("Song a", playbackQueueManager.currentItem?.title)
         assertEquals(0, playbackQueueManager.currentIndex)
     }
+
+    @Test
+    fun queueNext_movesExistingUpcomingTrackToThePlayheadEdge() {
+        val current = createTestMusicItem("current", "Song current")
+        val other = createTestMusicItem("other", "Song other")
+        val selected = createTestMusicItem("selected", "Song selected")
+        playbackQueueManager.replaceQueue(listOf(current, other, selected), startIndex = 0)
+
+        playbackQueueManager.queueNext(selected)
+
+        assertEquals(listOf("Song current", "Song selected", "Song other"),
+            playbackQueueManager.getQueueSnapshot().map { it.title })
+        assertEquals("https://example.com/selected", playbackQueueManager.nextItem?.url)
+    }
+
+    @Test
+    fun queueNext_doesNotDuplicateCurrentOrAlreadyNextTrack() {
+        val current = createTestMusicItem("current", "Song current")
+        val next = createTestMusicItem("next", "Song next")
+        playbackQueueManager.replaceQueue(listOf(current, next), startIndex = 0)
+
+        playbackQueueManager.queueNext(next)
+        playbackQueueManager.queueNext(current)
+
+        assertEquals(2, playbackQueueManager.getQueueSnapshot().size)
+        assertEquals("Song next", playbackQueueManager.nextItem?.title)
+    }
+
+    @Test
+    fun queueSnapshotsPreserveDuplicateEntriesAndTheirPlaybackIndices() {
+        val repeated = createTestMusicItem("repeat", "Song repeat")
+        playbackQueueManager.replaceQueue(listOf(repeated, repeated), startIndex = 0)
+
+        assertEquals(2, playbackQueueManager.getQueueSnapshot().size)
+        assertEquals(1, playbackQueueManager.getUpcomingSnapshot().size)
+        assertEquals("Song repeat", playbackQueueManager.currentItem?.title)
+    }
 }

@@ -61,13 +61,18 @@ class SearchViewModel @Inject constructor(
 
     private var searchJob: Job? = null
     private var suggestionJob: Job? = null
+    private var historyLoadSeq = 0L
 
     init {
         loadSearchHistory()
     }
 
     private fun loadSearchHistory() {
-        searchHistory = repository.loadSearchHistory()
+        val seq = ++historyLoadSeq
+        viewModelScope.launch {
+            val persisted = repository.loadSearchHistory()
+            if (seq == historyLoadSeq) searchHistory = persisted
+        }
     }
 
     fun onQueryChanged(newQuery: String) {
@@ -138,6 +143,9 @@ class SearchViewModel @Inject constructor(
         searchJob = viewModelScope.launch {
             try {
                 repository.saveSearchQuery(sanitizedQuery)
+                // Saving is awaited, so the history cache already reflects the
+                // committed query before we refresh the screen state.
+                loadSearchHistory()
                 val results = searchMusicUseCase(sanitizedQuery)
                 searchResults = results.take(MAX_SEARCH_RESULTS)
             } catch (e: Exception) {
@@ -146,14 +154,17 @@ class SearchViewModel @Inject constructor(
                 searchFailed = true
             } finally {
                 isLoading = false
-                loadSearchHistory()
             }
         }
     }
 
     fun clearSearchHistory() {
-        repository.clearSearchHistory()
-        loadSearchHistory()
+        ++historyLoadSeq // invalidate any older startup/read request
+        searchHistory = emptyList()
+        viewModelScope.launch {
+            repository.clearSearchHistory()
+            loadSearchHistory()
+        }
     }
 
     fun loadNextPage() {

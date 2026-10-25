@@ -17,6 +17,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.layout.ContentScale
@@ -28,6 +30,7 @@ import com.vyllo.music.domain.model.PlaylistEntity
 import com.vyllo.music.*
 import com.vyllo.music.presentation.components.*
 import com.vyllo.music.presentation.theme.VylloSpacing
+import android.widget.Toast
 
 // =========================================================================
 // YTM PLAYLIST SCREEN
@@ -49,6 +52,13 @@ fun YTMPlaylistScreen(
 ) {
     var showExportMenu by remember { mutableStateOf(false) }
     var showCoverEditor by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val queuedCount = viewModel.currentPlaylistSongs.distinctBy { it.url }.size
+    val downloadQueuedMessage = pluralStringResource(
+        R.plurals.playlist_download_all_queued,
+        queuedCount,
+        queuedCount
+    )
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -113,6 +123,13 @@ fun YTMPlaylistScreen(
                             onClick = {
                                 showExportMenu = false
                                 onDownloadAll()
+                                if (queuedCount > 0) {
+                                    Toast.makeText(
+                                        context,
+                                        downloadQueuedMessage,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             },
                             leadingIcon = {
                                 Icon(

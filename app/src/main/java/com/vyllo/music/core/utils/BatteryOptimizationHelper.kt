@@ -1,5 +1,7 @@
 package com.vyllo.music.core.utils
 
+import androidx.core.net.toUri
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -34,7 +36,7 @@ object BatteryOptimizationHelper {
         try {
             context.startActivity(
                 Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:${context.packageName}")
+                    data = "package:${context.packageName}".toUri()
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
             )

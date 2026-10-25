@@ -187,6 +187,26 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
+    - name: Verify signing secrets
+      # Gradle only fails deep inside :app:requireReleaseSigning with a generic
+      # "RELEASE SIGNING CONFIG IS MISSING" list. Name the actual missing secrets
+      # up front so a tag build is fixable from the log alone.
+      env:
+        KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        STORE_PASSWORD: ${{ secrets.VYLLO_STOREPASSWORD }}
+        KEY_ALIAS: ${{ secrets.VYLLO_KEYALIAS }}
+        KEY_PASSWORD: ${{ secrets.VYLLO_KEYPASSWORD }}
+      run: |
+        missing=""
+        [ -z "$KEYSTORE_BASE64" ] && missing="$missing RELEASE_KEYSTORE_BASE64"
+        [ -z "$STORE_PASSWORD" ] && missing="$missing VYLLO_STOREPASSWORD"
+        [ -z "$KEY_ALIAS" ] && missing="$missing VYLLO_KEYALIAS"
+        [ -z "$KEY_PASSWORD" ] && missing="$missing VYLLO_KEYPASSWORD"
+        if [ -n "$missing" ]; then
+          echo "::error::Missing repository secrets:$missing. Add them under Settings > Secrets and variables > Actions (see README)."
+          exit 1
+        fi
+
     - name: Decode Keystore
       env:
         RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}

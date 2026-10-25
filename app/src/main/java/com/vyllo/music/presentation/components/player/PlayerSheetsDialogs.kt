@@ -335,11 +335,16 @@ fun PlayerStoryCommentsSheets(
     showStory: Boolean,
     showComments: Boolean,
     item: MusicItem,
+    resolvedThumbnailUrl: String? = null,
     onDismissStory: () -> Unit,
     onDismissComments: () -> Unit
 ) {
     if (showStory) {
-        StoryShareBottomSheet(item = item, onDismiss = onDismissStory)
+        StoryShareBottomSheet(
+            item = item,
+            resolvedThumbnailUrl = resolvedThumbnailUrl,
+            onDismiss = onDismissStory
+        )
     }
 
     if (showComments) {

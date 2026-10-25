@@ -27,6 +27,7 @@ class LoudnessNormalizationAudioProcessor : BaseAudioProcessor() {
 
     private var gain = 1f
     private var cachedSamples = ShortArray(0)
+    private var cachedPassThrough = ByteArray(0)
 
     override fun onConfigure(inputAudioFormat: AudioFormat): AudioFormat {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
@@ -46,8 +47,15 @@ class LoudnessNormalizationAudioProcessor : BaseAudioProcessor() {
         val size = inputBuffer.remaining()
 
         if (!enabled) {
+            val source = inputBuffer.duplicate()
             val passthrough = replaceOutputBuffer(size)
-            passthrough.put(inputBuffer)
+            if (passthrough === inputBuffer) {
+                if (cachedPassThrough.size < size) cachedPassThrough = ByteArray(size)
+                source.get(cachedPassThrough, 0, size)
+                passthrough.put(cachedPassThrough, 0, size)
+            } else {
+                passthrough.put(inputBuffer)
+            }
             passthrough.flip()
             return
         }

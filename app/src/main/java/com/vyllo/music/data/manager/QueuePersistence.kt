@@ -1,5 +1,7 @@
 package com.vyllo.music.data.manager
 
+import androidx.core.content.edit
+
 import android.content.SharedPreferences
 import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.model.MusicItem
@@ -26,10 +28,10 @@ object QueuePersistence {
                         .put("durationSecs", item.durationSecs)
                 )
             }
-            prefs.edit()
-                .putString(KEY_QUEUE, array.toString())
-                .putInt(KEY_INDEX, index)
-                .apply()
+            prefs.edit {
+                    putString(KEY_QUEUE, array.toString())
+                    .putInt(KEY_INDEX, index)
+                }
         } catch (e: Exception) {
             SecureLogger.w("QueuePersistence", "save failed", e)
         }
@@ -69,6 +71,6 @@ object QueuePersistence {
     }
 
     fun clear(prefs: SharedPreferences) {
-        prefs.edit().remove(KEY_QUEUE).remove(KEY_INDEX).apply()
+        prefs.edit {remove(KEY_QUEUE).remove(KEY_INDEX)}
     }
 }

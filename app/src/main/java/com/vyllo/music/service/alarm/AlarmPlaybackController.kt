@@ -1,5 +1,7 @@
 package com.vyllo.music.service.alarm
 
+import androidx.core.net.toUri
+
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
@@ -84,7 +86,11 @@ class AlarmPlaybackController(
 
                 SecureLogger.d(TAG, "playDownloadedSong: url=$songUrl, filePath=$filePath")
 
-                if (filePath != null && File(filePath).exists()) {
+                val mediaUri = filePath?.let { path ->
+                    if (path.startsWith("content://")) Uri.parse(path)
+                    else if (File(path).exists()) Uri.fromFile(File(path)) else null
+                }
+                if (mediaUri != null) {
                     player = ExoPlayer.Builder(context)
                         .setAudioAttributes(
                             androidx.media3.common.AudioAttributes.Builder()
@@ -96,7 +102,7 @@ class AlarmPlaybackController(
                         .setWakeMode(C.WAKE_MODE_LOCAL)  // ExoPlayer manages its own wake lock
                         .build()
                         .apply {
-                            val mediaItem = MediaItem.fromUri("file://$filePath")
+                            val mediaItem = MediaItem.fromUri(mediaUri)
                             setMediaItem(mediaItem)
                             repeatMode = Player.REPEAT_MODE_ALL
                             playWhenReady = true
@@ -148,7 +154,7 @@ class AlarmPlaybackController(
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build()
                 )
-                setDataSource(context, Uri.parse("content://settings/system/alarm_alert"))
+                setDataSource(context, "content://settings/system/alarm_alert".toUri())
                 isLooping = true
                 prepare()
                 start()
@@ -168,7 +174,7 @@ class AlarmPlaybackController(
                             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                             .build()
                     )
-                    setDataSource(context, Uri.parse("android.resource://${context.packageName}/raw/alarm"))
+                    setDataSource(context, "android.resource://${context.packageName}/raw/alarm".toUri())
                     isLooping = true
                     prepare()
                     start()

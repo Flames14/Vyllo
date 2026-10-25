@@ -2,6 +2,7 @@ package com.vyllo.music.data.repository
 
 import android.content.Context
 import android.os.Build
+import android.net.Uri
 import androidx.work.Constraints
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
@@ -39,12 +40,15 @@ class DownloadRepository @Inject constructor(
     fun getAllDownloads(): Flow<List<DownloadEntity>> =
         downloadDao.getAllDownloads().distinctUntilChanged()
 
+    fun getActiveDownloads(): Flow<List<DownloadEntity>> =
+        downloadDao.getActiveDownloads().distinctUntilChanged()
+
     suspend fun isDownloaded(url: String): Boolean = downloadDao.isDownloaded(url)
 
     fun downloadSong(item: MusicItem) {
         repositoryScope.launch {
             val existing = downloadDao.getDownloadByUrl(item.url)
-            if (existing?.status == DownloadStatus.COMPLETED && File(existing.filePath).exists()) {
+            if (existing?.status == DownloadStatus.COMPLETED && localDownloadExists(existing.filePath)) {
                 return@launch
             }
 
@@ -109,7 +113,7 @@ class DownloadRepository @Inject constructor(
     suspend fun deleteDownload(url: String) = withContext(Dispatchers.IO) {
         val download = downloadDao.getDownloadByUrl(url)
         if (download != null) {
-            File(download.filePath).let { if (it.exists()) it.delete() }
+            deleteLocalDownload(download.filePath)
             downloadDao.deleteByUrl(url)
         }
     }
@@ -117,8 +121,24 @@ class DownloadRepository @Inject constructor(
     suspend fun getLocalStreamUrl(url: String): String? {
         val download = downloadDao.getDownloadByUrl(url)
         return if (download != null && download.status == DownloadStatus.COMPLETED) {
-            val file = File(download.filePath)
-            if (file.exists()) "file://${download.filePath}" else null
+            if (localDownloadExists(download.filePath)) {
+                if (download.filePath.startsWith("content://")) download.filePath
+                else "file://${download.filePath}"
+            } else null
         } else null
+    }
+
+    private fun localDownloadExists(path: String): Boolean = if (path.startsWith("content://")) {
+        runCatching {
+            context.contentResolver.openFileDescriptor(Uri.parse(path), "r")?.use { true } ?: false
+        }.getOrDefault(false)
+    } else File(path).exists()
+
+    private fun deleteLocalDownload(path: String) {
+        if (path.startsWith("content://")) {
+            runCatching { context.contentResolver.delete(Uri.parse(path), null, null) }
+        } else {
+            File(path).let { if (it.exists()) it.delete() }
+        }
     }
 }

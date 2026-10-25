@@ -1,5 +1,7 @@
 package com.vyllo.music
 
+import androidx.core.net.toUri
+
 import android.content.Intent
 import android.net.Uri
 
@@ -23,7 +25,7 @@ object VylloDeepLinks {
 
     /** Builds an `open` link, e.g. `open("search")` -> com.vyllo.music://open/search. */
     fun open(vararg segments: String): Uri =
-        Uri.parse("$SCHEME://$HOST_OPEN/${segments.joinToString("/")}")
+        "$SCHEME://$HOST_OPEN/${segments.joinToString("/")}".toUri()
 
     /** True when the intent is the Google OAuth redirect this app registered for. */
     fun isOAuthRedirect(intent: Intent?): Boolean {

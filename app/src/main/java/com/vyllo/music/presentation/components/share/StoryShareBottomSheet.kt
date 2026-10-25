@@ -1,5 +1,8 @@
 package com.vyllo.music.presentation.components.share
 
+import android.graphics.Bitmap
+import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -33,6 +37,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +48,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -50,28 +57,58 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vyllo.music.R
 import com.vyllo.music.core.utils.ShareIntentManager
+import com.vyllo.music.domain.model.ArtworkCandidates
 import com.vyllo.music.domain.model.MusicItem
-import com.vyllo.music.presentation.utils.captureToPicture
-import com.vyllo.music.presentation.utils.createBitmapFromPicture
-import com.vyllo.music.presentation.utils.rememberPicture
-import com.vyllo.music.presentation.utils.saveBitmapToFile
+import com.vyllo.music.presentation.utils.StoryCardRenderer
 import kotlinx.coroutines.launch
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StoryShareBottomSheet(
     item: MusicItem,
+    resolvedThumbnailUrl: String? = null,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val picture = rememberPicture()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-    var isGenerating by remember { mutableStateOf(false) }
 
-    // Use guaranteed valid thumbnail URL
-    val imageUrl = remember(item) {
-        if (item.thumbnailUrl.isNotBlank()) item.thumbnailUrl else item.getHighResThumbnailUrl()
+    // The card is rasterized once, then used for both the preview and the
+    // share. The old implementation captured the Compose tree on tap, which is
+    // why the exported image was frequently empty whenever Coil had not
+    // finished decoding the artwork yet.
+    var card by remember(item) { mutableStateOf<Bitmap?>(null) }
+    var isGenerating by remember(item) { mutableStateOf(true) }
+
+    LaunchedEffect(item, resolvedThumbnailUrl) {
+        isGenerating = true
+        try {
+            val candidates = ArtworkCandidates.forItem(item, resolvedThumbnailUrl)
+            val artwork = StoryCardRenderer.loadArtwork(context, candidates)
+            card = StoryCardRenderer.renderCard(context, item, artwork)
+        } finally {
+            isGenerating = false
+        }
+    }
+
+    fun shareCard(action: (File) -> Unit) {
+        val current = card ?: return
+        if (isGenerating) return
+        isGenerating = true
+        coroutineScope.launch {
+            try {
+                val file = StoryCardRenderer.saveCard(context, current)
+                if (file == null) {
+                    Toast.makeText(context, context.getString(R.string.share_failed), Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                action(file)
+            } finally {
+                isGenerating = false
+                onDismiss()
+            }
+        }
     }
 
     ModalBottomSheet(
@@ -116,20 +153,44 @@ fun StoryShareBottomSheet(
                 }
             }
 
-            // The Story Frame Preview (captured exact 9:16 canvas).
+            // Exact 9:16 card preview. This is the same bitmap that gets shared.
             Box(
                 modifier = Modifier
                     .width(260.dp)
                     .aspectRatio(9f / 16f)
                     .shadow(28.dp, RoundedCornerShape(22.dp))
                     .clip(RoundedCornerShape(22.dp))
-                    .captureToPicture(picture)
             ) {
-                MinimalStoryCard(
-                    item = item,
-                    imageUrl = imageUrl,
-                    context = context
-                )
+                val current = card
+                if (current != null) {
+                    Image(
+                        bitmap = current.asImageBitmap(),
+                        contentDescription = stringResource(R.string.share_image_cd),
+                        contentScale = ContentScale.FillBounds,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFF14141A)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(28.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = stringResource(R.string.share_preparing),
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -145,24 +206,10 @@ fun StoryShareBottomSheet(
                 // IG Story Button
                 Button(
                     onClick = {
-                        if (isGenerating) return@Button
-                        isGenerating = true
-                        coroutineScope.launch {
-                            try {
-                                val bitmap = createBitmapFromPicture(picture)
-                                if (bitmap != null) {
-                                    val file = saveBitmapToFile(context, bitmap)
-                                    if (file != null) {
-                                        ShareIntentManager.shareToInstagramStory(context, file)
-                                    }
-                                }
-                            } finally {
-                                isGenerating = false
-                                onDismiss()
-                            }
-                        }
+                        shareCard { file -> ShareIntentManager.shareToInstagramStory(context, file) }
                     },
                     modifier = Modifier.weight(1f),
+                    enabled = card != null && !isGenerating,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE1306C)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -181,24 +228,10 @@ fun StoryShareBottomSheet(
                 // WhatsApp Status / Chat Button
                 Button(
                     onClick = {
-                        if (isGenerating) return@Button
-                        isGenerating = true
-                        coroutineScope.launch {
-                            try {
-                                val bitmap = createBitmapFromPicture(picture)
-                                if (bitmap != null) {
-                                    val file = saveBitmapToFile(context, bitmap)
-                                    if (file != null) {
-                                        ShareIntentManager.shareToWhatsApp(context, file, item)
-                                    }
-                                }
-                            } finally {
-                                isGenerating = false
-                                onDismiss()
-                            }
-                        }
+                        shareCard { file -> ShareIntentManager.shareToWhatsApp(context, file, item) }
                     },
                     modifier = Modifier.weight(1f),
+                    enabled = card != null && !isGenerating,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -217,21 +250,16 @@ fun StoryShareBottomSheet(
                 // Share Image Card to Any App
                 IconButton(
                     onClick = {
-                        coroutineScope.launch {
-                            val bitmap = createBitmapFromPicture(picture)
-                            if (bitmap != null) {
-                                val file = saveBitmapToFile(context, bitmap)
-                                if (file != null) {
-                                    val shareUrl = item.getUniversalShareUrl()
-                                    ShareIntentManager.shareToAny(
-                                        context,
-                                        file,
-                                        "🎵 Listening to \"${item.title}\" by ${item.uploader} on Vyllo Music\n🔗 $shareUrl"
-                                    )
-                                }
-                            }
+                        shareCard { file ->
+                            val shareUrl = item.getUniversalShareUrl()
+                            ShareIntentManager.shareToAny(
+                                context,
+                                file,
+                                "🎵 Listening to \"${item.title}\" by ${item.uploader} on Vyllo Music\n🔗 $shareUrl"
+                            )
                         }
                     },
+                    enabled = card != null && !isGenerating,
                     modifier = Modifier
                         .size(42.dp)
                         .background(Color(0xFF22222A), CircleShape)

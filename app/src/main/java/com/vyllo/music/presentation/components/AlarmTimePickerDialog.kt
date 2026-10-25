@@ -22,8 +22,8 @@ fun AlarmTimePickerDialog(
     onDismiss: () -> Unit,
     onTimeSelected: (Int, Int) -> Unit
 ) {
-    var selectedHour by remember { mutableStateOf(initialHour) }
-    var selectedMinute by remember { mutableStateOf(initialMinute) }
+    var selectedHour by remember { mutableIntStateOf(initialHour) }
+    var selectedMinute by remember { mutableIntStateOf(initialMinute) }
 
     AlertDialog(
         onDismissRequest = onDismiss,

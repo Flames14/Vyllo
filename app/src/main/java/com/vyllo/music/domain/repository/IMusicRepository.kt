@@ -56,6 +56,7 @@ interface IMusicRepository {
 
     // Download Methods
     fun getAllDownloads(): Flow<List<DownloadEntity>>
+    fun getActiveDownloads(): Flow<List<DownloadEntity>>
     fun downloadSong(item: MusicItem)
     fun cancelDownload(url: String)
     suspend fun deleteDownload(url: String)
@@ -89,9 +90,9 @@ interface IMusicRepository {
     suspend fun clearAllRatings()
 
     // Preference Methods
-    fun loadSearchHistory(): List<String>
-    fun saveSearchQuery(query: String)
-    fun clearSearchHistory()
+    suspend fun loadSearchHistory(): List<String>
+    suspend fun saveSearchQuery(query: String)
+    suspend fun clearSearchHistory()
     fun saveLyricsPreference(videoUrl: String, lrcId: Long)
     fun getSavedLyricsId(videoUrl: String): Long?
 

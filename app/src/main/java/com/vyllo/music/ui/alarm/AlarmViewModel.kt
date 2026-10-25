@@ -1,6 +1,7 @@
 package com.vyllo.music.ui.alarm
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -8,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import com.vyllo.music.R
 import com.vyllo.music.core.security.SecureLogger
@@ -82,10 +84,10 @@ class AlarmViewModel @Inject constructor(
     var showTimePicker by mutableStateOf(false)
         private set
 
-    var selectedHour by mutableStateOf(7)
+    var selectedHour by mutableIntStateOf(7)
         private set
 
-    var selectedMinute by mutableStateOf(0)
+    var selectedMinute by mutableIntStateOf(0)
         private set
 
     var selectedLabel by mutableStateOf("")
@@ -109,7 +111,7 @@ class AlarmViewModel @Inject constructor(
     var isVibrationEnabled by mutableStateOf(true)
         set
 
-    var volume by mutableStateOf(80)
+    var volume by mutableIntStateOf(80)
         set
 
     // Downloaded songs for sound picker
@@ -349,9 +351,16 @@ class AlarmViewModel @Inject constructor(
             try {
                 val download = downloadDao.getDownloadByUrl(url)
                 if (download != null) {
-                    val file = java.io.File(download.filePath)
-                    if (file.exists() && !file.delete()) {
-                        SecureLogger.w("AlarmVM", "Could not delete file: ${download.filePath}")
+                    val path = download.filePath
+                    val deleted = if (path.startsWith("content://")) {
+                        runCatching { appContext.contentResolver.delete(Uri.parse(path), null, null) > 0 }
+                            .getOrDefault(false)
+                    } else {
+                        val file = java.io.File(path)
+                        !file.exists() || file.delete()
+                    }
+                    if (!deleted) {
+                        SecureLogger.w("AlarmVM", "Could not delete file: $path")
                     }
                     downloadDao.deleteByUrl(url)
                 }

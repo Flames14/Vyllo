@@ -35,6 +35,27 @@
     <string name="lastfm_error_invalid_credentials">Last.fm rejected these credentials.</string>
     <string name="lastfm_error_network">Could not reach Last.fm. Check your connection.</string>
     <string name="lastfm_error_timeout">Authorization timed out. Try connecting again.</string>
+    <!-- Lyrics translation -->
+    <string name="lyrics_toggle_romanization">Toggle lyrics romanization</string>
+    <string name="settings_translation">Lyrics translation</string>
+    <string name="settings_translation_desc">AI providers, DeepL and romanization</string>
+    <string name="translation_settings_title">Lyrics translation</string>
+    <string name="translation_settings_desc">Vyllo translates with Google and MyMemory by default. Add your own provider key for better results; keys stay encrypted on this device.</string>
+    <string name="translation_provider">Provider</string>
+    <string name="translation_provider_auto">Automatic (Google + MyMemory)</string>
+    <string name="translation_provider_deepl">DeepL</string>
+    <string name="translation_provider_openai">OpenAI</string>
+    <string name="translation_provider_claude">Claude</string>
+    <string name="translation_provider_gemini">Google Gemini</string>
+    <string name="translation_provider_openrouter">OpenRouter</string>
+    <string name="translation_provider_perplexity">Perplexity</string>
+    <string name="translation_api_key">API key</string>
+    <string name="translation_clear_key">Remove key</string>
+    <string name="translation_key_help">If the provider fails, Vyllo falls back to the free engine.</string>
+    <string name="translation_model">Model</string>
+    <string name="translation_language">Translate lyrics to</string>
+    <string name="translation_romanize">Romanize lyrics</string>
+    <string name="translation_romanize_desc">Show Latin transliteration under Japanese, Korean, Chinese and other non-Latin lyrics</string>
     <!-- App name -->
     <string name="app_name">Vyllo</string>
 
@@ -60,6 +81,18 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
+    <string name="settings_section_appearance">Appearance &amp; language</string>
+    <string name="settings_section_playback">Playback &amp; device</string>
+    <string name="settings_section_downloads">Downloads</string>
+    <string name="settings_section_queue">Queue &amp; sleep</string>
+    <string name="settings_section_audio">Audio behavior</string>
+    <string name="settings_section_download_quality">Download quality</string>
+    <string name="settings_section_lyrics">Lyrics</string>
+    <string name="settings_section_transitions">Level &amp; transitions</string>
+    <string name="settings_section_storage">Storage</string>
+    <string name="settings_section_backup">Backup &amp; restore</string>
+    <string name="settings_section_services">Connected services</string>
+    <string name="settings_section_about">Support &amp; updates</string>
     <string name="settings_floating_player">Floating player</string>
     <string name="settings_background_playback">Background playback</string>
     <string name="settings_keep_audio_playing">Keep audio playing</string>
@@ -272,6 +305,7 @@
     <string name="comments_none">No comments found.</string>
     <string name="search_placeholder">Search songs, artistsâ€¦</string>
     <string name="share_story_tagline">Clean music card for Instagram &amp; WhatsApp</string>
+    <string name="share_preparing">Preparing your card…</string>
     <string name="alarm_cd_edit_time">Edit time</string>
     <string name="alarm_cd_select_sound">Select sound</string>
     <string name="alarm_vibrate_when_triggers">Vibrate when alarm triggers</string>
@@ -463,6 +497,8 @@
     <string name="settings_wifi_only_desc">Only download songs on unmetered Wi-Fi</string>
     <string name="settings_block_screenshots">Block screenshots</string>
     <string name="settings_block_screenshots_desc">Hide Vyllo from screenshots, screen recording and the recents preview</string>
+    <string name="settings_nav_bar_visible">Keep navigation bar visible</string>
+    <string name="settings_nav_bar_visible_desc">Show Android\'s navigation buttons instead of hiding them. When off, swipe up from the bottom edge to reveal them.</string>
     <string name="shortcut_search_short">Search</string>
     <string name="shortcut_library_short">Library</string>
     <string name="qs_tile_recognize">Recognize music</string>
@@ -498,7 +534,10 @@
     <string name="settings_download_quality_desc">Bitrate ceiling for downloaded files. High keeps the best available audio.</string>
     <string name="download_quality_dialog_title">Download quality</string>
     <string name="playlist_download_all">Download all</string>
-    <string name="playlist_download_all_queued">Downloading %1$d tracks</string>
+    <plurals name="playlist_download_all_queued">
+        <item quantity="one">Downloading %1$d track</item>
+        <item quantity="other">Downloading %1$d tracks</item>
+    </plurals>
     <string name="quality_dialog_title">Stream quality</string>
     <string name="quality_auto">Auto</string>
     <string name="quality_high">High</string>
@@ -519,7 +558,7 @@
     <string name="settings_storage_images">Image cache</string>
     <string name="settings_storage_total">Total</string>
     <string name="settings_storage_clear">Clear cache</string>
-    <string name="settings_storage_clearing">Clearing...</string>
+    <string name="settings_storage_clearing">Clearing…</string>
     <string name="settings_storage_clear_confirm_title">Clear cache?</string>
     <string name="settings_storage_clear_confirm_message">Cached artwork and streamed audio will be removed. Downloaded songs are not affected.</string>
     <string name="library_import_playlist">Import playlist</string>
@@ -577,6 +616,8 @@
         <item quantity="other">%d songs</item>
     </plurals>
     <string name="library_downloads_title">Downloads</string>
+    <string name="library_download_in_progress">Preparing download…</string>
+    <string name="library_download_progress_percent">Downloading · %1$d%%</string>
     <string name="library_no_downloads">No downloads yet</string>
     <string name="library_downloads_empty_body">Download a track to listen offline.</string>
     <string name="action_play_all">Play all</string>
@@ -689,6 +730,7 @@
     </plurals>
     <string name="notif_download_complete">Download Complete</string>
     <string name="notif_downloading">Downloading Music</string>
+    <string name="notif_cancel_download">Cancel download</string>
     <string name="notif_floating_title">Floating Player Active</string>
     <string name="notif_floating_text">Tap the bubble to return to app</string>
     <string name="floating_lyrics_toggle">Toggle floating lyrics</string>
@@ -705,7 +747,6 @@
     <string name="cd_rewind_10">Rewind 10 seconds</string>
     <string name="cd_forward_10">Forward 10 seconds</string>
     <string name="cd_collapse_queue">Collapse queue</string>
-    <string name="cd_reorder">Reorder</string>
     <string name="cd_exit_fullscreen">Exit full screen</string>
     <string name="cd_refresh_up_next">Refresh Up Next mix</string>
     <string name="cd_close">Close</string>

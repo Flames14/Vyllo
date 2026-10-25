@@ -10,6 +10,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.schabi.newpipe.extractor.exceptions.SignInConfirmNotBotException
 import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeStreamExtractor
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -67,6 +68,17 @@ class PoTokenTest {
             Log.d("PoTokenTest", "Fetching stream info for: $url")
             val streamInfo = try {
                 dataSource.getOrFetchStreamInfo(url, force = true)
+            } catch (e: SignInConfirmNotBotException) {
+                // Same class of environment rejection as the CDN 403 check below:
+                // YouTube blocks anonymous watch access from datacenter and CI IPs
+                // with "Sign in to confirm that you're not a bot". Skip instead of
+                // failing; a run on a normal network still exercises extraction.
+                Log.w("PoTokenTest", "Bot check blocked extraction for $url", e)
+                assumeTrue(
+                    "YouTube bot check blocked extraction from this network: ${e.message}",
+                    false
+                )
+                throw e
             } catch (e: Exception) {
                 Log.e("PoTokenTest", "Failed to fetch stream info for $url", e)
                 throw e

@@ -1,5 +1,7 @@
 package com.vyllo.music.service.audio
 
+import androidx.core.net.toUri
+
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -66,7 +68,7 @@ class PlaybackResumption(
             .setArtist(uploader)
             .apply {
                 if (thumbnailUrl.isNotBlank()) {
-                    runCatching { setArtworkUri(android.net.Uri.parse(thumbnailUrl)) }
+                    runCatching { setArtworkUri(thumbnailUrl.toUri()) }
                 }
             }
             .build()

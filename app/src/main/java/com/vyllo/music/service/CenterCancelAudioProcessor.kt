@@ -15,6 +15,8 @@ class CenterCancelAudioProcessor : BaseAudioProcessor() {
     var enabled: Boolean = false
 
     private var channelCount = 0
+    private var scratchSamples = ShortArray(0)
+    private var scratchBytes = ByteArray(0)
 
     override fun onConfigure(inputAudioFormat: AudioFormat): AudioFormat {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
@@ -26,23 +28,41 @@ class CenterCancelAudioProcessor : BaseAudioProcessor() {
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val byteCount = inputBuffer.remaining()
+        // Keep an independent view before asking BaseAudioProcessor for its
+        // output buffer. Media3 may hand us that very same buffer as input.
+        val source = inputBuffer.duplicate().order(inputBuffer.order())
+        val processCenter = enabled && channelCount == 2
+        val frameCount = if (processCenter) source.remaining() / 4 else 0
+        val samples = if (processCenter) source.asShortBuffer() else null
+        if (processCenter && scratchSamples.size < frameCount * 2) {
+            scratchSamples = ShortArray(frameCount * 2)
+        }
+        val outputSamples = if (processCenter) scratchSamples else null
+        if (samples != null && outputSamples != null) {
+            repeat(frameCount) { frame ->
+                val left = samples.get().toInt()
+                val right = samples.get().toInt()
+                val side = CenterCancel.sideSample(left, right)
+                outputSamples[frame * 2] = side
+                outputSamples[frame * 2 + 1] = side
+            }
+        }
         val output = replaceOutputBuffer(byteCount)
-        if (!enabled || channelCount != 2) {
-            output.put(inputBuffer)
+        if (!processCenter) {
+            if (output === inputBuffer) {
+                // ByteBuffer.put(buffer) rejects an object copied into itself.
+                if (scratchBytes.size < byteCount) scratchBytes = ByteArray(byteCount)
+                source.get(scratchBytes, 0, byteCount)
+                output.put(scratchBytes, 0, byteCount)
+            } else {
+                output.put(inputBuffer)
+            }
             output.flip()
             return
         }
 
-        val samples = inputBuffer.asShortBuffer()
-        val frameCount = samples.remaining() / 2
-        repeat(frameCount) {
-            val left = samples.get().toInt()
-            val right = samples.get().toInt()
-            val side = CenterCancel.sideSample(left, right)
-            output.putShort(side)
-            output.putShort(side)
-        }
-        inputBuffer.position(inputBuffer.position() + byteCount)
+        repeat(frameCount * 2) { index -> output.putShort(outputSamples!![index]) }
+        inputBuffer.position(inputBuffer.limit())
         output.flip()
     }
 }

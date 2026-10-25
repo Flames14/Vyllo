@@ -1,5 +1,7 @@
 package com.vyllo.music.service
 
+import androidx.core.net.toUri
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -66,7 +68,7 @@ class AlarmBootReceiver : BroadcastReceiver() {
                 )
             }
             val settingsIntent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                data = Uri.parse("package:${context.packageName}")
+                data = "package:${context.packageName}".toUri()
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             val pending = PendingIntent.getActivity(

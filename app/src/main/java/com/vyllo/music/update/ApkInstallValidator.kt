@@ -1,5 +1,7 @@
 package com.vyllo.music.update
 
+import androidx.core.net.toUri
+
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -124,7 +126,7 @@ object ApkInstallValidator {
             context.startActivity(
                 Intent(
                     Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                    Uri.parse("package:${context.packageName}")
+                    "package:${context.packageName}".toUri()
                 ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
             )
         } catch (e: Exception) {

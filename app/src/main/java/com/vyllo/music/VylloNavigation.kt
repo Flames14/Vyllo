@@ -1,4 +1,4 @@
-﻿package com.vyllo.music
+package com.vyllo.music
 
 import android.net.Uri
 import android.widget.Toast
@@ -148,6 +148,8 @@ fun VylloNavigation(
     val updateViewModel: AppUpdateViewModel = hiltViewModel()
     val lastFmViewModel: com.vyllo.music.ui.settings.LastFmViewModel = hiltViewModel()
     var showLastFmSettings by remember { mutableStateOf(false) }
+    val translationViewModel: com.vyllo.music.ui.settings.TranslationViewModel = hiltViewModel()
+    var showTranslationSettings by remember { mutableStateOf(false) }
 
     // Slice player state to avoid whole-app recomposition on unrelated fields
     // (likeCount, lyricsLoading, equalizer...). Each slice only recomposes its readers.
@@ -625,6 +627,7 @@ fun VylloNavigation(
                                 }
                                 if (!json.isNullOrBlank()) {
                                     settingsViewModel.importBackup(json) { success ->
+                                        if (success) playerViewModel.refreshPreferences()
                                         val msg = if (success) R.string.backup_import_success else R.string.backup_import_error
                                         Toast.makeText(context, context.getString(msg), Toast.LENGTH_SHORT).show()
                                     }
@@ -645,7 +648,9 @@ fun VylloNavigation(
                            isBackgroundEnabled = settingsViewModel.isBackgroundPlaybackEnabled,
                            onBackgroundEnabledChange = { settingsViewModel.toggleBackgroundPlayback(it) },
                            isBatteryUnrestricted = settingsViewModel.isBatteryUnrestricted,
-                           onBatteryAccessClick = { settingsViewModel.requestBatteryUnrestricted(context) },
+                           onBatteryAccessClick = { enabled ->
+                               settingsViewModel.setBatteryUnrestricted(enabled, context)
+                           },
                            isKeepAudioPlayingEnabled = settingsViewModel.isKeepAudioPlayingEnabled,
                            onKeepAudioPlayingChange = { settingsViewModel.toggleKeepAudioPlaying(it) },
                            themeMode = settingsViewModel.themeMode,
@@ -656,6 +661,8 @@ fun VylloNavigation(
                            onHighRefreshRateChange = { settingsViewModel.toggleHighRefreshRate(it) },
                            isBlockScreenshotsEnabled = settingsViewModel.isBlockScreenshotsEnabled,
                            onBlockScreenshotsChange = { settingsViewModel.toggleBlockScreenshots(it) },
+                           isSystemNavigationBarVisible = settingsViewModel.isSystemNavigationBarVisible,
+                           onSystemNavigationBarVisibleChange = { settingsViewModel.toggleSystemNavigationBarVisible(it) },
                            wifiOnlyDownloads = settingsViewModel.wifiOnlyDownloads,
                            onWifiOnlyDownloadsChange = { settingsViewModel.toggleWifiOnlyDownloads(it) },
 downloadsRequireBatteryOk = settingsViewModel.downloadsRequireBatteryOk,
@@ -699,7 +706,8 @@ downloadsRequireBatteryOk = settingsViewModel.downloadsRequireBatteryOk,
                            onExportBackupClick = { exportLauncher.launch("vyllo_backup_${System.currentTimeMillis()}.json") },
                            onImportBackupClick = { importLauncher.launch(arrayOf("application/json", "text/*")) },
                            onCheckUpdateClick = { updateViewModel.checkForUpdates() },
-                           onLastFmClick = { showLastFmSettings = true }
+                           onLastFmClick = { showLastFmSettings = true },
+                           onTranslationClick = { showTranslationSettings = true }
                        )
                     }
 
@@ -707,6 +715,14 @@ downloadsRequireBatteryOk = settingsViewModel.downloadsRequireBatteryOk,
                         com.vyllo.music.ui.settings.LastFmSettingsDialog(
                             viewModel = lastFmViewModel,
                             onDismiss = { showLastFmSettings = false }
+                        )
+                    }
+
+                    if (showTranslationSettings) {
+                        com.vyllo.music.ui.settings.TranslationSettingsDialog(
+                            viewModel = translationViewModel,
+                            onSaved = { playerViewModel.onTranslationSettingsChanged() },
+                            onDismiss = { showTranslationSettings = false }
                         )
                     }
 

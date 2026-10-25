@@ -7,19 +7,27 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -33,9 +41,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.vyllo.music.R
 import com.vyllo.music.core.utils.ByteSizeFormatter
 import com.vyllo.music.domain.model.SleepSchedule
@@ -48,7 +59,7 @@ fun SettingsDialog(
     isBackgroundEnabled: Boolean,
     onBackgroundEnabledChange: (Boolean) -> Unit,
     isBatteryUnrestricted: Boolean,
-    onBatteryAccessClick: () -> Unit,
+    onBatteryAccessClick: (Boolean) -> Unit,
     isKeepAudioPlayingEnabled: Boolean = false,
     onKeepAudioPlayingChange: (Boolean) -> Unit = {},
     themeMode: String,
@@ -59,6 +70,8 @@ fun SettingsDialog(
     onHighRefreshRateChange: (Boolean) -> Unit = {},
     isBlockScreenshotsEnabled: Boolean = false,
     onBlockScreenshotsChange: (Boolean) -> Unit = {},
+    isSystemNavigationBarVisible: Boolean = false,
+    onSystemNavigationBarVisibleChange: (Boolean) -> Unit = {},
     wifiOnlyDownloads: Boolean = false,
     onWifiOnlyDownloadsChange: (Boolean) -> Unit = {},
     downloadsRequireBatteryOk: Boolean = false,
@@ -101,7 +114,8 @@ fun SettingsDialog(
     onExportBackupClick: () -> Unit = {},
     onImportBackupClick: () -> Unit = {},
     onCheckUpdateClick: () -> Unit = {},
-    onLastFmClick: () -> Unit = {}
+    onLastFmClick: () -> Unit = {},
+    onTranslationClick: () -> Unit = {}
 ) {
     var showClearCacheConfirm by remember { mutableStateOf(false) }
     var showCrossfadePicker by remember { mutableStateOf(false) }
@@ -119,7 +133,8 @@ fun SettingsDialog(
         )
     }
 
-    if (showSleepScheduleSheet) {        com.vyllo.music.presentation.components.dialogs.SleepScheduleSheet(
+    if (showSleepScheduleSheet) {
+        com.vyllo.music.presentation.components.dialogs.SleepScheduleSheet(
             schedule = sleepSchedule,
             onSave = {
                 onSleepScheduleChange(it)
@@ -372,19 +387,49 @@ fun SettingsDialog(
         )
     }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                stringResource(R.string.settings_title),
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            shape = RectangleShape,
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 24.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        stringResource(R.string.settings_title),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = stringResource(R.string.common_close),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .widthIn(max = 760.dp)
+                        .align(Alignment.CenterHorizontally)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp, vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                SettingsSectionHeader(stringResource(R.string.settings_section_appearance))
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         stringResource(R.string.settings_theme_mode),
@@ -467,6 +512,8 @@ fun SettingsDialog(
                     }
                 }
 
+                SettingsSectionHeader(stringResource(R.string.settings_section_playback))
+
                 // Background playback directly controls whether music survives the lock
                 // screen and app backgrounding, so surface the battery exemption here.
                 SettingsToggleRow(
@@ -480,7 +527,7 @@ fun SettingsDialog(
                     title = stringResource(R.string.settings_bg_battery_title),
                     subtitle = stringResource(R.string.settings_bg_battery_desc),
                     checked = isBatteryUnrestricted,
-                    onCheckedChange = { onBatteryAccessClick() }
+                    onCheckedChange = onBatteryAccessClick
                 )
 
                 SettingsToggleRow(
@@ -497,12 +544,14 @@ fun SettingsDialog(
                     onCheckedChange = onFloatingEnabledChange
                 )
 
-                SettingsToggleRow(
-                    title = stringResource(R.string.settings_high_refresh),
-                    subtitle = if (isHighRefreshRateEnabled) stringResource(R.string.settings_refresh_on) else stringResource(R.string.settings_refresh_off),
-                    checked = isHighRefreshRateEnabled,
-                    onCheckedChange = onHighRefreshRateChange
-                )
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    SettingsToggleRow(
+                        title = stringResource(R.string.settings_high_refresh),
+                        subtitle = if (isHighRefreshRateEnabled) stringResource(R.string.settings_refresh_on) else stringResource(R.string.settings_refresh_off),
+                        checked = isHighRefreshRateEnabled,
+                        onCheckedChange = onHighRefreshRateChange
+                    )
+                }
 
                 SettingsToggleRow(
                     title = stringResource(R.string.settings_block_screenshots),
@@ -511,6 +560,14 @@ fun SettingsDialog(
                     onCheckedChange = onBlockScreenshotsChange
                 )
 
+                SettingsToggleRow(
+                    title = stringResource(R.string.settings_nav_bar_visible),
+                    subtitle = stringResource(R.string.settings_nav_bar_visible_desc),
+                    checked = isSystemNavigationBarVisible,
+                    onCheckedChange = onSystemNavigationBarVisibleChange
+                )
+
+                SettingsSectionHeader(stringResource(R.string.settings_section_downloads))
                 SettingsToggleRow(
                     title = stringResource(R.string.settings_wifi_only),
                     subtitle = stringResource(R.string.settings_wifi_only_desc),
@@ -525,6 +582,7 @@ fun SettingsDialog(
                     onCheckedChange = onDownloadsRequireBatteryOkChange
                 )
 
+                SettingsSectionHeader(stringResource(R.string.settings_section_queue))
                 // Playback Behaviour Section -- these two prefs were previously
                 // persisted and consumed by the player but had no UI at all, so
                 // the setting existed in code and nowhere else.
@@ -564,6 +622,7 @@ fun SettingsDialog(
                     )
                 }
 
+                SettingsSectionHeader(stringResource(R.string.settings_section_audio))
                 // Skip silent passages, and how playback reacts to device and
                 // output-state changes.
                 SettingsToggleRow(
@@ -623,7 +682,9 @@ fun SettingsDialog(
                     )
                 }
 
-                // Download quality -- the ceiling used when fetching the file                // itself, kept separate from the streaming preference because a
+                SettingsSectionHeader(stringResource(R.string.settings_section_download_quality))
+                // Download quality -- the ceiling used when fetching the file
+                // itself, kept separate from the streaming preference because a
                 // download outlives the connection it was made on.
                 Column(
                     modifier = Modifier
@@ -643,6 +704,7 @@ fun SettingsDialog(
                     )
                 }
 
+                SettingsSectionHeader(stringResource(R.string.settings_section_lyrics))
                 // Lyrics provider order -- the chain the engine walks; a text-only
                 // provider placed first can shadow a synced version further down.
                 val lyricsSourceSummary = lyricsSourceOrder
@@ -667,6 +729,15 @@ fun SettingsDialog(
                     )
                 }
 
+                SettingsActionRow(
+                    title = stringResource(R.string.settings_translation),
+                    subtitle = stringResource(R.string.settings_translation_desc),
+                    icon = Icons.Rounded.Translate,
+                    onClick = onTranslationClick,
+                    iconContentDescription = stringResource(R.string.settings_translation)
+                )
+
+                SettingsSectionHeader(stringResource(R.string.settings_section_transitions))
                 // Loudness normalization -- real per-block RMS gain in the audio
                 // sink chain, not the volume booster's static multiplier.
                 Column(
@@ -711,6 +782,7 @@ fun SettingsDialog(
                     )
                 }
 
+                SettingsSectionHeader(stringResource(R.string.settings_section_storage))
                 // Storage Section -- audio/image caches are the two things that
                 // actually grow on disk, so expose both sizes and a safe clear.
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -760,6 +832,7 @@ fun SettingsDialog(
                     }
                 }
 
+                SettingsSectionHeader(stringResource(R.string.settings_section_backup))
                 // Backup & Restore Section
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
@@ -802,6 +875,7 @@ fun SettingsDialog(
                     }
                 }
 
+                SettingsSectionHeader(stringResource(R.string.settings_section_services))
                 SettingsActionRow(
                     title = stringResource(R.string.settings_lastfm),
                     subtitle = stringResource(R.string.settings_lastfm_desc),
@@ -810,6 +884,7 @@ fun SettingsDialog(
                     iconContentDescription = stringResource(R.string.settings_lastfm)
                 )
 
+                SettingsSectionHeader(stringResource(R.string.settings_section_about))
                 val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
                 SettingsActionRow(
                     title = stringResource(R.string.settings_support),
@@ -826,17 +901,22 @@ fun SettingsDialog(
                     onClick = { onCheckUpdateClick() },
                     iconContentDescription = stringResource(R.string.settings_update_cd)
                 )
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 24.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.common_close))
+                    }
+                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.common_close))
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.surface,
-        textContentColor = MaterialTheme.colorScheme.onSurface,
-        titleContentColor = MaterialTheme.colorScheme.onSurface
-    )
+        }
+    }
 }
 
 @Composable
@@ -895,6 +975,27 @@ private fun SettingsValueRow(
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = if (emphasize) FontWeight.SemiBold else FontWeight.Normal
             )
+        )
+    }
+}
+
+@Composable
+private fun SettingsSectionHeader(title: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(Modifier.width(12.dp))
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.outlineVariant
         )
     }
 }

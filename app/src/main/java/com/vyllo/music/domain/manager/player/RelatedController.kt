@@ -5,7 +5,9 @@ import com.vyllo.music.core.security.SecureLogger
 import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.domain.model.MusicItem
+import com.vyllo.music.data.repository.delegates.RelatedRanking
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -63,16 +65,16 @@ class RelatedController(
             }
             if (seq != loadSeq) return@launch
 
-            val filtered = pool.filter { it.url != item.url }
+            val filtered = distinctTracks(pool.filter { it.url != item.url })
             playbackQueueManager.replaceUpcomingItems(filtered)
             val upcoming = playbackQueueManager.getUpcomingSnapshot()
 
             val discovery: List<MusicItem> = try {
-                repository.getRelatedDiscoveryOrder(
+                distinctTracks(repository.getRelatedDiscoveryOrder(
                     url = item.url,
-                    excludeUrls = setOf(item.url),
+                    excludeUrls = setOf(item.url) + filtered.map { it.url },
                     limit = DISCOVERY_SECTION_LIMIT
-                ).filter { it.url != item.url }
+                ).filter { it.url != item.url })
             } catch (e: Exception) {
                 SecureLogger.w(TAG, "discovery order failed", e)
                 emptyList()
@@ -92,47 +94,51 @@ class RelatedController(
 
             val poolUrls = filtered.mapTo(HashSet()) { it.url }
             val poolUploaders = filtered.mapTo(HashSet()) { it.normalizedArtistKey }
+            val poolTrackKeys = filtered.mapTo(HashSet()) { RelatedRanking.normalizedTrackKey(it) }
 
-            // coroutineScope so these two are children of *this* load and are
-            // joined before isLoadingRelatedTab clears — otherwise the Up Next
-            // spinner stops while the Related tab is still empty.
-            coroutineScope {
-                launch {
-                    val artistTracks = try {
+            // Fetch independent sections concurrently, then deduplicate against
+            // the actual results. The old code read artist rows from UI state
+            // before the parallel request finished, so exclusions were stale.
+            val (rawArtistTracks, rawSimilarTracks) = coroutineScope {
+                val artistRequest = async {
+                    try {
                         repository.getArtistSongs(
                             artist = item.uploader,
-                            excludeUrls = poolUrls
-                        ).filter { it.url != item.url }
+                            excludeUrls = poolUrls + setOf(item.url)
+                        )
                     } catch (e: Exception) {
                         SecureLogger.w(TAG, "artist songs load failed", e)
                         emptyList()
                     }
-                    if (seq == loadSeq) {
-                        updateState { it.copy(artistSongs = artistTracks, isLoadingArtistSongs = false) }
-                    }
                 }
-
-                launch {
-                    val alreadyShown = getState().artistSongs.mapTo(HashSet()) { it.url } + poolUrls
-                    val discoveries = try {
+                val similarRequest = async {
+                    try {
                         repository.getDiscoverSimilarSongs(
                             title = item.title,
                             artist = item.uploader,
-                            excludeUrls = alreadyShown,
+                            excludeUrls = poolUrls + setOf(item.url),
                             excludeUploaders = poolUploaders
-                        ).filter { it.url != item.url }
+                        )
                     } catch (e: Exception) {
                         SecureLogger.w(TAG, "similar songs load failed", e)
                         emptyList()
                     }
-                    if (seq == loadSeq) {
-                        updateState {
-                            it.copy(
-                                discoverSimilarSongs = discoveries,
-                                isLoadingSimilarSongs = false
-                            )
-                        }
-                    }
+                }
+                artistRequest.await() to similarRequest.await()
+            }
+            val artistTracks = distinctTracks(rawArtistTracks.filter { it.url != item.url }).filter {
+                RelatedRanking.normalizedTrackKey(it) !in poolTrackKeys
+            }
+            if (seq != loadSeq) return@launch
+            updateState { it.copy(artistSongs = artistTracks, isLoadingArtistSongs = false) }
+
+            val excludedTracks = poolTrackKeys + artistTracks.map { RelatedRanking.normalizedTrackKey(it) }
+            val discoveries = distinctTracks(rawSimilarTracks.filter { it.url != item.url }).filter {
+                RelatedRanking.normalizedTrackKey(it) !in excludedTracks
+            }
+            if (seq == loadSeq) {
+                updateState {
+                    it.copy(discoverSimilarSongs = discoveries, isLoadingSimilarSongs = false)
                 }
             }
 
@@ -151,15 +157,24 @@ class RelatedController(
         if (getState().isLoadingMoreRelated) return
         scopeProvider().launch {
             updateState { it.copy(isLoadingMoreRelated = true) }
-            val more = repository.getMoreRelatedSongs(anchor)
-            playbackQueueManager.appendDistinct(more)
-            val upcoming = playbackQueueManager.getUpcomingSnapshot()
-            updateState { state ->
-                val currentUrl = state.currentPlayingItem?.url
-                val merged = (state.relatedSongs + upcoming)
-                    .distinctBy { it.url }
-                    .filter { it.url != currentUrl }
-                state.copy(relatedSongs = merged, isLoadingMoreRelated = false)
+            try {
+                val more = distinctTracks(repository.getMoreRelatedSongs(anchor))
+                val existingKeys = (playbackQueueManager.getUpcomingSnapshot() + listOfNotNull(getState().currentPlayingItem))
+                    .mapTo(HashSet()) { RelatedRanking.normalizedTrackKey(it) }
+                playbackQueueManager.appendDistinct(more.filter {
+                    RelatedRanking.normalizedTrackKey(it) !in existingKeys
+                })
+                val upcoming = playbackQueueManager.getUpcomingSnapshot()
+                updateState { state ->
+                    val currentUrl = state.currentPlayingItem?.url
+                    val merged = distinctTracks(state.relatedSongs + upcoming)
+                        .filter { it.url != currentUrl }
+                    state.copy(relatedSongs = merged)
+                }
+            } catch (e: Exception) {
+                SecureLogger.w(TAG, "load more related songs failed", e)
+            } finally {
+                updateState { it.copy(isLoadingMoreRelated = false) }
             }
         }
     }
@@ -173,6 +188,14 @@ class RelatedController(
         if (!autoplayEnabled) return null
         return playbackQueueManager.nextItem
     }
+
+    private fun distinctTracks(items: List<MusicItem>): List<MusicItem> {
+        val seen = HashSet<String>()
+        return items.filter { item ->
+            item.url.isNotBlank() && seen.add(RelatedRanking.normalizedTrackKey(item))
+        }
+    }
+
 
     private companion object {
         const val TAG = "RelatedController"

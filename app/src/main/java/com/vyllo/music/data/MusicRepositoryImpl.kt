@@ -187,6 +187,8 @@ class MusicRepositoryImpl @Inject constructor(
 
     // Download Methods
     override fun getAllDownloads(): Flow<List<DownloadEntity>> = downloadRepository.getAllDownloads()
+
+    override fun getActiveDownloads(): Flow<List<DownloadEntity>> = downloadRepository.getActiveDownloads()
     override fun downloadSong(item: MusicItem) = downloadRepository.downloadSong(item)
     override fun cancelDownload(url: String) = downloadRepository.cancelDownload(url)
     override suspend fun deleteDownload(url: String) = downloadRepository.deleteDownload(url)
@@ -350,9 +352,9 @@ override suspend fun getPatternSuggestions(): List<MusicItem> = coroutineScope {
         youtubeDataSource.loadMoreItems()
 
     // Preference Methods
-    override fun loadSearchHistory() = preferenceManager.loadSearchHistory()
-    override fun saveSearchQuery(query: String) = preferenceManager.saveSearchQuery(query)
-    override fun clearSearchHistory() = preferenceManager.clearSearchHistory()
+    override suspend fun loadSearchHistory() = preferenceManager.loadSearchHistory()
+    override suspend fun saveSearchQuery(query: String) = preferenceManager.saveSearchQuery(query)
+    override suspend fun clearSearchHistory() = preferenceManager.clearSearchHistory()
 
     override fun saveLyricsPreference(videoUrl: String, lrcId: Long) = preferenceManager.saveLyricsPreference(videoUrl, lrcId.toString())
     override fun getSavedLyricsId(videoUrl: String): Long? = preferenceManager.loadLyricsPreference(videoUrl)?.toLongOrNull()

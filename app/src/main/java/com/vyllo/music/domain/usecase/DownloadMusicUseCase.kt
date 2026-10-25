@@ -10,6 +10,8 @@ class DownloadMusicUseCase @Inject constructor(
     private val repository: IMusicRepository
 ) {
     fun getAllDownloads(): Flow<List<DownloadEntity>> = repository.getAllDownloads()
+
+    fun getActiveDownloads(): Flow<List<DownloadEntity>> = repository.getActiveDownloads()
     
     fun downloadSong(item: MusicItem) = repository.downloadSong(item)
     

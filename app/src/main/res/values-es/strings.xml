@@ -36,6 +36,27 @@
     <string name="lastfm_error_invalid_credentials">Last.fm rechazó estas credenciales.</string>
     <string name="lastfm_error_network">No se pudo contactar con Last.fm. Revisa tu conexión.</string>
     <string name="lastfm_error_timeout">La autorización ha caducado. Inténtalo de nuevo.</string>
+    <!-- Traducción de letras -->
+    <string name="lyrics_toggle_romanization">Activar o desactivar la romanización de la letra</string>
+    <string name="settings_translation">Traducción de letras</string>
+    <string name="settings_translation_desc">Proveedores de IA, DeepL y romanización</string>
+    <string name="translation_settings_title">Traducción de letras</string>
+    <string name="translation_settings_desc">Vyllo traduce con Google y MyMemory de forma predeterminada. Añade la clave de tu propio proveedor para mejorar los resultados; las claves se guardan cifradas en este dispositivo.</string>
+    <string name="translation_provider">Proveedor</string>
+    <string name="translation_provider_auto">Automático (Google + MyMemory)</string>
+    <string name="translation_provider_deepl">DeepL</string>
+    <string name="translation_provider_openai">OpenAI</string>
+    <string name="translation_provider_claude">Claude</string>
+    <string name="translation_provider_gemini">Google Gemini</string>
+    <string name="translation_provider_openrouter">OpenRouter</string>
+    <string name="translation_provider_perplexity">Perplexity</string>
+    <string name="translation_api_key">Clave de API</string>
+    <string name="translation_clear_key">Eliminar clave</string>
+    <string name="translation_key_help">Si el proveedor falla, Vyllo usa el motor gratuito.</string>
+    <string name="translation_model">Modelo</string>
+    <string name="translation_language">Traducir la letra a</string>
+    <string name="translation_romanize">Romanizar la letra</string>
+    <string name="translation_romanize_desc">Muestra la transliteración latina bajo letras en japonés, coreano, chino y otros alfabetos</string>
     <!-- App name -->
     <string name="app_name">Vyllo</string>
 
@@ -61,6 +82,18 @@
 
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>
+    <string name="settings_section_appearance">Apariencia e idioma</string>
+    <string name="settings_section_playback">Reproducción y dispositivo</string>
+    <string name="settings_section_downloads">Descargas</string>
+    <string name="settings_section_queue">Cola y pausa programada</string>
+    <string name="settings_section_audio">Comportamiento del audio</string>
+    <string name="settings_section_download_quality">Calidad de descarga</string>
+    <string name="settings_section_lyrics">Letras</string>
+    <string name="settings_section_transitions">Nivel y transiciones</string>
+    <string name="settings_section_storage">Almacenamiento</string>
+    <string name="settings_section_backup">Copia y restauración</string>
+    <string name="settings_section_services">Servicios conectados</string>
+    <string name="settings_section_about">Ayuda y actualizaciones</string>
     <string name="settings_floating_player">Reproductor flotante</string>
     <string name="settings_background_playback">Reproducción en segundo plano</string>
     <string name="settings_keep_audio_playing">Mantener el audio en reproducción</string>
@@ -277,6 +310,7 @@
     <string name="comments_none">No se encontraron comentarios.</string>
     <string name="search_placeholder">Buscar canciones, artistas…</string>
     <string name="share_story_tagline">Tarjeta musical limpia para Instagram y WhatsApp</string>
+    <string name="share_preparing">Preparando tu tarjeta…</string>
     <string name="alarm_cd_edit_time">Editar hora</string>
     <string name="alarm_cd_select_sound">Seleccionar sonido</string>
     <string name="alarm_vibrate_when_triggers">Vibrar cuando suene la alarma</string>
@@ -468,6 +502,8 @@
     <string name="settings_wifi_only_desc">Descarga canciones solo mediante Wi-Fi</string>
     <string name="settings_block_screenshots">Bloquear capturas de pantalla</string>
     <string name="settings_block_screenshots_desc">Oculta Vyllo en capturas, grabaciones y la vista de recientes</string>
+ <string name="settings_nav_bar_visible">Mantener visible la barra de navegación</string>
+ <string name="settings_nav_bar_visible_desc">Muestra los botones de navegación de Android en lugar de ocultarlos. Si está desactivado, desliza desde el borde inferior para mostrarlos.</string>
     <string name="shortcut_search_short">Buscar</string>
     <string name="shortcut_library_short">Biblioteca</string>
     <string name="qs_tile_recognize">Reconocer música</string>
@@ -503,7 +539,11 @@
     <string name="settings_download_quality_desc">Límite de bits para los archivos descargados. Alta conserva el mejor audio disponible.</string>
     <string name="download_quality_dialog_title">Calidad de descarga</string>
     <string name="playlist_download_all">Descargar todo</string>
-    <string name="playlist_download_all_queued">Descargando %1$d canciones</string>
+    <plurals name="playlist_download_all_queued">
+        <item quantity="one">Descargando %1$d canción</item>
+        <item quantity="many">Descargando %1$d canciones</item>
+        <item quantity="other">Descargando %1$d canciones</item>
+    </plurals>
     <string name="quality_dialog_title">Calidad del audio</string>
     <string name="quality_auto">Automática</string>
     <string name="quality_high">Alta</string>
@@ -525,7 +565,7 @@
     <string name="settings_storage_images">Caché de imágenes</string>
     <string name="settings_storage_total">Total</string>
     <string name="settings_storage_clear">Borrar caché</string>
-    <string name="settings_storage_clearing">Borrando...</string>
+    <string name="settings_storage_clearing">Borrando…</string>
     <string name="settings_storage_clear_confirm_title">¿Borrar la caché?</string>
     <string name="settings_storage_clear_confirm_message">Se eliminarán las imágenes y el audio en streaming guardados en caché. Las canciones descargadas no se verán afectadas.</string>
     <string name="library_import_playlist">Importar lista</string>
@@ -568,6 +608,7 @@
     </plurals>
     <plurals name="artist_song_count">
         <item quantity="one">%d canción</item>
+        <item quantity="many">%d canciones</item>
         <item quantity="other">%d canciones</item>
     </plurals>
     <string name="artist_empty_title">Aún no hay canciones</string>
@@ -581,9 +622,12 @@
     <string name="library_liked_remove">Quitar de canciones que te gustan</string>
     <plurals name="liked_song_count">
         <item quantity="one">%d canción</item>
+        <item quantity="many">%d canciones</item>
         <item quantity="other">%d canciones</item>
     </plurals>
     <string name="library_downloads_title">Descargas</string>
+    <string name="library_download_in_progress">Preparando descarga…</string>
+    <string name="library_download_progress_percent">Descargando · %1$d%%</string>
     <string name="library_no_downloads">Aún no hay descargas</string>
     <string name="library_downloads_empty_body">Descarga una canción para escucharla sin conexión.</string>
     <string name="action_play_all">Reproducir todo</string>
@@ -613,6 +657,7 @@
     <string name="stats_unknown_artist">Artista desconocido</string>
     <plurals name="stats_play_count">
         <item quantity="one">%d reproducción</item>
+        <item quantity="many">%d reproducciones</item>
         <item quantity="other">%d reproducciones</item>
     </plurals>
 
@@ -698,6 +743,7 @@
     </plurals>
     <string name="notif_download_complete">Descarga completada</string>
     <string name="notif_downloading">Descargando música</string>
+    <string name="notif_cancel_download">Cancelar descarga</string>
     <string name="notif_floating_title">Reproductor flotante activo</string>
     <string name="notif_floating_text">Toca la burbuja para volver a la app</string>
     <string name="floating_lyrics_toggle">Mostrar u ocultar letras flotantes</string>
@@ -714,7 +760,6 @@
     <string name="cd_rewind_10">Retroceder 10 segundos</string>
     <string name="cd_forward_10">Avanzar 10 segundos</string>
     <string name="cd_collapse_queue">Contraer la cola</string>
-    <string name="cd_reorder">Reordenar</string>
     <string name="cd_exit_fullscreen">Salir de pantalla completa</string>
     <string name="cd_refresh_up_next">Actualizar la mezcla A continuación</string>
     <string name="cd_close">Cerrar</string>

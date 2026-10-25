@@ -85,6 +85,19 @@ For a local build, copy `keystore.local.properties.example` to the git-ignored `
 
 The APK is written to `app/build/outputs/apk/release/app-release.apk`. `-PallowDebugRelease` is for explicit local testing only; debug-signed builds are not suitable for distribution or production updates.
 
+### CI release signing
+
+Tag builds (`v*`) are signed and published by `.github/workflows/android-ci.yml`. Add these repository secrets under **Settings → Secrets and variables → Actions**:
+
+| Secret | Value |
+| --- | --- |
+| `RELEASE_KEYSTORE_BASE64` | `base64 -w0 .signing/vyllo-release.keystore` |
+| `VYLLO_STOREPASSWORD` | keystore password |
+| `VYLLO_KEYALIAS` | release key alias |
+| `VYLLO_KEYPASSWORD` | key password |
+
+`VYLLO_GOOGLE_API_KEY` is optional. If any of the four required secrets is missing, the release job fails at `Verify signing secrets` (or `Build release APK` with `RELEASE SIGNING CONFIG IS MISSING`) rather than publishing an unsigned or debug-signed APK.
+
 ## Under the hood
 
 Kotlin · Jetpack Compose · Material 3 · AndroidX Media3 · Room · DataStore · Hilt · NewPipe Extractor · OkHttp · Coil · WorkManager

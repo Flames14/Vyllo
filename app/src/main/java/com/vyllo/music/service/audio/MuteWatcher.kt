@@ -29,6 +29,7 @@ class MuteWatcher(
 
     fun start() {
         resolver.registerContentObserver(Settings.System.CONTENT_URI, true, observer)
+        if (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0) onMuted()
     }
 
     fun stop() {

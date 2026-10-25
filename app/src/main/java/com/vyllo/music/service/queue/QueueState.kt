@@ -1,5 +1,7 @@
 package com.vyllo.music.service.queue
 
+import androidx.core.net.toUri
+
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.exoplayer.ExoPlayer
@@ -53,7 +55,7 @@ class QueueState(
         val metadata = MediaMetadata.Builder()
             .setTitle(title)
             .setArtist(uploader)
-            .setArtworkUri(android.net.Uri.parse(thumbnailUrl))
+            .setArtworkUri(thumbnailUrl.toUri())
             .build()
         return MediaItem.Builder()
             .setMediaId(url)

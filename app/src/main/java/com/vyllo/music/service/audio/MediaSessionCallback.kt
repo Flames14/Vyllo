@@ -1,5 +1,7 @@
 package com.vyllo.music.service.audio
 
+import androidx.core.net.toUri
+
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -18,6 +20,7 @@ import com.google.common.util.concurrent.SettableFuture
 import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.domain.model.MusicItem
 import com.vyllo.music.domain.repository.IMusicRepository
+import com.vyllo.music.core.security.InputSanitizer
 import com.vyllo.music.service.PlaybackQueueOrchestrator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -88,14 +91,20 @@ class MediaSessionCallback(
         page: Int,
         pageSize: Int,
         params: MediaLibraryService.LibraryParams?
-    ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = asyncItemListResult {
-        val results = repository.searchMusic(query, maintainSession = false)
-        val items = catalog.searchResultItems(results)
-        val safePage = page.coerceAtLeast(0)
-        val safeSize = pageSize.coerceIn(1, MAX_PAGE_SIZE)
-        val start = (safePage.toLong() * safeSize).coerceAtMost(items.size.toLong()).toInt()
-        val end = (start + safeSize).coerceAtMost(items.size)
-        LibraryResult.ofItemList(items.subList(start, end), params)
+    ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
+        val safeQuery = InputSanitizer.sanitizeSearchQuery(query)
+        if (safeQuery.isBlank()) {
+            return Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(), params))
+        }
+        return asyncItemListResult {
+            val results = repository.searchMusic(safeQuery, maintainSession = false)
+            val items = catalog.searchResultItems(results)
+            val safePage = page.coerceAtLeast(0)
+            val safeSize = pageSize.coerceIn(1, MAX_PAGE_SIZE)
+            val start = (safePage.toLong() * safeSize).coerceAtMost(items.size.toLong()).toInt()
+            val end = (start + safeSize).coerceAtMost(items.size)
+            LibraryResult.ofItemList(items.subList(start, end), params)
+        }
     }
 
     override fun onAddMediaItems(
@@ -204,7 +213,7 @@ class MediaSessionCallback(
             .setIsPlayable(true)
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
             .apply {
-                track.thumbnailUrl.takeIf(String::isNotBlank)?.let { setArtworkUri(Uri.parse(it)) }
+                track.thumbnailUrl.takeIf(String::isNotBlank)?.let { setArtworkUri(it.toUri()) }
             }
             .build()
         return MediaItem.Builder()
@@ -256,7 +265,7 @@ class MediaSessionCallback(
         }
 
     private fun String.isYouTubeWatchUrl(): Boolean {
-        val host = runCatching { Uri.parse(this).host?.lowercase() }.getOrNull().orEmpty()
+        val host = runCatching { this.toUri().host?.lowercase() }.getOrNull().orEmpty()
         return host == "youtu.be" || host == "youtube.com" || host.endsWith(".youtube.com")
     }
 

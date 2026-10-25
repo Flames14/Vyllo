@@ -1,4 +1,6 @@
-﻿package com.vyllo.music
+package com.vyllo.music
+
+import androidx.core.net.toUri
 
 import android.app.PictureInPictureParams
 import android.content.res.Configuration
@@ -197,6 +199,12 @@ class MainActivity : AppCompatActivity() {
                     LaunchedEffect(settingsViewModel.isBlockScreenshotsEnabled) {
                         self.applySecureScreen()
                     }
+
+                    // Same for the navigation bar: switch between "always
+                    // visible" and immersive swipe mode without restarting.
+                    LaunchedEffect(settingsViewModel.isSystemNavigationBarVisible) {
+                        self.applySystemNavigationBarMode()
+                    }
                 }
             }
         }
@@ -209,16 +217,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Keep the app's bottom edge clear of the system navigation bar. Users can
-     * still reveal Android's controls with a swipe from the screen edge; Android
-     * dismisses the transient bar again automatically.
+     * Applies the user's navigation-bar preference: visible buttons ("stay")
+     * or the immersive swipe-to-reveal behaviour ("swipe"). PiP always shows
+     * the bar so the system window controls stay reachable.
      */
     private fun applySystemNavigationBarMode() {
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         val navigationBars = WindowInsetsCompat.Type.navigationBars()
-        if (isInPictureInPictureMode) {
+        if (isInPictureInPictureMode || settingsViewModel.isSystemNavigationBarVisible) {
             controller.show(navigationBars)
         } else {
             controller.hide(navigationBars)
@@ -487,6 +495,7 @@ class MainActivity : AppCompatActivity() {
     
     override fun onResume() {
         super.onResume()
+        settingsViewModel.refreshBatteryAccessState()
         applySystemNavigationBarMode()
         applySecureScreen()
         // Kill floating player when returning to main app
@@ -500,7 +509,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.permission_grant_overlay), Toast.LENGTH_LONG).show()
             val overlayIntent = android.content.Intent(
                 android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                android.net.Uri.parse("package:$packageName")
+                "package:$packageName".toUri()
             )
             startActivity(overlayIntent)
         } else {

@@ -1,5 +1,7 @@
 package com.vyllo.music.service.audio
 
+import androidx.core.net.toUri
+
 import android.net.Uri
 import android.util.Base64
 import androidx.media3.common.MediaItem
@@ -144,7 +146,7 @@ class AndroidAutoCatalog @Inject constructor(
             .setIsBrowsable(false)
             .setIsPlayable(true)
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
-            .apply { thumbnailUrl.takeIf(String::isNotBlank)?.let { setArtworkUri(Uri.parse(it)) } }
+            .apply { thumbnailUrl.takeIf(String::isNotBlank)?.let { setArtworkUri(it.toUri()) } }
             .build()
         return MediaItem.Builder()
             .setMediaId(url)

@@ -1,5 +1,7 @@
 package com.vyllo.music.domain.model
 
+import androidx.core.net.toUri
+
 import android.net.Uri
 
 /**
@@ -50,7 +52,7 @@ data class MusicItem(
 
         if (normalizedUrl.startsWith("http://") || normalizedUrl.startsWith("https://")) {
             try {
-                val parsedUri = Uri.parse(normalizedUrl)
+                val parsedUri = normalizedUrl.toUri()
                 val videoId = parsedUri.getQueryParameter("v")
                     ?: if (parsedUri.host?.contains("youtu.be", ignoreCase = true) == true) parsedUri.pathSegments.firstOrNull() else null
                 if (videoId != null && videoId.isNotBlank() && isLikelyYouTubeId(videoId)) {

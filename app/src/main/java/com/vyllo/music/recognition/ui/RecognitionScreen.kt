@@ -216,7 +216,7 @@ fun RecognitionCircle(
             label = "scale"
         )
     } else {
-        remember { mutableStateOf(1f) }
+        remember { mutableFloatStateOf(1f) }
     }
 
     Box(contentAlignment = Alignment.Center) {

@@ -1,5 +1,7 @@
 package com.vyllo.music.data.manager
 
+import androidx.core.content.edit
+
 import android.content.Context
 import android.content.SharedPreferences
 import com.vyllo.music.core.security.SecurePreferenceManager
@@ -13,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -40,31 +43,31 @@ class PreferenceManager @Inject constructor(
 
     override var isFloatingPlayerEnabled: Boolean
         get() = preferences.getBoolean("floating_player_enabled", false)
-        set(value) { preferences.edit().putBoolean("floating_player_enabled", value).apply() }
+        set(value) { preferences.edit {putBoolean("floating_player_enabled", value)} }
 
     override var floatingPlayerX: Int
         get() = preferences.getInt("floating_player_x", 0)
-        set(value) { preferences.edit().putInt("floating_player_x", value).apply() }
+        set(value) { preferences.edit {putInt("floating_player_x", value)} }
 
     override var floatingPlayerY: Int
         get() = preferences.getInt("floating_player_y", 100)
-        set(value) { preferences.edit().putInt("floating_player_y", value).apply() }
+        set(value) { preferences.edit {putInt("floating_player_y", value)} }
 
     var isBackgroundPlaybackEnabled: Boolean
         get() = preferences.getBoolean("background_playback_enabled", true)
-        set(value) { preferences.edit().putBoolean("background_playback_enabled", value).apply() }
+        set(value) { preferences.edit {putBoolean("background_playback_enabled", value)} }
 
     var themeMode: String
         get() = preferences.getString("theme_mode", "System") ?: "System"
-        set(value) { preferences.edit().putString("theme_mode", value).apply() }
+        set(value) { preferences.edit {putString("theme_mode", value)} }
 
     var isKeepAudioPlayingEnabled: Boolean
         get() = preferences.getBoolean("keep_audio_playing_enabled", false)
-        set(value) { preferences.edit().putBoolean("keep_audio_playing_enabled", value).apply() }
+        set(value) { preferences.edit {putBoolean("keep_audio_playing_enabled", value)} }
 
     var isHighRefreshRateEnabled: Boolean
         get() = preferences.getBoolean("high_refresh_rate_enabled", true)
-        set(value) { preferences.edit().putBoolean("high_refresh_rate_enabled", value).apply() }
+        set(value) { preferences.edit {putBoolean("high_refresh_rate_enabled", value)} }
 
     /**
      * Blocks screenshots and screen recording of the app window (and hides the
@@ -73,23 +76,32 @@ class PreferenceManager @Inject constructor(
      */
     var isBlockScreenshotsEnabled: Boolean
         get() = preferences.getBoolean("block_screenshots_enabled", false)
-        set(value) { preferences.edit().putBoolean("block_screenshots_enabled", value).apply() }
+        set(value) { preferences.edit {putBoolean("block_screenshots_enabled", value)} }
+
+    /**
+     * Keeps Android's navigation bar on screen when true. When false (default,
+     * the app's previous behaviour) the bar is hidden in immersive mode and a
+     * swipe from the bottom edge reveals it temporarily.
+     */
+    var isSystemNavigationBarVisible: Boolean
+        get() = preferences.getBoolean("system_navigation_bar_visible", false)
+        set(value) { preferences.edit {putBoolean("system_navigation_bar_visible", value)} }
 
     var homeScrollPrefetchDistancePx: Int
         get() = preferences.getInt("home_scroll_prefetch_px", 1200)
-        set(value) { preferences.edit().putInt("home_scroll_prefetch_px", value.coerceIn(600, 2400)).apply() }
+        set(value) { preferences.edit {putInt("home_scroll_prefetch_px", value.coerceIn(600, 2400))} }
 
     var homeImagePreloadAheadItems: Int
         get() = preferences.getInt("home_image_preload_ahead", 16)
-        set(value) { preferences.edit().putInt("home_image_preload_ahead", value.coerceIn(8, 48)).apply() }
+        set(value) { preferences.edit {putInt("home_image_preload_ahead", value.coerceIn(8, 48))} }
 
     var isQueueSticky: Boolean
         get() = preferences.getBoolean("queue_sticky_enabled", true)
-        set(value) { preferences.edit().putBoolean("queue_sticky_enabled", value).apply() }
+        set(value) { preferences.edit {putBoolean("queue_sticky_enabled", value)} }
 
     var isAutoplayEnabled: Boolean
         get() = preferences.getBoolean("autoplay_enabled", true)
-        set(value) { preferences.edit().putBoolean("autoplay_enabled", value).apply() }
+        set(value) { preferences.edit {putBoolean("autoplay_enabled", value)} }
 
     /**
      * When false (default), Up Next and the related sections drop live/event takes
@@ -98,7 +110,7 @@ class PreferenceManager @Inject constructor(
      */
     var upNextIncludeVariants: Boolean
         get() = preferences.getBoolean("upnext_include_variants", false)
-        set(value) { preferences.edit().putBoolean("upnext_include_variants", value).apply() }
+        set(value) { preferences.edit {putBoolean("upnext_include_variants", value)} }
 
     /** Locally pinned playlist ids, kept in user-selected order. */
     var pinnedPlaylistIds: List<Long>
@@ -108,71 +120,71 @@ class PreferenceManager @Inject constructor(
             .mapNotNull { it.toLongOrNull() }
             .distinct()
         set(value) {
-            preferences.edit()
-                .putString("pinned_playlist_ids", value.distinct().joinToString(","))
-                .apply()
+            preferences.edit {
+                    putString("pinned_playlist_ids", value.distinct().joinToString(","))
+                }
         }
 
     var batteryRationaleShown: Boolean
         get() = preferences.getBoolean("battery_rationale_shown", false)
-        set(value) { preferences.edit().putBoolean("battery_rationale_shown", value).apply() }
+        set(value) { preferences.edit {putBoolean("battery_rationale_shown", value)} }
 
     var wifiOnlyDownloads: Boolean
         get() = preferences.getBoolean("wifi_only_downloads", false)
-        set(value) { preferences.edit().putBoolean("wifi_only_downloads", value).apply() }
+        set(value) { preferences.edit {putBoolean("wifi_only_downloads", value)} }
 
     var downloadsRequireBatteryOk: Boolean
         get() = preferences.getBoolean("downloads_require_battery_ok", false)
-        set(value) { preferences.edit().putBoolean("downloads_require_battery_ok", value).apply() }
+        set(value) { preferences.edit {putBoolean("downloads_require_battery_ok", value)} }
 
     override var volumeBoostMultiplier: Float
         get() = preferences.getFloat(KEY_VOLUME_BOOST, 1.0f)
-        set(value) { preferences.edit().putFloat(KEY_VOLUME_BOOST, value.coerceIn(1.0f, 3.0f)).apply() }
+        set(value) { preferences.edit {putFloat(KEY_VOLUME_BOOST, value.coerceIn(1.0f, 3.0f))} }
 
     /** Recurring pause schedule; encoded once so the whole value is atomic. */
     var sleepSchedule: SleepSchedule
         get() = SleepSchedule.decode(preferences.getString(KEY_SLEEP_SCHEDULE, null))
         set(value) {
-            preferences.edit().putString(KEY_SLEEP_SCHEDULE, SleepSchedule.encode(value)).apply()
+            preferences.edit {putString(KEY_SLEEP_SCHEDULE, SleepSchedule.encode(value))}
         }
 
     /** Epoch day on which the schedule last paused playback (0 = never). */
     var sleepScheduleLastFiredDay: Long
         get() = preferences.getLong(KEY_SLEEP_SCHEDULE_FIRED_DAY, 0L)
         set(value) {
-            preferences.edit().putLong(KEY_SLEEP_SCHEDULE_FIRED_DAY, value).apply()
+            preferences.edit {putLong(KEY_SLEEP_SCHEDULE_FIRED_DAY, value)}
         }
 
     /** Skip silent passages (ExoPlayer skip-silence) inside a track. */
     var skipSilence: Boolean
         get() = preferences.getBoolean(KEY_SKIP_SILENCE, false)
-        set(value) { preferences.edit().putBoolean(KEY_SKIP_SILENCE, value).apply() }
+        set(value) { preferences.edit {putBoolean(KEY_SKIP_SILENCE, value)} }
 
     /** Pause when the active output device disconnects (headphones, BT). */
     var pauseOnDeviceDisconnect: Boolean
         get() = preferences.getBoolean(KEY_PAUSE_ON_DISCONNECT, true)
-        set(value) { preferences.edit().putBoolean(KEY_PAUSE_ON_DISCONNECT, value).apply() }
+        set(value) { preferences.edit {putBoolean(KEY_PAUSE_ON_DISCONNECT, value)} }
 
     /** Resume after a disconnect once an output device comes back. */
     var resumeOnDeviceReconnect: Boolean
         get() = preferences.getBoolean(KEY_RESUME_ON_RECONNECT, false)
-        set(value) { preferences.edit().putBoolean(KEY_RESUME_ON_RECONNECT, value).apply() }
+        set(value) { preferences.edit {putBoolean(KEY_RESUME_ON_RECONNECT, value)} }
 
     /** Pause instead of playing silently when the media stream is muted. */
     var pauseWhenMuted: Boolean
         get() = preferences.getBoolean(KEY_PAUSE_WHEN_MUTED, false)
-        set(value) { preferences.edit().putBoolean(KEY_PAUSE_WHEN_MUTED, value).apply() }
+        set(value) { preferences.edit {putBoolean(KEY_PAUSE_WHEN_MUTED, value)} }
 
     /** Let the hardware decoder render into the offload path when available. */
     var audioOffloadEnabled: Boolean
         get() = preferences.getBoolean(KEY_AUDIO_OFFLOAD, false)
-        set(value) { preferences.edit().putBoolean(KEY_AUDIO_OFFLOAD, value).apply() }
+        set(value) { preferences.edit {putBoolean(KEY_AUDIO_OFFLOAD, value)} }
 
     /** Audio stream quality ceiling: Auto/High/Medium/Low. */
     var streamQuality: String
         get() = preferences.getString(KEY_STREAM_QUALITY, "Auto") ?: "Auto"
         set(value) {
-            preferences.edit().putString(KEY_STREAM_QUALITY, value).apply()
+            preferences.edit {putString(KEY_STREAM_QUALITY, value)}
         }
 
     /**
@@ -182,7 +194,7 @@ class PreferenceManager @Inject constructor(
      */
     var downloadQuality: String
         get() = preferences.getString(KEY_DOWNLOAD_QUALITY, "High") ?: "High"
-        set(value) { preferences.edit().putString(KEY_DOWNLOAD_QUALITY, value).apply() }
+        set(value) { preferences.edit {putString(KEY_DOWNLOAD_QUALITY, value)} }
 
     /**
      * Comma-separated [com.vyllo.music.domain.model.LyricsSource] keys, most
@@ -196,7 +208,7 @@ class PreferenceManager @Inject constructor(
                 com.vyllo.music.domain.model.LyricsSource.DEFAULT_ORDER
             )
         ) ?: ""
-        set(value) { preferences.edit().putString(KEY_LYRICS_SOURCE_ORDER, value).apply() }
+        set(value) { preferences.edit {putString(KEY_LYRICS_SOURCE_ORDER, value)} }
 
     /** Lyrics typography, read once per player session. */
     fun readLyricsStyle(): com.vyllo.music.domain.model.LyricsStyle =
@@ -213,39 +225,39 @@ class PreferenceManager @Inject constructor(
         )
 
     fun writeLyricsStyle(style: com.vyllo.music.domain.model.LyricsStyle) {
-        preferences.edit()
-            .putInt(
-                KEY_LYRICS_TEXT_SCALE,
-                com.vyllo.music.domain.model.LyricsStyle.percentOf(style.scale)
-            )
-            .putInt(
-                KEY_LYRICS_LINE_SPACING,
-                com.vyllo.music.domain.model.LyricsStyle.percentOf(style.lineSpacing)
-            )
-            .putBoolean(KEY_LYRICS_ALIGN_START, style.alignStart)
-            .putBoolean(KEY_LYRICS_GLOW, style.glow)
-            .putBoolean(KEY_LYRICS_ANIMATE, style.animate)
-            .apply()
+        preferences.edit {
+                putInt(
+                    KEY_LYRICS_TEXT_SCALE,
+                    com.vyllo.music.domain.model.LyricsStyle.percentOf(style.scale)
+                )
+                .putInt(
+                    KEY_LYRICS_LINE_SPACING,
+                    com.vyllo.music.domain.model.LyricsStyle.percentOf(style.lineSpacing)
+                )
+                .putBoolean(KEY_LYRICS_ALIGN_START, style.alignStart)
+                .putBoolean(KEY_LYRICS_GLOW, style.glow)
+                .putBoolean(KEY_LYRICS_ANIMATE, style.animate)
+            }
     }
 
     /** Loudness normalization preset: Off/Aggressive/Loud/Balanced/Quiet. */    var loudnessPreset: String
         get() = preferences.getString(KEY_LOUDNESS_PRESET, "Off") ?: "Off"
         set(value) {
-            preferences.edit().putString(KEY_LOUDNESS_PRESET, value).apply()
+            preferences.edit {putString(KEY_LOUDNESS_PRESET, value)}
         }
 
     /** Crossfade window in seconds; 0 disables fades and keeps gapless intact. */
     var crossfadeSeconds: Int
         get() = preferences.getInt(KEY_CROSSFADE_SECONDS, 0)
         set(value) {
-            preferences.edit()
-                .putInt(KEY_CROSSFADE_SECONDS, value.coerceIn(0, 12))
-                .apply()
+            preferences.edit {
+                    putInt(KEY_CROSSFADE_SECONDS, value.coerceIn(0, 12))
+                }
         }
 
     var isEqualizerEnabled: Boolean
         get() = preferences.getBoolean(KEY_EQUALIZER_ENABLED, false)
-        set(value) { preferences.edit().putBoolean(KEY_EQUALIZER_ENABLED, value).apply() }
+        set(value) { preferences.edit {putBoolean(KEY_EQUALIZER_ENABLED, value)} }
 
     /**
      * Playback rate applied by [com.vyllo.music.service.MusicService]. Stored so
@@ -254,45 +266,45 @@ class PreferenceManager @Inject constructor(
     var playbackSpeed: Float
         get() = preferences.getFloat(KEY_PLAYBACK_SPEED, 1.0f)
         set(value) {
-            preferences.edit()
-                .putFloat(KEY_PLAYBACK_SPEED, value.coerceIn(SPEED_MIN, SPEED_MAX))
-                .apply()
+            preferences.edit {
+                    putFloat(KEY_PLAYBACK_SPEED, value.coerceIn(SPEED_MIN, SPEED_MAX))
+                }
         }
 
     /** Pitch shift, independent of speed (1.0f = untouched). */
     var playbackPitch: Float
         get() = preferences.getFloat(KEY_PLAYBACK_PITCH, 1.0f)
         set(value) {
-            preferences.edit()
-                .putFloat(KEY_PLAYBACK_PITCH, value.coerceIn(PITCH_MIN, PITCH_MAX))
-                .apply()
+            preferences.edit {
+                    putFloat(KEY_PLAYBACK_PITCH, value.coerceIn(PITCH_MIN, PITCH_MAX))
+                }
         }
 
     var equalizerBassBoostStrength: Int
         get() = preferences.getInt(KEY_EQUALIZER_BASS_BOOST, 0)
         set(value) {
-            preferences.edit()
-                .putInt(KEY_EQUALIZER_BASS_BOOST, value.coerceIn(EqualizerSettings.STRENGTH_MIN, EqualizerSettings.STRENGTH_MAX))
-                .apply()
+            preferences.edit {
+                    putInt(KEY_EQUALIZER_BASS_BOOST, value.coerceIn(EqualizerSettings.STRENGTH_MIN, EqualizerSettings.STRENGTH_MAX))
+                }
         }
 
     var equalizerVirtualizerStrength: Int
         get() = preferences.getInt(KEY_EQUALIZER_VIRTUALIZER, 0)
         set(value) {
-            preferences.edit()
-                .putInt(KEY_EQUALIZER_VIRTUALIZER, value.coerceIn(EqualizerSettings.STRENGTH_MIN, EqualizerSettings.STRENGTH_MAX))
-                .apply()
+            preferences.edit {
+                    putInt(KEY_EQUALIZER_VIRTUALIZER, value.coerceIn(EqualizerSettings.STRENGTH_MIN, EqualizerSettings.STRENGTH_MAX))
+                }
         }
 
     /** Removes centred vocals through mid/side cancellation. */
     var karaokeEnabled: Boolean
         get() = preferences.getBoolean(KEY_KARAOKE, false)
-        set(value) { preferences.edit().putBoolean(KEY_KARAOKE, value).apply() }
+        set(value) { preferences.edit {putBoolean(KEY_KARAOKE, value)} }
 
     /** Reverb program id, 0 meaning off. */
     var reverbPresetId: Int
         get() = preferences.getInt(KEY_REVERB_PRESET, 0).coerceIn(0, 6)
-        set(value) { preferences.edit().putInt(KEY_REVERB_PRESET, value.coerceIn(0, 6)).apply() }
+        set(value) { preferences.edit {putInt(KEY_REVERB_PRESET, value.coerceIn(0, 6))} }
 
     private val memorySearchHistory = java.util.Collections.synchronizedList(mutableListOf<String>())
     init {
@@ -313,21 +325,24 @@ class PreferenceManager @Inject constructor(
         if (preferences.contains("search_history")) {
             val legacy = preferences.getString("search_history", null)
             if (!legacy.isNullOrBlank()) {
-                legacy.split("|||").forEach { query ->
-                    if (query.isNotBlank()) {
-                        scope.launch { securePrefs.saveSearchQuery(query) }
+                scope.launch {
+                    legacy.split("|||").asReversed().forEach { query ->
+                        if (query.isNotBlank()) securePrefs.saveSearchQuery(query)
                     }
                 }
             }
-            preferences.edit().remove("search_history").apply()
+            preferences.edit {remove("search_history")}
         }
     }
 
     /**
      * Security: Save search query to encrypted DataStore (Zero plaintext leakage)
      */
-    fun saveSearchQuery(query: String) {
+    suspend fun saveSearchQuery(query: String) {
         if (query.isBlank()) return
+        // Persist before publishing the cache so the UI never advertises a query
+        // that DataStore has not committed yet.
+        securePrefs.saveSearchQuery(query)
         synchronized(memorySearchHistory) {
             memorySearchHistory.remove(query)
             memorySearchHistory.add(0, query)
@@ -335,34 +350,29 @@ class PreferenceManager @Inject constructor(
                 memorySearchHistory.removeAt(memorySearchHistory.size - 1)
             }
         }
-        scope.launch {
-            try {
-                securePrefs.saveSearchQuery(query)
-            } catch (e: Exception) {
-                SecureLogger.e(TAG, "Failed to save search query: ${e.message}")
-            }
-        }
     }
 
     /**
      * Security: Load search history from encrypted DataStore cache
      */
-    fun loadSearchHistory(): List<String> {
-        return synchronized(memorySearchHistory) {
-            memorySearchHistory.toList()
+    suspend fun loadSearchHistory(): List<String> {
+        return try {
+            val persisted = securePrefs.getSearchHistory().first()
+            synchronized(memorySearchHistory) {
+                memorySearchHistory.clear()
+                memorySearchHistory.addAll(persisted.take(10))
+                memorySearchHistory.toList()
+            }
+        } catch (e: Exception) {
+            SecureLogger.e(TAG, "Failed to read search history: ${e.message}")
+            synchronized(memorySearchHistory) { memorySearchHistory.toList() }
         }
     }
 
-    fun clearSearchHistory() {
+    suspend fun clearSearchHistory() {
+        securePrefs.clearSearchHistory()
         synchronized(memorySearchHistory) {
             memorySearchHistory.clear()
-        }
-        scope.launch {
-            try {
-                securePrefs.clearSearchHistory()
-            } catch (e: Exception) {
-                SecureLogger.e(TAG, "Failed to clear search history: ${e.message}")
-            }
         }
     }
 
@@ -403,14 +413,14 @@ class PreferenceManager @Inject constructor(
     /** User-saved equalizer presets, stored as JSON. */
     var customEqualizerPresets: String
         get() = preferences.getString(KEY_CUSTOM_EQ_PRESETS, "") ?: ""
-        set(value) { preferences.edit().putString(KEY_CUSTOM_EQ_PRESETS, value).apply() }
+        set(value) { preferences.edit {putString(KEY_CUSTOM_EQ_PRESETS, value)} }
 
     fun saveEqualizerBandLevels(levels: List<Int>) {        val sanitized = levels
             .take(EqualizerSettings.DEFAULT_BANDS.size)
             .map { it.coerceIn(EqualizerSettings.BAND_LEVEL_MIN, EqualizerSettings.BAND_LEVEL_MAX) }
-        preferences.edit()
-            .putString(KEY_EQUALIZER_BANDS, sanitized.joinToString(","))
-            .apply()
+        preferences.edit {
+                putString(KEY_EQUALIZER_BANDS, sanitized.joinToString(","))
+            }
     }
 
     fun loadEqualizerBandLevels(): List<Int> {
@@ -448,7 +458,7 @@ class PreferenceManager @Inject constructor(
         if (artist.isBlank()) return
         val key = "artist_$artist"
         val current = preferences.getInt(key, 0)
-        preferences.edit().putInt(key, current + 1).apply()
+        preferences.edit {putInt(key, current + 1)}
     }
 
     fun getTopArtists(limit: Int = 10): List<String> {
@@ -482,10 +492,10 @@ class PreferenceManager @Inject constructor(
     /** Persists the playhead for [url]. Blank URLs and negative positions are ignored. */
     fun savePlaybackPosition(url: String?, positionMs: Long) {
         if (url.isNullOrBlank() || positionMs < 0L) return
-        preferences.edit()
-            .putString(KEY_PLAYBACK_POSITION_URL, url)
-            .putLong(KEY_PLAYBACK_POSITION_MS, positionMs)
-            .apply()
+        preferences.edit {
+                putString(KEY_PLAYBACK_POSITION_URL, url)
+                .putLong(KEY_PLAYBACK_POSITION_MS, positionMs)
+            }
     }
 
     /**
@@ -499,10 +509,10 @@ class PreferenceManager @Inject constructor(
     }
 
     fun clearPlaybackPosition() {
-        preferences.edit()
-            .remove(KEY_PLAYBACK_POSITION_URL)
-            .remove(KEY_PLAYBACK_POSITION_MS)
-            .apply()
+        preferences.edit {
+                remove(KEY_PLAYBACK_POSITION_URL)
+                .remove(KEY_PLAYBACK_POSITION_MS)
+            }
     }
 
     companion object {

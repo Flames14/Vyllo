@@ -39,9 +39,24 @@ class BackupRestoreManager @Inject constructor(
             put("isKeepAudioPlayingEnabled", preferenceManager.isKeepAudioPlayingEnabled)
             put("isHighRefreshRateEnabled", preferenceManager.isHighRefreshRateEnabled)
             put("volumeBoostMultiplier", preferenceManager.volumeBoostMultiplier.toDouble())
+            put("autoplayEnabled", preferenceManager.isAutoplayEnabled)
             put("isQueueSticky", preferenceManager.isQueueSticky)
             put("upNextIncludeVariants", preferenceManager.upNextIncludeVariants)
             put("isBlockScreenshotsEnabled", preferenceManager.isBlockScreenshotsEnabled)
+            put("isSystemNavigationBarVisible", preferenceManager.isSystemNavigationBarVisible)
+            put("wifiOnlyDownloads", preferenceManager.wifiOnlyDownloads)
+            put("downloadsRequireBatteryOk", preferenceManager.downloadsRequireBatteryOk)
+            put("streamQuality", preferenceManager.streamQuality)
+            put("downloadQuality", preferenceManager.downloadQuality)
+            put("lyricsSourceOrder", preferenceManager.lyricsSourceOrder)
+            put("sleepSchedule", com.vyllo.music.domain.model.SleepSchedule.encode(preferenceManager.sleepSchedule))
+            put("skipSilence", preferenceManager.skipSilence)
+            put("pauseOnDeviceDisconnect", preferenceManager.pauseOnDeviceDisconnect)
+            put("resumeOnDeviceReconnect", preferenceManager.resumeOnDeviceReconnect)
+            put("pauseWhenMuted", preferenceManager.pauseWhenMuted)
+            put("audioOffloadEnabled", preferenceManager.audioOffloadEnabled)
+            put("loudnessPreset", preferenceManager.loudnessPreset)
+            put("crossfadeSeconds", preferenceManager.crossfadeSeconds)
             put("pinnedPlaylistNames", JSONArray(
                 preferenceManager.pinnedPlaylistIds.mapNotNull(playlistNamesById::get)
             ))
@@ -146,9 +161,44 @@ class BackupRestoreManager @Inject constructor(
                 if (prefs.has("isKeepAudioPlayingEnabled")) preferenceManager.isKeepAudioPlayingEnabled = prefs.getBoolean("isKeepAudioPlayingEnabled")
                 if (prefs.has("isHighRefreshRateEnabled")) preferenceManager.isHighRefreshRateEnabled = prefs.getBoolean("isHighRefreshRateEnabled")
                 if (prefs.has("volumeBoostMultiplier")) preferenceManager.volumeBoostMultiplier = prefs.getDouble("volumeBoostMultiplier").toFloat()
+                if (prefs.has("autoplayEnabled")) preferenceManager.isAutoplayEnabled = prefs.getBoolean("autoplayEnabled")
                 if (prefs.has("isQueueSticky")) preferenceManager.isQueueSticky = prefs.getBoolean("isQueueSticky")
                 if (prefs.has("upNextIncludeVariants")) preferenceManager.upNextIncludeVariants = prefs.getBoolean("upNextIncludeVariants")
                 if (prefs.has("isBlockScreenshotsEnabled")) preferenceManager.isBlockScreenshotsEnabled = prefs.getBoolean("isBlockScreenshotsEnabled")
+                if (prefs.has("isSystemNavigationBarVisible")) preferenceManager.isSystemNavigationBarVisible = prefs.getBoolean("isSystemNavigationBarVisible")
+                if (prefs.has("wifiOnlyDownloads")) preferenceManager.wifiOnlyDownloads = prefs.getBoolean("wifiOnlyDownloads")
+                if (prefs.has("downloadsRequireBatteryOk")) preferenceManager.downloadsRequireBatteryOk = prefs.getBoolean("downloadsRequireBatteryOk")
+                if (prefs.has("streamQuality")) {
+                    preferenceManager.streamQuality = com.vyllo.music.domain.model.StreamQuality
+                        .from(prefs.getString("streamQuality")).key
+                }
+                if (prefs.has("downloadQuality")) {
+                    preferenceManager.downloadQuality = com.vyllo.music.domain.model.StreamQuality
+                        .from(prefs.getString("downloadQuality")).key
+                }
+                if (prefs.has("lyricsSourceOrder")) {
+                    val requestedOrder = prefs.getString("lyricsSourceOrder")
+                    preferenceManager.lyricsSourceOrder = com.vyllo.music.domain.model.LyricsSource.encode(
+                        com.vyllo.music.domain.model.LyricsSource.parse(requestedOrder)
+                    )
+                }
+                if (prefs.has("sleepSchedule")) {
+                    preferenceManager.sleepSchedule = com.vyllo.music.domain.model.SleepSchedule.decode(
+                        prefs.getString("sleepSchedule")
+                    )
+                }
+                if (prefs.has("skipSilence")) preferenceManager.skipSilence = prefs.getBoolean("skipSilence")
+                if (prefs.has("pauseOnDeviceDisconnect")) preferenceManager.pauseOnDeviceDisconnect = prefs.getBoolean("pauseOnDeviceDisconnect")
+                if (prefs.has("resumeOnDeviceReconnect")) preferenceManager.resumeOnDeviceReconnect = prefs.getBoolean("resumeOnDeviceReconnect")
+                if (prefs.has("pauseWhenMuted")) preferenceManager.pauseWhenMuted = prefs.getBoolean("pauseWhenMuted")
+                if (prefs.has("audioOffloadEnabled")) preferenceManager.audioOffloadEnabled = prefs.getBoolean("audioOffloadEnabled")
+                if (prefs.has("loudnessPreset")) {
+                    val loudnessPreset = prefs.getString("loudnessPreset")
+                    preferenceManager.loudnessPreset = loudnessPreset.takeIf {
+                        it in setOf("Off", "Quiet", "Balanced", "Loud", "Aggressive")
+                    } ?: "Off"
+                }
+                if (prefs.has("crossfadeSeconds")) preferenceManager.crossfadeSeconds = prefs.getInt("crossfadeSeconds")
                 if (prefs.has("pinnedPlaylistNames")) {
                     val namesArray = prefs.getJSONArray("pinnedPlaylistNames")
                     pinnedPlaylistNames = (0 until minOf(namesArray.length(), 100))

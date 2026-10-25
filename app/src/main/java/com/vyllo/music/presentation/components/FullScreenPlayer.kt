@@ -39,9 +39,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.media3.session.MediaController
 import coil.compose.AsyncImage
@@ -90,11 +90,12 @@ fun PremiumFullScreenPlayer(
     var repeatMode by remember { mutableIntStateOf(controller?.repeatMode ?: androidx.media3.common.Player.REPEAT_MODE_OFF) }
     val coroutineScope = rememberCoroutineScope()
     val density = LocalDensity.current
-    val configuration = LocalConfiguration.current
+    val windowInfo = LocalWindowInfo.current
     // Queue drawer geometry fix (ported from miniplayer/queue offset fix):
     // the travel distance must be measured from the sheet height (78% of
     // screen), not the full screen height, or the collapsed sheet overshoots.
-    val queueSheetHeightDp = (configuration.screenHeightDp * 0.78f).dp
+    val windowHeightDp = with(density) { windowInfo.containerSize.height.toDp() }
+    val queueSheetHeightDp = windowHeightDp * 0.78f
     val queueSheetHeightPx = with(density) { queueSheetHeightDp.toPx() }
     val peekHeightPx = with(density) { 64.dp.toPx() }
     val sheetMaxOffset = (queueSheetHeightPx - peekHeightPx).coerceAtLeast(0f)
@@ -226,11 +227,21 @@ fun PremiumFullScreenPlayer(
             .fillMaxSize()
             .background(androidx.compose.material3.MaterialTheme.colorScheme.background)
     ) {
-        // Apple Music living fluid mesh backdrop (ported from Apple-style pass)
-        AppleFluidBackdrop(
-            artworkUrl = activeArtworkUrl,
-            isPlaying = isPlaying
-        )
+        if (playerUiState.isVideoMode) {
+            // Video keeps the fluid mesh backdrop behind the video surface.
+            AppleFluidBackdrop(
+                artworkUrl = activeArtworkUrl,
+                isPlaying = isPlaying
+            )
+        } else {
+            // Audio: full-bleed album art behind the entire player screen.
+            com.vyllo.music.presentation.components.player.PlayerFullBleedArtwork(
+                item = item,
+                playerUiState = playerUiState,
+                isPlaying = isPlaying,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
         PlayerEqualizerSheet(show = showEqualizerSheet, playerUiState = playerUiState, viewModel = viewModel, onDismiss = { showEqualizerSheet = false })
         PlayerSleepTimerDialog(show = showSleepTimerDialog, playerUiState = playerUiState, viewModel = viewModel, controller = controller, onDismiss = { showSleepTimerDialog = false })
         PlayerSpeedSheet(show = showSpeedSheet, playerUiState = playerUiState, viewModel = viewModel, onDismiss = { showSpeedSheet = false })
@@ -269,7 +280,7 @@ fun PremiumFullScreenPlayer(
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
         ) {
             PlayerHeader(item = item, currentPosition = currentPosition, controller = controller, viewModel = viewModel, playerUiState = playerUiState, onCollapse = onCollapse, onShowEqualizer = { showEqualizerSheet = true }, onShowSleepTimer = { showSleepTimerDialog = true }, onShowPlaybackSpeed = { showSpeedSheet = true }, onShowStoryShare = { showStoryShareSheet = true }, onStartRadio = { viewModel.startRadio(item) })
-            PlayerArtwork(item = item, isPlaying = isPlaying, isLoading = isLoading, expandProgress = expandProgress, currentPosition = currentPosition, duration = duration, controller = controller, viewModel = viewModel, playerUiState = playerUiState, seekFeedback = seekFeedback, onSeekFeedback = { seekFeedback = it }, onPositionChange = { currentPosition = it }, onTogglePlay = onTogglePlay, modifier = Modifier.weight(1f).fillMaxWidth())
+            PlayerArtwork(item = item, isPlaying = isPlaying, isLoading = isLoading, expandProgress = expandProgress, currentPosition = currentPosition, duration = duration, controller = controller, viewModel = viewModel, playerUiState = playerUiState, seekFeedback = seekFeedback, onSeekFeedback = { seekFeedback = it }, onPositionChange = { currentPosition = it }, onTogglePlay = onTogglePlay, artworkVisible = playerUiState.isVideoMode, modifier = Modifier.weight(1f).fillMaxWidth())
             Spacer(modifier = Modifier.height(14.dp))
             PlayerTrackInfo(item = item, expandProgress = expandProgress)
             Spacer(modifier = Modifier.height(10.dp))
@@ -282,7 +293,7 @@ fun PremiumFullScreenPlayer(
         }
         PlayerQueueSheet(item = item, playerUiState = playerUiState, viewModel = viewModel, controller = controller, sheetOffsetY = sheetOffsetY, sheetMaxOffset = sheetMaxOffset, isSheetExpanded = isSheetExpanded, selectedDrawerTab = selectedDrawerTab, onTabSelected = { selectedDrawerTab = it }, onPlayRelated = onPlayRelated, coroutineScope = coroutineScope, modifier = Modifier.align(Alignment.BottomCenter))
     }
-    PlayerStoryCommentsSheets(showStory = showStoryShareSheet, showComments = showCommentsSheet, item = item, onDismissStory = { showStoryShareSheet = false }, onDismissComments = { showCommentsSheet = false })
+    PlayerStoryCommentsSheets(showStory = showStoryShareSheet, showComments = showCommentsSheet, item = item, resolvedThumbnailUrl = playerUiState.resolvedThumbnailUrl, onDismissStory = { showStoryShareSheet = false }, onDismissComments = { showCommentsSheet = false })
     PlayerFullscreenVideoOverlay(item = item, isPlaying = isPlaying, isLoading = isLoading, currentPosition = currentPosition, duration = duration, controller = controller, viewModel = viewModel, playerUiState = playerUiState, onTogglePlay = onTogglePlay, onPositionChange = { currentPosition = it })
 }
 

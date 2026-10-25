@@ -91,6 +91,13 @@ class SecurePreferenceManager(private val context: Context) {
                 val existingKeys = prefs.asMap().keys.filter { it.name.endsWith("_$id") }
                 existingKeys.forEach { prefs.remove(it) }
                 prefs[stringPreferencesKey("search_${timestamp}_$id")] = encrypted
+                // Keep the encrypted store bounded as well as the UI list. Without
+                // pruning, every unique query accumulated forever on disk.
+                prefs.asMap().keys
+                    .filter { it.name.startsWith("search_") }
+                    .sortedByDescending { it.name }
+                    .drop(10)
+                    .forEach { prefs.remove(it) }
             }
             Log.sensitive(TAG, "Saved search query")
         } catch (e: Exception) {
@@ -110,6 +117,7 @@ class SecurePreferenceManager(private val context: Context) {
                 .sortedByDescending { it.key.name } // Most recent timestamp first
                 .mapNotNull { decryptSearchQuery(it.value.toString()) }
                 .distinct()
+                .take(10)
         }
     }
 

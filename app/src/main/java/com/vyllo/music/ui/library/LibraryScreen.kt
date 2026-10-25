@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.TrendingUp
@@ -468,7 +469,58 @@ fun YTMLibraryScreen(
                   YTMSectionHeader(title = stringResource(R.string.library_downloads_title))
               }
         }        
-        if (viewModel.downloadedSongs.isEmpty()) {
+        items(
+            items = viewModel.activeDownloads,
+            key = { "active_download_${it.url}" },
+            contentType = { "active_download" }
+        ) { download ->
+            val progress = viewModel.downloadProgress[download.url] ?: 0
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = VylloSpacing.screenHorizontal, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = download.title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = if (progress > 0) {
+                            stringResource(R.string.library_download_progress_percent, progress)
+                        } else {
+                            stringResource(R.string.library_download_in_progress)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (progress > 0) {
+                        LinearProgressIndicator(
+                            progress = { progress.coerceIn(0, 100) / 100f },
+                            modifier = Modifier.fillMaxWidth().padding(top = 5.dp)
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth().padding(top = 5.dp)
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = { viewModel.cancelDownload(download.url) },
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.download_cd_cancel),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+        if (viewModel.downloadedSongs.isEmpty() && viewModel.activeDownloads.isEmpty()) {
             item(key = "empty_downloads", contentType = "empty") {
                 VylloEmptyState(
                     icon = Icons.Rounded.DownloadDone,

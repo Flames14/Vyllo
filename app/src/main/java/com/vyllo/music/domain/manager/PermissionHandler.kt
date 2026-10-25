@@ -1,5 +1,7 @@
 package com.vyllo.music.domain.manager
 
+import androidx.core.net.toUri
+
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -31,7 +33,7 @@ class PermissionHandler @Inject constructor(
     fun requestOverlayPermission(activity: Activity) {
         val intent = Intent(
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:${context.packageName}")
+            "package:${context.packageName}".toUri()
         )
         activity.startActivity(intent)
     }
@@ -64,7 +66,7 @@ class PermissionHandler @Inject constructor(
         }
         try {
             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                data = Uri.parse("package:${context.packageName}")
+                data = "package:${context.packageName}".toUri()
             }
             activity.startActivity(intent)
         } catch (e: Exception) {
@@ -78,7 +80,7 @@ class PermissionHandler @Inject constructor(
      */
     fun openBatteryOptimizationSettings(activity: Activity) {
         val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
-            data = Uri.parse("package:${context.packageName}")
+            data = "package:${context.packageName}".toUri()
         }
         activity.startActivity(intent)
     }

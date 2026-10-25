@@ -126,10 +126,7 @@ class MusicService : MediaLibraryService() {
         } else if (key == PreferenceManager.KEY_VOLUME_BOOST) {
             volumeBoostProcessor.volumeMultiplier = preferenceManager.volumeBoostMultiplier
         } else if (key == PreferenceManager.KEY_PLAYBACK_SPEED || key == PreferenceManager.KEY_PLAYBACK_PITCH) {
-        applyPlaybackParameters()
-        applySkipSilence()
-        startOutputDeviceWatcher()
-        startMuteWatcherIfEnabled()
+            applyPlaybackParameters()
         } else if (key == PreferenceManager.KEY_LOUDNESS_PRESET) {
             applyLoudnessPreset()
         } else if (key == PreferenceManager.KEY_SKIP_SILENCE) {
@@ -278,6 +275,14 @@ class MusicService : MediaLibraryService() {
             keepAudioPlaying = keepAudioPlaying,
             lowRamPlayback = DevicePerf.isLowRamDevice(this)
         )
+
+        // Apply settings and register their observers as soon as the player
+        // exists. These used to be reached only after a speed/pitch change,
+        // which made persisted audio settings appear enabled but inert after a
+        // fresh service start.
+        applySkipSilence()
+        startOutputDeviceWatcher()
+        startMuteWatcherIfEnabled()
 
         player?.addListener(
             PlayerErrorListener(

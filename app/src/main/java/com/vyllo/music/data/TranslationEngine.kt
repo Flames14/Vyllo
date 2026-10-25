@@ -25,23 +25,14 @@ import java.util.concurrent.TimeUnit
 object TranslationEngine {
 
     private val client: OkHttpClient by lazy {
-        runCatching {
-            com.vyllo.music.core.security.SecurityConfig()
-                .createFlexibleSecureHttpClient()
-                .newBuilder()
-                .connectTimeout(8, TimeUnit.SECONDS)
-                .readTimeout(12, TimeUnit.SECONDS)
-                .followRedirects(true)
-                .followSslRedirects(false)
-                .build()
-        }.getOrElse {
-            OkHttpClient.Builder()
-                .connectTimeout(8, TimeUnit.SECONDS)
-                .readTimeout(12, TimeUnit.SECONDS)
-                .followRedirects(true)
-                .followSslRedirects(false)
-                .build()
-        }
+        com.vyllo.music.core.security.SecurityConfig()
+            .createFlexibleSecureHttpClient()
+            .newBuilder()
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(12, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(false)
+            .build()
     }
 
     // In-memory LRU translation cache (stores up to 500 entries)

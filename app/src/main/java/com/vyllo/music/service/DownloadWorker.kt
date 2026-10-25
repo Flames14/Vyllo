@@ -5,9 +5,13 @@ import com.vyllo.music.core.security.SecureLogger
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.ContentValues
 import android.net.wifi.WifiManager
 import android.os.Build
+import android.os.Environment
 import android.os.PowerManager
+import android.provider.MediaStore
+import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
@@ -61,6 +65,8 @@ class DownloadWorker @AssistedInject constructor(
         private val notificationIdCounter = java.util.concurrent.atomic.AtomicInteger(2000)
     }
     private var workingFile: File? = null
+    /** Public Downloads entry; populated on Android 10+ without storage permission. */
+    private var publicDownloadUri: Uri? = null
 
     // Dedicated OkHttpClient for downloads with generous timeouts
     // The injected client may have short timeouts suitable for API calls but not large downloads
@@ -124,11 +130,12 @@ class DownloadWorker @AssistedInject constructor(
             val downloadsDir = File(applicationContext.filesDir, "downloads")
             if (!downloadsDir.exists()) downloadsDir.mkdirs()
 
-            val safeTitle = title.replace(Regex("[^a-zA-Z0-9._-]"), "_").take(100)
             val extension = getExtensionFromUrl(streamUrl)
-            val localFile = File(downloadsDir, "${safeTitle}-${System.currentTimeMillis()}.$extension")
+            val uniqueName = DownloadFileNames.base(title, System.currentTimeMillis())
+            val localFile = File(downloadsDir, "$uniqueName.$extension")
             val tempFile = File(downloadsDir, "${localFile.name}.part")
             workingFile = tempFile
+            publicDownloadUri = createPublicDownloadEntry(uniqueName, extension)
 
             // Start download with optimized settings
             val request = Request.Builder()
@@ -151,6 +158,18 @@ class DownloadWorker @AssistedInject constructor(
                     val totalBytes = body.contentLength()
                     body.byteStream().use { inputStream ->
                         FileOutputStream(tempFile).use { outputStream ->
+                            // On Android 10+, stream into a visible Downloads entry as well as
+                            // the app-private copy used for reliable offline playback. The
+                            // temporary .download name makes incomplete media obvious.
+                            var publicOutput = publicDownloadUri?.let { uri ->
+                                runCatching { applicationContext.contentResolver.openOutputStream(uri, "w") }
+                                    .getOrNull()
+                            }
+                            if (publicDownloadUri != null && publicOutput == null) {
+                                runCatching { applicationContext.contentResolver.delete(publicDownloadUri!!, null, null) }
+                                publicDownloadUri = null
+                            }
+                            try {
                             val buffer = ByteArray(64 * 1024) // 64KB buffer (improved throughput)
                             var bytesRead: Int
                             var totalRead: Long = 0
@@ -168,6 +187,16 @@ class DownloadWorker @AssistedInject constructor(
                                 }
 
                                 outputStream.write(buffer, 0, bytesRead)
+                                try {
+                                    publicOutput?.write(buffer, 0, bytesRead)
+                                } catch (_: Exception) {
+                                    runCatching { publicOutput?.close() }
+                                    publicOutput = null
+                                    publicDownloadUri?.let { uri ->
+                                        runCatching { applicationContext.contentResolver.delete(uri, null, null) }
+                                    }
+                                    publicDownloadUri = null
+                                }
                                 totalRead += bytesRead
 
                                 val currentTime = System.currentTimeMillis()
@@ -183,6 +212,10 @@ class DownloadWorker @AssistedInject constructor(
                             }
 
                             outputStream.flush()
+                            publicOutput?.flush()
+                            } finally {
+                                publicOutput?.close()
+                            }
                         }
                     }
                 }
@@ -195,6 +228,7 @@ class DownloadWorker @AssistedInject constructor(
                     throw Exception("Failed to finalize downloaded file")
                 }
                 workingFile = localFile
+                if (!finalizePublicDownloadEntry(uniqueName, extension)) publicDownloadUri = null
 
                 // Save metadata to database
                 val entity = DownloadEntity(
@@ -202,13 +236,20 @@ class DownloadWorker @AssistedInject constructor(
                     title = title,
                     uploader = uploader,
                     thumbnailUrl = thumbnailUrl,
-                    filePath = localFile.absolutePath,
+                    filePath = publicDownloadUri?.toString() ?: localFile.absolutePath,
                     fileSize = localFile.length(),
                     status = DownloadStatus.COMPLETED
                 )
                 downloadDao.insertDownload(entity)
 
-                SecureLogger.d("DownloadWorker", "Download complete: ${localFile.name} (${localFile.length() / 1024}KB)")
+                val downloadedBytes = localFile.length()
+                SecureLogger.d("DownloadWorker", "Download complete: ${localFile.name} (${downloadedBytes / 1024}KB)")
+                if (publicDownloadUri != null) {
+                    // The public Downloads item is now the canonical copy. Remove the
+                    // temporary private duplicate to avoid consuming storage twice.
+                    localFile.delete()
+                    workingFile = null
+                }
             }
 
             val successNotification = NotificationCompat.Builder(applicationContext, channelId)
@@ -229,6 +270,9 @@ class DownloadWorker @AssistedInject constructor(
                 SecureLogger.w("DownloadWorker", "Could not mark FAILED: ${dbError.message}")
             }
             workingFile?.takeIf { it.exists() }?.delete()
+            publicDownloadUri?.let { uri ->
+                runCatching { applicationContext.contentResolver.delete(uri, null, null) }
+            }
             return Result.failure()
         } finally {
             // Always release the wake lock when done
@@ -240,6 +284,36 @@ class DownloadWorker @AssistedInject constructor(
                 wifiLock.release()
             }
         }
+    }
+
+    private fun createPublicDownloadEntry(uniqueName: String, extension: String): Uri? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, DownloadFileNames.pending(uniqueName, extension))
+            put(MediaStore.MediaColumns.MIME_TYPE, "application/octet-stream")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/Vyllo")
+            put(MediaStore.MediaColumns.IS_PENDING, 0)
+        }
+        return runCatching {
+            applicationContext.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+        }.getOrNull()
+    }
+
+    private fun finalizePublicDownloadEntry(uniqueName: String, extension: String): Boolean {
+        val uri = publicDownloadUri ?: return false
+        val mimeType = when (extension) {
+            "opus" -> "audio/ogg"
+            "webm" -> "audio/webm"
+            "3gp" -> "audio/3gpp"
+            else -> "audio/mp4"
+        }
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, DownloadFileNames.completed(uniqueName, extension))
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+        }
+        return runCatching {
+            applicationContext.contentResolver.update(uri, values, null, null) > 0
+        }.getOrDefault(false)
     }
 
     private fun getExtensionFromUrl(url: String): String {
@@ -285,6 +359,11 @@ class DownloadWorker @AssistedInject constructor(
             .setContentTitle(applicationContext.getString(R.string.notif_downloading))
             .setContentText(title)
             .setProgress(100, progress, progress == 0)
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                applicationContext.getString(R.string.notif_cancel_download),
+                androidx.work.WorkManager.getInstance(applicationContext).createCancelPendingIntent(id)
+            )
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()

@@ -72,6 +72,7 @@ class LibraryViewModel @Inject constructor(
     var showYouTubeSyncSheet by mutableStateOf(false)
 
     var downloadedSongs by mutableStateOf<List<DownloadEntity>>(emptyList())
+    var activeDownloads by mutableStateOf<List<DownloadEntity>>(emptyList())
 
     /**
      * O(1) membership test over the downloaded set.
@@ -163,11 +164,16 @@ class LibraryViewModel @Inject constructor(
 
     private fun observeDownloads() {
         viewModelScope.launch {
-            downloadMusicUseCase.getAllDownloads().collectLatest { downloads ->
-                downloadedSongs = downloads
-                // Rebuilt as a fresh set each emission so every reader sees an
-                // immutable snapshot with no allocation in its own recomposition.
-                downloadedUrls = downloads.mapTo(HashSet(downloads.size)) { it.url }
+            combine(
+                downloadMusicUseCase.getAllDownloads(),
+                downloadMusicUseCase.getActiveDownloads()
+            ) { completed, active -> completed to active }
+                .collectLatest { (completed, active) ->
+                    downloadedSongs = completed
+                    activeDownloads = active
+                    // Rebuilt as a fresh set each emission so every reader sees an
+                    // immutable snapshot with no allocation in its own recomposition.
+                    downloadedUrls = completed.mapTo(HashSet(completed.size)) { it.url }
             }
         }
     }
@@ -393,8 +399,7 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun playNext(item: MusicItem) {
-        val nextIdx = (playbackQueueManager.currentIndex + 1).coerceAtLeast(0)
-        playbackQueueManager.addItemAt(nextIdx, item)
+        playbackQueueManager.queueNext(item)
     }
 
     fun addToQueue(item: MusicItem) {

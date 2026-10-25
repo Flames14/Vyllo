@@ -1,4 +1,6 @@
-﻿package com.vyllo.music.data.network
+package com.vyllo.music.data.network
+
+import androidx.core.net.toUri
 
 import android.net.Uri
 import com.vyllo.music.core.security.SecureLogger
@@ -241,7 +243,7 @@ class YouTubeThumbnailResolver @Inject constructor(
         if (trimmed.length == 11 && trimmed.all { it.isLetterOrDigit() || it == '-' || it == '_' }) {
             return trimmed
         }
-        val uri = try { Uri.parse(trimmed) } catch (e: Exception) { return null }
+        val uri = try { trimmed.toUri() } catch (e: Exception) { return null }
         val vParam = uri.getQueryParameter("v")
         if (!vParam.isNullOrBlank() && vParam.length == 11) {
             return vParam

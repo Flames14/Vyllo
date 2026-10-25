@@ -67,6 +67,10 @@ data class PlayerUiState(
     val translatedPlainLyrics: String? = null,
     val isTranslationEnabled: Boolean = false,
     val isTranslating: Boolean = false,
+    val romanizedLyricsLines: List<String?> = emptyList(),
+    val romanizedPlainLyrics: String? = null,
+    val isRomanizationEnabled: Boolean = false,
+    val isRomanizing: Boolean = false,
     val detectedLyricsLangCode: String? = null,
     val equalizerSettings: EqualizerSettings = EqualizerSettings(),
     val customEqualizerPresets: List<EqualizerPreset> = emptyList(),
@@ -197,6 +201,17 @@ class PlayerViewModel @Inject constructor(
         playbackSpeed = 1.0f
         playbackPitch = 1.0f
     }
+
+    /** Refreshes persisted player options after a settings backup is restored. */
+    fun refreshPreferences() {
+        _uiState.update {
+            it.copy(
+                autoplayEnabled = preferenceManager.isAutoplayEnabled,
+                isQueueSticky = preferenceManager.isQueueSticky,
+                upNextIncludeVariants = preferenceManager.upNextIncludeVariants
+            )
+        }
+    }
     val lyricsResponse: LyricsResponse?
         get() = _uiState.value.lyricsResponse
     val syncedLyricsLines: List<SyncedLyricLine>
@@ -228,6 +243,14 @@ class PlayerViewModel @Inject constructor(
         set(value) { _uiState.update { it.copy(isTranslationEnabled = value) } }
     val isTranslating: Boolean
         get() = _uiState.value.isTranslating
+    val romanizedLyricsLines: List<String?>
+        get() = _uiState.value.romanizedLyricsLines
+    val romanizedPlainLyrics: String?
+        get() = _uiState.value.romanizedPlainLyrics
+    val isRomanizationEnabled: Boolean
+        get() = _uiState.value.isRomanizationEnabled
+    val isRomanizing: Boolean
+        get() = _uiState.value.isRomanizing
     val detectedLyricsLangCode: String?
         get() = _uiState.value.detectedLyricsLangCode
     val equalizerSettings: EqualizerSettings
@@ -408,6 +431,12 @@ class PlayerViewModel @Inject constructor(
 
     fun toggleTranslation(enabled: Boolean) =
         lyricsController.toggleTranslation(enabled)
+
+    fun toggleRomanization(enabled: Boolean) =
+        lyricsController.toggleRomanization(enabled)
+
+    fun onTranslationSettingsChanged() =
+        lyricsController.onTranslationSettingsChanged()
 
     fun toggleStickyQueue() {
         val next = !_uiState.value.isQueueSticky
@@ -622,7 +651,8 @@ class PlayerViewModel @Inject constructor(
         setPlaybackLoading(true, item.url)
         viewModelScope.launch {
             try {
-                val result = playMusicUseCase.execute(item, isVideo = isVideo, keepQueue = fromQueue)
+                val keepQueue = shouldKeepQueue(fromQueue, preferenceManager.isQueueSticky)
+                val result = playMusicUseCase.execute(item, isVideo = isVideo, keepQueue = keepQueue)
                 if (mySeq != playRequestSeq) return@launch
                 if (result is com.vyllo.music.domain.model.PlayResult.Success) {
                     if (!fromQueue || _uiState.value.relatedSongs.isEmpty()) {
@@ -705,3 +735,6 @@ class PlayerViewModel @Inject constructor(
     fun cancelSleepTimer(onResetVolume: (() -> Unit)? = null) =
         sleepTimerController.cancelSleepTimer(onResetVolume)
 }
+
+internal fun shouldKeepQueue(fromQueue: Boolean, stickyQueueEnabled: Boolean): Boolean =
+    fromQueue || stickyQueueEnabled

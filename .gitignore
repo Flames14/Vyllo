@@ -107,3 +107,6 @@ kotlin_errors.txt
 app/build/outputs/
 app/build/intermediates/
 app/build/tmp/
+# Local scratch output (screenshots, CI logs, one-off audit scripts)
+work/
+extract_audit.py

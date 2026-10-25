@@ -61,6 +61,22 @@ class PlaybackQueueManager @Inject constructor() {
         }
     }
 
+    /** Put a track immediately after the playhead without creating a duplicate. */
+    fun queueNext(item: MusicItem) {
+        synchronized(lock) {
+            val itemKey = item.getUniversalShareUrl()
+            if (currentItem?.getUniversalShareUrl() == itemKey) return
+            val nextAbsolute = (currentIndex + 1).coerceIn(0, currentQueue.size)
+            val existing = currentQueue.indexOfFirst { it.getUniversalShareUrl() == itemKey }
+            if (existing == nextAbsolute) return
+            if (existing > currentIndex) currentQueue.removeAt(existing)
+            val insertAt = (currentIndex + 1).coerceIn(0, currentQueue.size)
+            currentQueue.add(insertAt, item)
+            preShuffleQueue = null
+            notifyQueueStructureChangedLocked()
+        }
+    }
+
     val size: Int
         get() = currentQueue.size
 
@@ -93,7 +109,7 @@ class PlaybackQueueManager @Inject constructor() {
 
     fun getQueueSnapshot(): List<MusicItem> {
         return synchronized(lock) {
-            currentQueue.toList().distinctBy { it.url }
+            currentQueue.toList()
         }
     }
 
@@ -101,7 +117,7 @@ class PlaybackQueueManager @Inject constructor() {
         return synchronized(lock) {
             val nextIndex = currentIndex + 1
             if (nextIndex in currentQueue.indices) {
-                currentQueue.subList(nextIndex, currentQueue.size).toList().distinctBy { it.url }
+                currentQueue.subList(nextIndex, currentQueue.size).toList()
             } else {
                 emptyList()
             }
@@ -113,7 +129,7 @@ class PlaybackQueueManager @Inject constructor() {
         return synchronized(lock) {
             val playedEndExclusive = currentIndex.coerceIn(0, currentQueue.size)
             if (playedEndExclusive == 0) return@synchronized emptyList()
-            currentQueue.subList(0, playedEndExclusive).distinctBy { it.url }.asReversed()
+            currentQueue.subList(0, playedEndExclusive).asReversed()
         }
     }
 

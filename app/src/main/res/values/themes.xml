@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Main app theme -->
-    <style name="Theme.Vyllo" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.Vyllo" parent="Theme.AppCompat.NoActionBar">
 
         <!-- 1. Force Window Background to Black -->
         <item name="android:windowBackground">@android:color/black</item>
@@ -11,9 +11,7 @@
         <item name="android:statusBarColor">@android:color/black</item>
         <item name="android:windowLightStatusBar">false</item>
 
-        <!-- 3. Android 12+ Splash Screen Specifics (API 31+, see values-v31) -->
-
-        <!-- Text Colors -->
+                <!-- Text Colors -->
         <item name="android:textColor">#FFFFFFFF</item>
     </style>
 </resources>

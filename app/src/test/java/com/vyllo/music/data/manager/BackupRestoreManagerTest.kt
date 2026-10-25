@@ -145,6 +145,52 @@ class BackupRestoreManagerTest {
     }
 
     @Test
+    fun `restore applies playback and download settings`() = runTest {
+        val json = """
+            {
+              "version": 1,
+              "preferences": {
+                "autoplayEnabled": false,
+                "wifiOnlyDownloads": true,
+                "downloadsRequireBatteryOk": true,
+                "streamQuality": "Medium",
+                "downloadQuality": "Low",
+                "lyricsSourceOrder": "lrclib_search,lrclib_exact",
+                "sleepSchedule": "1;1,5;22;15",
+                "skipSilence": true,
+                "pauseOnDeviceDisconnect": false,
+                "resumeOnDeviceReconnect": true,
+                "pauseWhenMuted": true,
+                "audioOffloadEnabled": true,
+                "loudnessPreset": "Balanced",
+                "crossfadeSeconds": 5
+              }
+            }
+        """.trimIndent()
+
+        assertTrue(manager.restoreBackupJson(json).isSuccess)
+        verify(preferenceManager).isAutoplayEnabled = false
+        verify(preferenceManager).wifiOnlyDownloads = true
+        verify(preferenceManager).downloadsRequireBatteryOk = true
+        verify(preferenceManager).streamQuality = "Medium"
+        verify(preferenceManager).downloadQuality = "Low"
+        verify(preferenceManager).lyricsSourceOrder = "lrclib_search,lrclib_exact,paxsenix,better_lyrics,lyrics_plus,kugou,netease,lyrics_ovh,lrclib_title_only"
+        verify(preferenceManager).sleepSchedule = com.vyllo.music.domain.model.SleepSchedule(
+            enabled = true,
+            days = setOf(1, 5),
+            hour = 22,
+            minute = 15
+        )
+        verify(preferenceManager).skipSilence = true
+        verify(preferenceManager).pauseOnDeviceDisconnect = false
+        verify(preferenceManager).resumeOnDeviceReconnect = true
+        verify(preferenceManager).pauseWhenMuted = true
+        verify(preferenceManager).audioOffloadEnabled = true
+        verify(preferenceManager).loudnessPreset = "Balanced"
+        verify(preferenceManager).crossfadeSeconds = 5
+    }
+
+    @Test
     fun `restore reapplies playback history`() = runTest {
         whenever(playlistDao.getPlaylistByName("Favorites")).thenReturn(null)
         whenever(playlistDao.insertPlaylist(PlaylistEntity(name = "Favorites"))).thenReturn(42L)
@@ -264,6 +310,10 @@ class BackupRestoreManagerTest {
         whenever(historyDao.getRecentHistoryList(any())).thenReturn(emptyList())
         whenever(favoritesDao.getAllList(any())).thenReturn(emptyList())
         whenever(preferenceManager.pinnedPlaylistIds).thenReturn(listOf(7L, 42L))
+        whenever(preferenceManager.sleepSchedule).thenReturn(com.vyllo.music.domain.model.SleepSchedule())
+        whenever(preferenceManager.isAutoplayEnabled).thenReturn(false)
+        whenever(preferenceManager.wifiOnlyDownloads).thenReturn(true)
+        whenever(preferenceManager.streamQuality).thenReturn("Medium")
 
         val json = JSONObject(manager.exportBackupJson())
         val names = json.getJSONObject("preferences").getJSONArray("pinnedPlaylistNames")
@@ -271,5 +321,10 @@ class BackupRestoreManagerTest {
         assertEquals(2, names.length())
         assertEquals("Chill", names.getString(0))
         assertEquals("Favorites", names.getString(1))
+        val prefs = json.getJSONObject("preferences")
+        assertFalse(prefs.getBoolean("autoplayEnabled"))
+        assertTrue(prefs.getBoolean("wifiOnlyDownloads"))
+        assertEquals("Medium", prefs.getString("streamQuality"))
+        assertEquals("0;;23;0", prefs.getString("sleepSchedule"))
     }
 }

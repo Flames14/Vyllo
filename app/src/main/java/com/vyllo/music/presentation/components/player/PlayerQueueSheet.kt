@@ -43,8 +43,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -76,12 +77,14 @@ fun PlayerQueueSheet(
     coroutineScope: CoroutineScope,
     modifier: Modifier = Modifier
 ) {
-    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val windowInfo = LocalWindowInfo.current
     val libraryViewModel = LocalLibraryViewModel.current
     // ==========================================
     // 7. SWIPEABLE "UP NEXT" QUEUE DRAWER
     // ==========================================
-    val queueSheetHeightDp = (configuration.screenHeightDp * 0.78f).dp
+    val windowHeightDp = with(density) { windowInfo.containerSize.height.toDp() }
+    val queueSheetHeightDp = windowHeightDp * 0.78f
 
     // Drag is confined to the header column below — never to the LazyColumn of
     // queue rows. Wrapping the whole drawer made every scroll gesture inside the

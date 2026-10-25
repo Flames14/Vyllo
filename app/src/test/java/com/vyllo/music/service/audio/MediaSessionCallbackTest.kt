@@ -2,12 +2,15 @@ package com.vyllo.music.service.audio
 
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionResult
 import com.vyllo.music.domain.manager.PlaybackQueueManager
 import com.vyllo.music.domain.repository.IMusicRepository
 import com.vyllo.music.service.PlaybackQueueOrchestrator
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.mockito.kotlin.anyOrNull
@@ -15,12 +18,14 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 
 /**
  * Regression: notification / headset skip commands must advance the app-owned
  * queue exactly once and must not fall through to Media3's default dispatch
  * (double-advance). Also covers delegation of the custom notification commands.
  */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class MediaSessionCallbackTest {
 
     private val player: ExoPlayer = mock()
@@ -28,7 +33,7 @@ class MediaSessionCallbackTest {
     private val orchestrator: PlaybackQueueOrchestrator = mock()
     private val commands: PlaybackCommandsController = mock()
     private val resumption: PlaybackResumption = mock()
-    private val session: MediaSession = mock()
+    private val session: MediaLibraryService.MediaLibrarySession = mock()
     private val controllerInfo: MediaSession.ControllerInfo = mock()
     private val catalog: AndroidAutoCatalog = mock()
     private val repository: IMusicRepository = mock()
@@ -72,5 +77,23 @@ class MediaSessionCallbackTest {
         assertEquals(SessionResult.RESULT_SUCCESS, result)
         verify(orchestrator, never()).playNextTrack(anyOrNull(), anyOrNull())
         verify(orchestrator, never()).playPreviousTrack(anyOrNull(), anyOrNull())
+    }
+
+    @Test
+    fun `external browser search is trimmed and bounded before repository call`() = runTest {
+        val safeQuery = "a".repeat(100)
+        whenever(repository.searchMusic(safeQuery, false)).thenReturn(emptyList())
+
+        callback.onGetSearchResult(session, controllerInfo, "  ${"a".repeat(300)}  ", 0, 20, null)
+        serviceScope.advanceUntilIdle()
+
+        verify(repository).searchMusic(safeQuery, false)
+    }
+
+    @Test
+    fun `external browser blank search does not call repository`() = runTest {
+        callback.onGetSearchResult(session, controllerInfo, " <> ` ", 0, 20, null)
+
+        verify(repository, never()).searchMusic(anyOrNull(), anyOrNull())
     }
 }

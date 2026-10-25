@@ -1,5 +1,7 @@
 package com.vyllo.music.data.manager
 
+import androidx.core.net.toUri
+
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
@@ -217,7 +219,7 @@ class AlarmSchedulerManager @Inject constructor(
     fun getExactAlarmPermissionIntent(): Intent {
         return Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            data = android.net.Uri.parse("package:${context.packageName}")
+            data = "package:${context.packageName}".toUri()
         }
     }
 

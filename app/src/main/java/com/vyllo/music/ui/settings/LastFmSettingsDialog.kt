@@ -1,5 +1,7 @@
 package com.vyllo.music.ui.settings
 
+import androidx.core.net.toUri
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
@@ -42,7 +44,7 @@ fun LastFmSettingsDialog(
     LaunchedEffect(authState) {
         val awaiting = authState as? LastFmAuthState.AwaitingAuthorization ?: return@LaunchedEffect
         runCatching {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(awaiting.url)))
+            context.startActivity(Intent(Intent.ACTION_VIEW, awaiting.url.toUri()))
         }.onFailure {
             uriHandler.openUri(awaiting.url)
         }

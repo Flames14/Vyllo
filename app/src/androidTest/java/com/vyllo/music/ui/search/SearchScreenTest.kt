@@ -116,6 +116,7 @@ private class FakeMusicRepository(
     override suspend fun moveSongInPlaylist(playlistId: Long, fromIndex: Int, toIndex: Int): Boolean = false
     override fun getSongsInPlaylist(playlistId: Long): Flow<List<PlaylistSongEntity>> = emptyFlow()
     override fun getAllDownloads(): Flow<List<DownloadEntity>> = emptyFlow()
+    override fun getActiveDownloads(): Flow<List<DownloadEntity>> = emptyFlow()
     override fun downloadSong(item: MusicItem) = Unit
     override fun cancelDownload(url: String) = Unit
     override suspend fun deleteDownload(url: String) = Unit
@@ -129,13 +130,13 @@ private class FakeMusicRepository(
     override suspend fun clearHistory() = Unit
     override suspend fun getPatternSuggestions(): List<MusicItem> = emptyList()
     override suspend fun loadMoreRecommendations(): List<MusicItem> = emptyList()
-    override fun loadSearchHistory(): List<String> = searchHistory.toList()
-    override fun saveSearchQuery(query: String) {
+    override suspend fun loadSearchHistory(): List<String> = searchHistory.toList()
+    override suspend fun saveSearchQuery(query: String) {
         if (query !in searchHistory) {
             searchHistory.add(0, query)
         }
     }
-    override fun clearSearchHistory() {
+    override suspend fun clearSearchHistory() {
         searchHistory.clear()
     }
     override fun saveLyricsPreference(videoUrl: String, lrcId: Long) = Unit

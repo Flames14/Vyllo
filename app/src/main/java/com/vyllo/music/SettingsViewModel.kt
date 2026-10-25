@@ -30,9 +30,10 @@ class SettingsViewModel @Inject constructor(
     var languageTag by mutableStateOf(AppCompatDelegate.getApplicationLocales().toLanguageTags())
     var isHighRefreshRateEnabled by mutableStateOf(preferenceManager.isHighRefreshRateEnabled)
     var isBlockScreenshotsEnabled by mutableStateOf(preferenceManager.isBlockScreenshotsEnabled)
+    var isSystemNavigationBarVisible by mutableStateOf(preferenceManager.isSystemNavigationBarVisible)
     var wifiOnlyDownloads by mutableStateOf(preferenceManager.wifiOnlyDownloads)
     var downloadsRequireBatteryOk by mutableStateOf(preferenceManager.downloadsRequireBatteryOk)
-    var crossfadeSeconds by mutableStateOf(preferenceManager.crossfadeSeconds)
+    var crossfadeSeconds by mutableIntStateOf(preferenceManager.crossfadeSeconds)
     var loudnessPreset by mutableStateOf(preferenceManager.loudnessPreset)
     var streamQuality by mutableStateOf(preferenceManager.streamQuality)
     var downloadQuality by mutableStateOf(preferenceManager.downloadQuality)
@@ -117,11 +118,11 @@ class SettingsViewModel @Inject constructor(
 
     var backupStatusMessage by mutableStateOf<String?>(null)
 
-    var cacheMediaBytes by mutableStateOf(0L)
+    var cacheMediaBytes by mutableLongStateOf(0L)
         private set
-    var cacheImageBytes by mutableStateOf(0L)
+    var cacheImageBytes by mutableLongStateOf(0L)
         private set
-    var cacheTotalBytes by mutableStateOf(0L)
+    var cacheTotalBytes by mutableLongStateOf(0L)
         private set
     var isClearingCache by mutableStateOf(false)
         private set
@@ -162,13 +163,15 @@ class SettingsViewModel @Inject constructor(
         isBatteryUnrestricted = permissionHandler.isBatteryOptimizationDisabled()
     }
 
-    fun requestBatteryUnrestricted(context: android.content.Context) {
-        if (isBatteryUnrestricted) {
-            refreshBatteryAccessState()
-            return
+    fun setBatteryUnrestricted(enabled: Boolean, context: android.content.Context) {
+        val activity = context.findActivity() ?: return
+        if (enabled) {
+            if (!permissionHandler.isBatteryOptimizationDisabled()) {
+                permissionHandler.requestDisableBatteryOptimization(activity)
+            }
+        } else if (permissionHandler.isBatteryOptimizationDisabled()) {
+            permissionHandler.openBatteryOptimizationSettings(activity)
         }
-        val activity = context.findActivity()
-        if (activity != null) permissionHandler.requestDisableBatteryOptimization(activity)
     }
 
     private tailrec fun android.content.Context.findActivity(): android.app.Activity? {
@@ -204,6 +207,11 @@ class SettingsViewModel @Inject constructor(
         preferenceManager.isBlockScreenshotsEnabled = enabled
     }
 
+    fun toggleSystemNavigationBarVisible(enabled: Boolean) {
+        isSystemNavigationBarVisible = enabled
+        preferenceManager.isSystemNavigationBarVisible = enabled
+    }
+
     fun toggleWifiOnlyDownloads(enabled: Boolean) {
         wifiOnlyDownloads = enabled
         preferenceManager.wifiOnlyDownloads = enabled
@@ -236,6 +244,9 @@ class SettingsViewModel @Inject constructor(
                 isKeepAudioPlayingEnabled = preferenceManager.isKeepAudioPlayingEnabled
                 isHighRefreshRateEnabled = preferenceManager.isHighRefreshRateEnabled
                 isBlockScreenshotsEnabled = preferenceManager.isBlockScreenshotsEnabled
+                isSystemNavigationBarVisible = preferenceManager.isSystemNavigationBarVisible
+                wifiOnlyDownloads = preferenceManager.wifiOnlyDownloads
+                downloadsRequireBatteryOk = preferenceManager.downloadsRequireBatteryOk
                 crossfadeSeconds = preferenceManager.crossfadeSeconds
                 loudnessPreset = preferenceManager.loudnessPreset
                 streamQuality = preferenceManager.streamQuality
