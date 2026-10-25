@@ -317,8 +317,8 @@ dependencies {
     implementation("com.github.teamnewpipe:newpipeextractor:v0.26.3")
 
     // Network
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:5.5.0")
+    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:5.5.0")
 
     // Security - Encrypted Storage
     implementation("androidx.security:security-crypto-ktx:1.1.0")
