@@ -1,4 +1,4 @@
-﻿package com.vyllo.music.presentation.components
+package com.vyllo.music.presentation.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
@@ -280,7 +280,7 @@ fun PremiumFullScreenPlayer(
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
         ) {
             PlayerHeader(item = item, currentPosition = currentPosition, controller = controller, viewModel = viewModel, playerUiState = playerUiState, onCollapse = onCollapse, onShowEqualizer = { showEqualizerSheet = true }, onShowSleepTimer = { showSleepTimerDialog = true }, onShowPlaybackSpeed = { showSpeedSheet = true }, onShowStoryShare = { showStoryShareSheet = true }, onStartRadio = { viewModel.startRadio(item) })
-            PlayerArtwork(item = item, isPlaying = isPlaying, isLoading = isLoading, expandProgress = expandProgress, currentPosition = currentPosition, duration = duration, controller = controller, viewModel = viewModel, playerUiState = playerUiState, seekFeedback = seekFeedback, onSeekFeedback = { seekFeedback = it }, onPositionChange = { currentPosition = it }, onTogglePlay = onTogglePlay, artworkVisible = playerUiState.isVideoMode, modifier = Modifier.weight(1f).fillMaxWidth())
+            PlayerArtwork(item = item, isPlaying = isPlaying, isLoading = isLoading, expandProgress = expandProgress, currentPosition = currentPosition, duration = duration, controller = controller, viewModel = viewModel, playerUiState = playerUiState, seekFeedback = seekFeedback, onSeekFeedback = { seekFeedback = it }, onPositionChange = { currentPosition = it }, onTogglePlay = onTogglePlay, artworkVisible = true, modifier = Modifier.weight(1f).fillMaxWidth())
             Spacer(modifier = Modifier.height(14.dp))
             PlayerTrackInfo(item = item, expandProgress = expandProgress)
             Spacer(modifier = Modifier.height(10.dp))

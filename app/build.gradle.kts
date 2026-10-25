@@ -59,8 +59,8 @@ android {
         applicationId = "com.vyllo.music"
         minSdk = 24
         targetSdk = 36
-        versionCode = 14
-        versionName = "v2.7.0"
+        versionCode = 15
+        versionName = "v2.7.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // Sensitive values come from env vars or local (gitignored) properties — never from source.
