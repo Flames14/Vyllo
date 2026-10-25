@@ -364,7 +364,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-service:2.9.4")
     
     // Coroutines Guava (for ListenableFuture)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.11.0")
     
     // Room Database (for download metadata)
     implementation("androidx.room:room-runtime:2.7.2")
@@ -396,7 +396,7 @@ dependencies {
 
     // Mockito for unit tests
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
 
     // Leak detection — debug only. Releases are unaffected (LeakCanary's own
     // artifact is already a no-op outside debug, but we keep it off the release
@@ -405,5 +405,5 @@ dependencies {
 
     // Serialization (kept in step with the Kotlin 2.2 serialization compiler plugin;
     // the 1.6.x line cannot be compiled by the Kotlin 2.x plugin)
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 }
